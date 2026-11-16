@@ -255,3 +255,24 @@ select.field { appearance: auto; }
 .imp-name { font-weight: 500; overflow-wrap: anywhere; }
 .imp-sub { display: grid; grid-template-columns: 78px 1fr; gap: 8px; align-items: center; margin-top: 4px; font-size: .78rem; color: var(--muted); }
 .imp-sub select.field { padding: 6px 8px; font-size: .8rem; }
+/* ---------- Bourselle Plus ---------- */
+.plus-list { list-style: none; padding: 0; margin: 10px 0; display: grid; gap: 6px; }
+.plus-list li { display: grid; grid-template-columns: 18px 1fr; column-gap: 6px; font-size: .88rem; }
+.plus-list li::before { content: "✓"; color: var(--good); font-weight: 700; grid-row: span 2; }
+.plus-list li span { color: var(--muted); font-size: .78rem; }
+.offers { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin: 4px 0 10px; }
+.offer { position: relative; border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: grid; gap: 6px; background: var(--surface); }
+.offer.best { border: 2px solid var(--accent); }
+.offer-tag { position: absolute; top: -9px; right: 10px; background: var(--accent); color: var(--accent-ink); font-size: .68rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+.offer-top { display: grid; gap: 2px; }
+.offer-price { font-family: var(--display); font-size: 1.25rem; font-weight: 800; }
+.offer-price small { font-family: var(--body); font-size: .72rem; font-weight: 400; color: var(--muted); }
+.offer .btn { justify-content: center; }
+.plus-sheet textarea.field { font-family: ui-monospace, monospace; font-size: .75rem; resize: vertical; }
+.plus-status { display: grid; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--bg); }
+.plus-status.on { background: var(--good-soft); }
+.plus-status span { font-size: .8rem; color: var(--muted); }
+.plus-usage { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 14px; margin-top: 8px; font-size: .82rem; }
+.plus-usage div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px dashed var(--line); padding-bottom: 4px; }
+.plus-h { font-family: var(--display); font-size: .95rem; margin: 16px 0 6px; display: flex; align-items: center; gap: 6px; }
+.plus-lock { font-family: var(--body); font-size: .66rem; font-weight: 700; background: var(--accent); color: var(--accent-ink); padding: 1px 7px; border-radius: 999px; }
