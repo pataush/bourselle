@@ -245,6 +245,11 @@
     "Bénéficiaire :": "Recipient:", "Bénéficiaire": "Recipient", "Montant dû": "Amount due", "À verser": "To pay", "Versé le": "Paid on", "Pénalité": "Penalty", "non payé": "not paid",
     "Absents :": "Absent:", "Calendrier et cotisations": "Schedule and contributions", "Cotisations reçues": "Contributions received", "Aucun retard.": "No late payments.", "Partage (à ce jour)": "Share-out (to date)",
     "Part": "Share", "Versé": "Paid", "Dû": "Due", "Remboursé": "Repaid", "Taux": "Rate", "Solde :": "Balance:", "Bureau": "Committee", "Signatures :": "Signatures:", "Ordre du jour / échanges": "Agenda / discussion",
+    "Convertir mes montants": "Convert my amounts", "Changer seulement l'affichage": "Only change the display", "Changer la devise": "Change currency",
+    "Tous tes montants (opérations, budgets, abonnements, dettes, objectifs, groupes) sont convertis à ce taux. Les opérations saisies dans la nouvelle devise retrouvent leur montant exact.": "All your amounts (transactions, budgets, subscriptions, debts, goals, groups) are converted at this rate. Transactions entered in the new currency get back their exact amount.",
+    "Les montants ne changent pas : seul le symbole de la devise change. À choisir si tes montants étaient déjà dans la nouvelle devise.": "Amounts don't change: only the currency symbol changes. Choose this if your amounts were already in the new currency.",
+    "Taux du jour :": "Today's rate:", ". Tu peux le corriger.": ". You can correct it.", "Dernier taux connu (hors connexion).": "Last known rate (offline).",
+    "En changeant de devise, tu peux convertir tous tes montants au taux du jour. Les tontines peuvent avoir leur propre devise, convertie dans celle-ci.": "When you change currency, you can convert all your amounts at today's rate. Tontines can have their own currency, converted into this one.",
     "Non": "No", "Oui": "Yes", "Fixe": "Fixed", "Variable": "Variable", "Remboursées": "Reimbursed", "Opération": "Transaction",
   };
 
@@ -356,7 +361,7 @@
     ["Fin de garantie : {x}", "Warranty ends: {x}"], ["Prélèvement {x} : {m}", "Payment {x}: {m}"], ["{x} : dernier jour pour résilier", "{x}: last day to cancel"], ["Fin d'engagement le {d}", "Commitment ends on {d}"],
     ["Tontine {x} : cotisation {m} · c'est ton tour de recevoir", "Tontine {x}: contribution {m} · it's your turn to receive"], ["Tontine {x} : cotisation {m}", "Tontine {x}: contribution {m}"],
     ["{x} (aujourd'hui)", "{x} (today)"], ["{x} (demain)", "{x} (tomorrow)"], ["{x} (dans {n} jours)", "{x} (in {n} days)"],
-    ["Retirer {x}", "Remove {x}"],
+    ["Retirer {x}", "Remove {x}"], ["Passer de {x} à {x}", "Switch from {x} to {x}"], ["Exemple : {m} → {m}", "Example: {m} → {m}"], ["Tous les montants sont convertis en {x}", "All amounts converted to {x}"],
     ["{n} en {x}", "{n} in {x}"], ["Reprendre tes charges fixes de {x} ({m}) pour ce mois, aux mêmes jours ?", "Copy your fixed expenses from {x} ({m}) to this month, on the same days?"],
     ["Si tes dépenses variables continuent au même rythme (≈ {m} de plus)", "If your variable expenses continue at the same pace (≈ {m} more)"],
     ["Dépenses à ce jour :", "Spent so far:"], ["Dépenses du mois :", "Spent this month:"], ["moyenne des {n} mois précédents", n => `average of the previous ${n} month${s(n)}`],
