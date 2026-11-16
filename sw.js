@@ -1,7 +1,7 @@
 /* Bourselle — service worker : rend l'app installable et ouvre l'interface même hors ligne.
  * Les données ne sont jamais mises en cache ici : elles restent dans le Drive de l'utilisateur. */
-const CACHE = "bourselle-v4";
-const SHELL = ["./", "index.html", "style.css", "app.js", "storage.js", "config.js", "manifest.webmanifest", "icons/icon-192.png", "icons/favicon-32.png"];
+const CACHE = "bourselle-v5";
+const SHELL = ["./", "index.html", "style.css", "app.js", "plus.js", "storage.js", "config.js", "manifest.webmanifest", "icons/icon-192.png", "icons/favicon-32.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => {
   e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim()));
