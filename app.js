@@ -67,8 +67,22 @@ let tontines = {};        // tontines
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
 function ym(y, m) { return `${y}-${String(m).padStart(2, "0")}`; }
 function todayISO() { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; }
-const fmt = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 2, minimumFractionDigits: 2 });
-const fmt0 = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+// Devise du budget (Réglages › Langue et devise) : tous les montants sont affichés dans cette devise.
+const APP_CURRENCIES = [["EUR", "Euro (€)"], ["XOF", "Franc CFA BCEAO (Afrique de l'Ouest)"], ["XAF", "Franc CFA BEAC (Afrique centrale)"], ["USD", "Dollar américain ($)"],
+  ["GBP", "Livre sterling (£)"], ["CAD", "Dollar canadien"], ["CHF", "Franc suisse"], ["MAD", "Dirham marocain"], ["DZD", "Dinar algérien"], ["TND", "Dinar tunisien"],
+  ["GNF", "Franc guinéen"], ["CDF", "Franc congolais"], ["HTG", "Gourde haïtienne"], ["NGN", "Naira"], ["GHS", "Cedi"], ["KMF", "Franc comorien"], ["MGA", "Ariary"]];
+const NO_CENTS = ["XOF", "XAF", "GNF", "CDF", "KMF", "MGA"];
+let fmt, fmt0;
+function appLocale() { const c = (typeof settings !== "undefined" && settings && settings.currency) || "EUR"; return window.LANG === "en" ? (c === "USD" ? "en-US" : "en-GB") : "fr-FR"; }
+function applyCurrency() {
+  const c = (typeof settings !== "undefined" && settings && settings.currency) || "EUR", z = NO_CENTS.includes(c);
+  try { fmt = new Intl.NumberFormat(appLocale(), { style: "currency", currency: c, minimumFractionDigits: z ? 0 : 2, maximumFractionDigits: z ? 0 : 2 }); }
+  catch (e) { fmt = new Intl.NumberFormat(appLocale(), { style: "currency", currency: "EUR" }); }
+  fmt0 = new Intl.NumberFormat(appLocale(), { style: "currency", currency: fmt.resolvedOptions().currency, maximumFractionDigits: 0 });
+  const sp = document.querySelector(".amount span"); if (sp) sp.textContent = curSym();
+}
+function curSym() { try { return (fmt.formatToParts(1).find(p => p.type === "currency") || {}).value || "€"; } catch (e) { return "€"; } }
+applyCurrency();
 function eur(v, round) { return (round ? fmt0 : fmt).format(v || 0); }
 function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 function catById(id) { return settings.cats.find(c => c.id === id) || { id, name: id || "Sans catégorie", color: "#9aa5ad", budget: 0 }; }
@@ -100,6 +114,12 @@ function snapshot() { return { app: "bourselle", version: 1, savedAt: new Date()
 function applyData(d) {
   months = (d && d.months) || {}; subs = (d && d.subs) || {}; debts = (d && d.debts) || {}; recs = (d && d.recs) || {}; goals = (d && d.goals) || {}; groups = (d && d.groups) || {}; tontines = (d && d.tontines) || {};
   settings = { ...clone(DEFAULT_SETTINGS), ...((d && d.settings) || {}) };
+  if (!(d && d.settings) && window.LANG === "en" && window.T) {   // nouveau compte en anglais : catégories par défaut en anglais
+    for (const c of settings.cats) c.name = T(c.name);
+    for (const k of ["rentree", "epargne", "invest"]) settings[k] = settings[k].map(x => T(x));
+    if (!settings.currency) settings.currency = /^en-(US)/i.test(navigator.language || "") ? "USD" : /^en-GB/i.test(navigator.language || "") ? "GBP" : "EUR";
+  }
+  applyCurrency();
 }
 function scheduleSave() {
   dirty = true; setSync("", "Modifications en attente…");
@@ -392,10 +412,14 @@ function renderReglages() {
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="linkGoogle"${CFG.googleClientId ? "" : " disabled"}>Se connecter avec Google</button><button class="btn primary" id="linkMicrosoft"${CFG.microsoftClientId ? "" : " disabled"}>Se connecter avec Microsoft</button></div>
     <div style="margin-top:8px"><button class="btn danger" id="logout" data-l="Quitter le mode essai">Quitter le mode essai</button></div></div>`
     : `<div style="display:flex;gap:8px;flex-wrap:wrap">${store && store.folderUrl() ? `<a class="btn" href="${esc(store.folderUrl())}" target="_blank" rel="noopener">Ouvrir mon dossier</a>` : ""}<button class="btn danger" id="logout" data-l="Se déconnecter">Se déconnecter</button></div></div>`}
+  <div class="card"><h2>Langue et devise</h2>
+    <div class="two"><div><label class="lbl" for="setLang">Langue</label><select class="field" id="setLang"><option value="fr"${window.LANG !== "en" ? " selected" : ""}>Français</option><option value="en"${window.LANG === "en" ? " selected" : ""}>English</option></select></div>
+      <div><label class="lbl" for="setCur">Devise</label><select class="field" id="setCur">${APP_CURRENCIES.map(([c, l]) => `<option value="${c}"${c === (settings.currency || "EUR") ? " selected" : ""}>${esc(c)} · ${esc(l)}</option>`).join("")}</select></div></div>
+    <p class="hint">Changer de devise change l'affichage de tous les montants ; ceux déjà saisis ne sont pas convertis. Les tontines peuvent avoir leur propre devise, convertie dans celle-ci.</p></div>
   <div class="card"><h2>Budget mensuel par catégorie<small>total ${esc(eur(totalBud, true))}</small></h2>
     ${settings.cats.map((c, i) => `<div class="set-row"><input type="color" value="${esc(c.color)}" data-i="${i}" data-f="color" aria-label="Couleur ${esc(c.name)}">
       <input class="field" value="${esc(c.name)}" data-i="${i}" data-f="name" aria-label="Nom de la catégorie">
-      <input class="field num" inputmode="decimal" value="${c.budget || ""}" placeholder="0 €" data-i="${i}" data-f="budget" aria-label="Budget ${esc(c.name)}"></div>`).join("")}
+      <input class="field num" inputmode="decimal" value="${c.budget || ""}" placeholder="0 ${esc(curSym())}" data-i="${i}" data-f="budget" aria-label="Budget ${esc(c.name)}"></div>`).join("")}
     <div style="display:flex;gap:8px;margin-top:10px"><button class="btn" id="addCat">+ Ajouter une catégorie</button></div>
     <p class="hint">Les modifications sont enregistrées dès que tu quittes le champ.</p></div>`;
   html += importCardHTML();
@@ -431,6 +455,8 @@ function renderReglages() {
     if (v.length) { settings[k] = v; saveSettings(); }
   };
   bindRecsCard();
+  document.getElementById("setCur").onchange = e => { settings.currency = e.target.value; applyCurrency(); saveSettings(); render(); toast(`Devise : ${e.target.value}`); };
+  document.getElementById("setLang").onchange = e => { if (typeof setLang === "function") setLang(e.target.value); };
   document.getElementById("impBtn2").onclick = startImport;
   document.getElementById("warnDays").onchange = e => { const v = parseInt(e.target.value, 10); if (v > 0 && v < 1000) { settings.warnDays = v; saveSettings(); render(); } else e.target.value = warnDays(); };
   document.getElementById("dl").onclick = exportCSV;
@@ -460,7 +486,7 @@ function renderReglages() {
 }
 
 function buildCSV(filter) {
-  const rows = [["Date", "Type", "Catégorie / source", "Note", "Montant", "Fixe", "Note de frais", "Statut", "Justificatifs", "Article garanti", "Fin de garantie", "Magasin", "N° de série", "Infos garantie"]];
+  const rows = [["Date", "Type", "Catégorie / source", "Note", "Montant", "Fixe", "Note de frais", "Statut", "Justificatifs", "Article garanti", "Fin de garantie", "Magasin", "N° de série", "Infos garantie"].map(h => window.T ? T(h) : h)];
   const all = [];
   for (const [k, d] of Object.entries(months)) for (const [id, t] of Object.entries(d.items || {})) if (!filter || filter(t)) all.push(t);
   all.sort((a, b) => a.date.localeCompare(b.date));
@@ -936,7 +962,7 @@ function editSub(id) {
   let freq = x.freq, cat = x.cat;
   openForm(`<div class="f2"><h3>${id ? "Modifier l'abonnement" : "Nouvel abonnement"}</h3>
     ${fld("sName", "Nom", `placeholder="ex. Netflix, Free Mobile, Basic-Fit" value="${esc(x.name)}"`)}
-    <div class="two"><div>${fld("sAmount", "Montant (€)", `inputmode="decimal" placeholder="0,00" value="${x.amount === "" ? "" : esc(String(x.amount).replace(".", ","))}"`)}</div>
+    <div class="two"><div>${fld("sAmount", `Montant (${esc(curSym())})`, `inputmode="decimal" placeholder="0,00" value="${x.amount === "" ? "" : esc(String(x.amount).replace(".", ","))}"`)}</div>
       <div>${fld("sNext", "Prochain prélèvement", `type="date" value="${esc(x.next || "")}"`)}</div></div>
     <span class="lbl">Fréquence</span><div class="chips" id="sFreq"></div>
     <span class="lbl">Catégorie de dépense</span><div class="chips" id="sCat"></div>
@@ -1026,8 +1052,8 @@ function editDebt(id) {
     <span class="lbl">Type</span><div class="chips" id="dKind"></div>
     ${fld("dName", "Nom", `placeholder="ex. Prêt auto, Avance de Paul" value="${esc(x.name)}"`)}
     <div class="two"><div>${fld("dWho", "Organisme ou personne", `value="${esc(x.who || "")}"`)}</div>
-      <div>${fld("dAmount", "Montant emprunté / prêté (€)", `inputmode="decimal" value="${x.amount === "" ? "" : esc(String(x.amount).replace(".", ","))}"`)}</div></div>
-    <div id="dCredit"><div class="two"><div>${fld("dMonthly", "Mensualité (€)", `inputmode="decimal" value="${x.monthly ? esc(String(x.monthly).replace(".", ",")) : ""}"`)}</div>
+      <div>${fld("dAmount", `Montant emprunté / prêté (${esc(curSym())})`, `inputmode="decimal" value="${x.amount === "" ? "" : esc(String(x.amount).replace(".", ","))}"`)}</div></div>
+    <div id="dCredit"><div class="two"><div>${fld("dMonthly", `Mensualité (${esc(curSym())})`, `inputmode="decimal" value="${x.monthly ? esc(String(x.monthly).replace(".", ",")) : ""}"`)}</div>
       <div>${fld("dRate", "Taux annuel (%)", `inputmode="decimal" placeholder="ex. 4,5" value="${x.rate ? esc(String(x.rate).replace(".", ",")) : ""}"`)}</div></div>
       <div class="two"><div>${fld("dStart", "1re échéance", `type="date" value="${esc(x.start || "")}"`)}</div>
       <div>${fld("dMonths", "Nombre de mensualités", `inputmode="numeric" value="${esc(x.months || "")}"`)}</div></div></div>
@@ -1050,7 +1076,7 @@ function editDebt(id) {
 function addPayment(x) {
   const out = x.kind !== "medoit";
   openForm(`<div class="f2"><h3>${x.kind === "medoit" ? "Remboursement reçu" : "Remboursement"} · ${esc(x.name)}</h3>
-    <div class="two"><div>${fld("pAmount", "Montant (€)", `inputmode="decimal" placeholder="0,00"`)}</div><div>${fld("pDate", "Date", `type="date" value="${todayISO()}"`)}</div></div>
+    <div class="two"><div>${fld("pAmount", `Montant (${esc(curSym())})`, `inputmode="decimal" placeholder="0,00"`)}</div><div>${fld("pDate", "Date", `type="date" value="${todayISO()}"`)}</div></div>
     <label class="toggle" for="pAlso" style="margin-top:12px"><span>${out ? "L'ajouter aussi à mes dépenses (Crédits)" : "L'ajouter aussi à mes rentrées"}</span><input type="checkbox" id="pAlso" ${x.kind === "credit" ? "" : "checked"}></label></div>`,
     () => {
       const amount = parseAmount(val("pAmount")), date = val("pDate");
@@ -1124,7 +1150,7 @@ function editRec(id) {
   openForm(`<div class="f2"><h3>${id ? "Modifier l'opération automatique" : "Nouvelle opération automatique"}</h3>
     <span class="lbl">Type</span><div class="chips" id="rType"></div>
     ${fld("rNote", "Nom", `placeholder="ex. Loyer, Salaire, Prêt auto" value="${esc(r.note || "")}"`)}
-    <div class="two"><div>${fld("rAmount", "Montant (€)", `inputmode="decimal" value="${r.amount === "" ? "" : esc(String(r.amount).replace(".", ","))}"`)}</div>
+    <div class="two"><div>${fld("rAmount", `Montant (${esc(curSym())})`, `inputmode="decimal" value="${r.amount === "" ? "" : esc(String(r.amount).replace(".", ","))}"`)}</div>
       <div>${fld("rNext", "Prochaine fois le", `type="date" value="${esc(r.next || "")}"`)}</div></div>
     <span class="lbl">Fréquence</span><div class="chips" id="rFreq"></div>
     <span class="lbl" id="rCatLbl">Catégorie</span><div class="chips" id="rCat"></div>
@@ -1334,9 +1360,9 @@ function editGoal(id) {
   let color = g.color;
   openForm(`<div class="f2"><h3>${id ? "Modifier l'objectif" : "Nouvel objectif"}</h3>
     ${fld("gName", "Nom", `placeholder="ex. Vacances en Grèce, Voiture, Épargne de précaution" value="${esc(g.name)}"`)}
-    <div class="two"><div>${fld("gTarget", "Montant à atteindre (€)", `inputmode="decimal" value="${g.target === "" ? "" : esc(String(g.target).replace(".", ","))}"`)}</div>
+    <div class="two"><div>${fld("gTarget", `Montant à atteindre (${esc(curSym())})`, `inputmode="decimal" value="${g.target === "" ? "" : esc(String(g.target).replace(".", ","))}"`)}</div>
       <div>${fld("gDeadline", "Pour le (facultatif)", `type="date" value="${esc(g.deadline || "")}"`)}</div></div>
-    ${fld("gInitial", "Déjà mis de côté (€)", `inputmode="decimal" placeholder="0" value="${g.initial ? esc(String(g.initial).replace(".", ",")) : ""}"`)}
+    ${fld("gInitial", `Déjà mis de côté (${esc(curSym())})`, `inputmode="decimal" placeholder="0" value="${g.initial ? esc(String(g.initial).replace(".", ",")) : ""}"`)}
     <span class="lbl">Couleur</span><div class="chips" id="gColor"></div></div>`,
     () => {
       const name = val("gName"), target = parseAmount(val("gTarget"));
@@ -1523,7 +1549,7 @@ function editGroupExpense(gid, eid) {
   let paidBy = e.paidBy, split = new Set(e.split), cat = "loisirs";
   openForm(`<div class="f2"><h3>${eid ? "Modifier la dépense" : "Dépense du groupe"} · ${esc(g.name)}</h3>
     ${fld("geLabel", "Quoi ?", `placeholder="ex. Courses, Location, Restaurant" value="${esc(e.label)}"`)}
-    <div class="two"><div>${fld("geAmount", "Montant (€)", `inputmode="decimal" value="${e.amount === "" ? "" : esc(String(e.amount).replace(".", ","))}"`)}</div><div>${fld("geDate", "Date", `type="date" value="${esc(e.date)}"`)}</div></div>
+    <div class="two"><div>${fld("geAmount", `Montant (${esc(curSym())})`, `inputmode="decimal" value="${e.amount === "" ? "" : esc(String(e.amount).replace(".", ","))}"`)}</div><div>${fld("geDate", "Date", `type="date" value="${esc(e.date)}"`)}</div></div>
     <span class="lbl">Payé par</span><div class="chips" id="gePaid"></div>
     <span class="lbl">Pour qui (partagé à parts égales)</span><div class="chips" id="geSplit"></div>
     <p class="hint" id="geShare" style="margin:6px 0 0"></p>
@@ -1747,7 +1773,7 @@ function editTontine(id) {
   const meName0 = id ? tonMember(t, t.me) : "";
   openForm(`<div class="f2"><h3>${id ? "Modifier la tontine" : "Nouvelle tontine"}</h3>
     ${fld("tnName", "Nom", `placeholder="ex. Tontine famille, Drewo du quartier" value="${esc(t.name)}"`)}
-    <div class="two"><div>${fld("tnAmount", "Cotisation par personne (€)", `inputmode="decimal" value="${t.amount === "" ? "" : esc(String(t.amount).replace(".", ","))}"`)}</div>
+    <div class="two"><div>${fld("tnAmount", `Cotisation par personne (${esc(curSym())})`, `inputmode="decimal" value="${t.amount === "" ? "" : esc(String(t.amount).replace(".", ","))}"`)}</div>
       <div>${fld("tnStart", "Date du 1er tour", `type="date" value="${esc(t.start)}"`)}</div></div>
     <span class="lbl">Versement</span><div class="chips" id="tnFreq"></div>
     ${fld("tnMe", "Ton prénom", `placeholder="ex. Awa" value="${esc(meName0)}"`)}
