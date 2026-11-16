@@ -70,8 +70,9 @@ function todayISO() { const d = new Date(); return `${d.getFullYear()}-${String(
 // Devise du budget (Réglages › Langue et devise) : tous les montants sont affichés dans cette devise.
 const APP_CURRENCIES = [["EUR", "Euro (€)"], ["XOF", "Franc CFA BCEAO (Afrique de l'Ouest)"], ["XAF", "Franc CFA BEAC (Afrique centrale)"], ["USD", "Dollar américain ($)"],
   ["GBP", "Livre sterling (£)"], ["CAD", "Dollar canadien"], ["CHF", "Franc suisse"], ["MAD", "Dirham marocain"], ["DZD", "Dinar algérien"], ["TND", "Dinar tunisien"],
-  ["GNF", "Franc guinéen"], ["CDF", "Franc congolais"], ["HTG", "Gourde haïtienne"], ["NGN", "Naira"], ["GHS", "Cedi"], ["KMF", "Franc comorien"], ["MGA", "Ariary"]];
-const NO_CENTS = ["XOF", "XAF", "GNF", "CDF", "KMF", "MGA"];
+  ["GNF", "Franc guinéen"], ["CDF", "Franc congolais"], ["HTG", "Gourde haïtienne"], ["NGN", "Naira"], ["GHS", "Cedi"], ["KMF", "Franc comorien"], ["MGA", "Ariary"],
+  ["JPY", "Yen japonais"], ["CNY", "Yuan chinois"], ["INR", "Roupie indienne"], ["AUD", "Dollar australien"], ["NZD", "Dollar néo-zélandais"], ["SEK", "Couronne suédoise"], ["NOK", "Couronne norvégienne"], ["DKK", "Couronne danoise"], ["PLN", "Zloty polonais"], ["CZK", "Couronne tchèque"], ["HUF", "Forint hongrois"], ["RON", "Leu roumain"], ["TRY", "Livre turque"], ["RUB", "Rouble russe"], ["BRL", "Real brésilien"], ["MXN", "Peso mexicain"], ["ARS", "Peso argentin"], ["ZAR", "Rand sud-africain"], ["EGP", "Livre égyptienne"], ["KES", "Shilling kényan"], ["UGX", "Shilling ougandais"], ["TZS", "Shilling tanzanien"], ["RWF", "Franc rwandais"], ["BIF", "Franc burundais"], ["ETB", "Birr éthiopien"], ["CVE", "Escudo cap-verdien"], ["MRU", "Ouguiya mauritanien"], ["MUR", "Roupie mauricienne"], ["AED", "Dirham des Émirats"], ["SAR", "Riyal saoudien"], ["QAR", "Riyal qatari"], ["KWD", "Dinar koweïtien"], ["ILS", "Shekel israélien"], ["LBP", "Livre libanaise"], ["SGD", "Dollar de Singapour"], ["HKD", "Dollar de Hong Kong"], ["KRW", "Won sud-coréen"], ["THB", "Baht thaïlandais"], ["VND", "Dông vietnamien"], ["PHP", "Peso philippin"], ["XPF", "Franc pacifique (CFP)"]];
+const NO_CENTS = ["XOF", "XAF", "GNF", "CDF", "KMF", "MGA", "JPY", "UGX", "RWF", "BIF", "LBP", "KRW", "VND", "XPF"];
 let fmt, fmt0;
 function appLocale() { const c = (typeof settings !== "undefined" && settings && settings.currency) || "EUR"; return window.LANG === "en" ? (c === "USD" ? "en-US" : "en-GB") : "fr-FR"; }
 function applyCurrency() {
@@ -95,7 +96,7 @@ function curSymOf(c) { try { return (new Intl.NumberFormat(appLocale(), { style:
 // Taux = nombre d'unités de la devise étrangère pour 1 unité de la devise du budget.
 // Parités fixes (franc CFA, franc comorien ↔ euro) ; sinon taux du jour (ExchangeRate-API, Frankfurter en secours),
 // gardé sur l'appareil une journée, et le dernier taux utilisé en dernier recours.
-const FX_PEG = { XOF: 655.957, XAF: 655.957, KMF: 491.96775 };
+const FX_PEG = { XOF: 655.957, XAF: 655.957, KMF: 491.96775, CVE: 110.265, XPF: 119.33174 };
 function fxFixed(cur, base) {
   if (cur === base) return 1;
   const pe = c => c === "EUR" ? 1 : FX_PEG[c];
