@@ -376,7 +376,7 @@ function rulesTemplateEN(t) {
   const rot = t.type === "rotative", p = t.penalty, per = { semaine: "week", mois: "month", an: "year" }[t.freq] || "period";
   const role = r => ({ president: "Chair", tresorier: "Treasurer", secretaire: "Secretary" })[r] || "Member";
   const bureau = t.members.filter(m => m.role).map(m => `- ${role(m.role)}: ${m.name}`).join("\n");
-  return `RULES – TONTINE “${t.name}”
+  return `RULES – SAVINGS CIRCLE “${t.name}”
 
 1. Purpose
 ${rot ? "Members pay a contribution every turn; each turn, the pot goes to the recipient(s) set by the payout order." : t.type === "pret" ? "Members pay a contribution every period. The fund may lend to members, with interest. At the end, the fund is shared out in proportion to payments." : "Members pay a contribution every period. At the end, the fund is shared out in proportion to payments."}
@@ -396,8 +396,8 @@ The order is set in advance (by lot or agreement). Two members may swap turns wi
 5. Loans
 A member who is up to date with contributions may borrow from the fund. The interest rate and repayment date are set when the loan is made. Interest benefits all members at the final share-out.
 ` : ""}
-6. Leaving the tontine
-A member who has already received the pot must keep paying all contributions until the end. A member who leaves before receiving the pot is refunded their payments at the end of the tontine, unless the committee decides otherwise.
+6. Leaving the savings circle
+A member who has already received the pot must keep paying all contributions until the end. A member who leaves before receiving the pot is refunded their payments at the end of the savings circle, unless the committee decides otherwise.
 
 7. Committee
 ${bureau || "- To be appointed"}
