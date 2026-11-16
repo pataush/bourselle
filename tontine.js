@@ -11,11 +11,9 @@ const TON_TYPE_HINT = {
   epargne: "Tout le monde cotise ; la cagnotte est partagée à la fin, au prorata des versements.",
   pret: "Tout le monde cotise ; la caisse prête aux membres avec intérêts, puis tout est partagé à la fin.",
 };
-const TON_CUR = [["EUR", "Euro (€)"], ["XOF", "Franc CFA BCEAO (Afrique de l'Ouest)"], ["XAF", "Franc CFA BEAC (Afrique centrale)"], ["USD", "Dollar américain ($)"],
-  ["GBP", "Livre sterling (£)"], ["CAD", "Dollar canadien"], ["CHF", "Franc suisse"], ["MAD", "Dirham marocain"], ["DZD", "Dinar algérien"], ["TND", "Dinar tunisien"],
-  ["GNF", "Franc guinéen"], ["CDF", "Franc congolais"], ["HTG", "Gourde haïtienne"], ["NGN", "Naira"], ["GHS", "Cedi"], ["KMF", "Franc comorien"], ["MGA", "Ariary"]];
+const TON_CUR = APP_CURRENCIES;   // mêmes devises que le reste de l'app
 const CFA_EUR = 655.957;                      // parité fixe franc CFA / euro
-const ZERO_DEC = new Set(["XOF", "XAF", "GNF", "CDF", "KMF", "MGA"]);
+const ZERO_DEC = new Set(NO_CENTS);
 const TON_ROLES = [["", "Membre"], ["president", "Président(e)"], ["tresorier", "Trésorier(e)"], ["secretaire", "Secrétaire"]];
 const TON_PARTS = [[0.5, "½ part"], [1, "1 part"], [1.5, "1 part ½"], [2, "2 parts"], [3, "3 parts"]];
 const roleName = r => (TON_ROLES.find(x => x[0] === r) || ["", ""])[1];
