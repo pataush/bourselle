@@ -388,7 +388,10 @@ function renderReglages() {
   let html = banner + `<div class="card"><h2>Mon compte<small>${esc(store ? store.label : "")}</small></h2>
     <div style="font-weight:600">${esc(u.name || "")}</div><div class="hint">${esc(u.email || "")}</div>
     <p class="hint">${store && store.id !== "local" ? `Tes données et tes factures sont dans le dossier « Bourselle » de ton ${esc(store.label)}. Personne d'autre n'y a accès.` : "Mode démo : les données restent dans ce navigateur et peuvent être perdues. Connecte-toi pour les mettre dans ton Drive."}</p>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">${store && store.folderUrl() ? `<a class="btn" href="${esc(store.folderUrl())}" target="_blank" rel="noopener">Ouvrir mon dossier</a>` : ""}<button class="btn danger" id="logout">Se déconnecter</button></div></div>
+    ${store && store.id === "local" ? `<p class="hint" style="margin:0 0 8px"><b>Associe un compte</b> pour retrouver Bourselle sur tous tes appareils : tes données d'essai seront transférées dans ton cloud.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="linkGoogle"${CFG.googleClientId ? "" : " disabled"}>Se connecter avec Google</button><button class="btn primary" id="linkMicrosoft"${CFG.microsoftClientId ? "" : " disabled"}>Se connecter avec Microsoft</button></div>
+    <div style="margin-top:8px"><button class="btn danger" id="logout" data-l="Quitter le mode essai">Quitter le mode essai</button></div></div>`
+    : `<div style="display:flex;gap:8px;flex-wrap:wrap">${store && store.folderUrl() ? `<a class="btn" href="${esc(store.folderUrl())}" target="_blank" rel="noopener">Ouvrir mon dossier</a>` : ""}<button class="btn danger" id="logout" data-l="Se déconnecter">Se déconnecter</button></div></div>`}
   <div class="card"><h2>Budget mensuel par catégorie<small>total ${esc(eur(totalBud, true))}</small></h2>
     ${settings.cats.map((c, i) => `<div class="set-row"><input type="color" value="${esc(c.color)}" data-i="${i}" data-f="color" aria-label="Couleur ${esc(c.name)}">
       <input class="field" value="${esc(c.name)}" data-i="${i}" data-f="name" aria-label="Nom de la catégorie">
@@ -449,9 +452,10 @@ function renderReglages() {
   document.getElementById("logout").onclick = e => {
     const b = e.currentTarget;
     if (dirty || saving) { toast("Patiente, l'enregistrement est en cours…"); flush(); return; }
-    if (b.dataset.c !== "1") { b.dataset.c = "1"; b.textContent = "Confirmer la déconnexion"; setTimeout(() => { b.dataset.c = ""; b.textContent = "Se déconnecter"; }, 3000); return; }
+    if (b.dataset.c !== "1") { b.dataset.c = "1"; b.textContent = store && store.id === "local" ? "Confirmer (tes données restent sur cet appareil)" : "Confirmer la déconnexion"; setTimeout(() => { b.dataset.c = ""; b.textContent = b.dataset.l; }, 3000); return; }
     signOut();
   };
+  for (const [bid, pid] of [["linkGoogle", "google"], ["linkMicrosoft", "microsoft"]]) { const lb = document.getElementById(bid); if (lb) lb.onclick = () => linkAccount(pid); }
   document.getElementById("cp").onclick = async () => { try { await navigator.clipboard.writeText(buildCSV()); toast("CSV copié"); } catch (e) { toast("Copie impossible ici"); } };
 }
 
@@ -2097,23 +2101,48 @@ function hideLogin() {
   document.getElementById("fab").hidden = false;
   document.querySelector("nav.tabs").hidden = false;
 }
+// Mode essai → compte Google / Microsoft : les données d'essai sont transférées dans le cloud.
+const MIGRATE_KEY = "bourselle-migrate", DEMO_KEY = "bourselle-demo";
+async function linkAccount(id) {
+  if (dirty) { clearTimeout(saveTimer); await flush(); }
+  localStorage.setItem(MIGRATE_KEY, "1");
+  connect(id, id === "google" ? "choose" : true);   // Microsoft : la page part vers la connexion puis revient
+}
+function demoToMigrate() {
+  if (!localStorage.getItem(MIGRATE_KEY)) return null;
+  try { const d = JSON.parse(localStorage.getItem(DEMO_KEY) || "null"); return d && typeof d === "object" ? d : null; } catch (e) { return null; }
+}
 async function connect(id, interactive, existing) {
-  const msg = document.getElementById("loginMsg");
+  const msg = document.getElementById("loginMsg"), prev = store;
   msg.textContent = "Connexion…";
   try {
     const st = existing || makeStore(id);
     await st.signIn(interactive);
     store = st; assets = st.canFiles ? st : null;
     localStorage.setItem("mb-provider", id);
-    banner = id === "local" ? `<div class="banner">Mode démo : tes données restent dans ce navigateur. Connecte-toi avec Google ou Microsoft (Réglages › Se déconnecter) pour les garder dans ton Drive.</div>` : "";
+    banner = id === "local" ? `<div class="banner">Mode démo : tes données restent dans ce navigateur. Connecte-toi avec Google ou Microsoft (Réglages › Mon compte) pour les garder dans ton Drive : elles y seront transférées.</div>` : "";
     setSync("", "Chargement…");
     const r = await st.load();
     version = r.version;
+    const demo = id !== "local" ? demoToMigrate() : null;
     applyData(r.data);
+    let moved = -1;
+    if (demo) {
+      moved = importData(demo);
+      for (const k of ["importRules", "remindDays", "notif"]) if (demo.settings && demo.settings[k] != null && settings[k] == null) settings[k] = demo.settings[k];
+      localStorage.setItem(DEMO_KEY + "-sauvegarde", localStorage.getItem(DEMO_KEY));
+      localStorage.removeItem(DEMO_KEY); localStorage.removeItem(MIGRATE_KEY);
+    }
     hideLogin(); applyRecurring(); render();
-    if (!r.data && id !== "local") { dirty = true; flush(); }
+    if (moved >= 0) toast(moved ? `Tes données d'essai (${moved} élément${moved > 1 ? "s" : ""}) sont maintenant dans ton ${st.label}.` : `Connecté à ton ${st.label}.`);
+    if ((!r.data || moved > 0) && id !== "local") { dirty = true; flush(); }
     else setSync("ok", id === "local" ? "Sur cet appareil" : "Enregistré · " + st.label);
   } catch (e) {
+    if (prev && prev.id === "local" && id !== "local") {   // échec depuis le mode essai : on y reste
+      store = prev; assets = null; localStorage.setItem("mb-provider", "local");
+      if (e.code !== "cancelled") toast((e.message || "Connexion impossible") + ". Tes données d'essai sont intactes.");
+      return;
+    }
     store = null;
     if (e.code === "cancelled") msg.textContent = "";
     else msg.textContent = (e.message || "Connexion impossible") + (e.code === "auth" || e.code === "script" ? "" : " Réessaie.");
