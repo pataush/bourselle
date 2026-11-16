@@ -14,7 +14,7 @@
   const EXACT = {
     // Connexion, compte
     "Bourselle – Mon budget": "Bourselle – My budget", "Mon budget": "My budget", "Mon budget, simplement": "My budget, made simple",
-    "Tes dépenses, factures, garanties, abonnements et dettes, enregistrés dans": "Your expenses, bills, warranties, subscriptions and debts, saved in", "ton propre": "your own", "cloud.": "cloud.",
+    "Tes dépenses, factures, garanties, abonnements, dettes, ton épargne et tes tontines, enregistrés dans": "Your expenses, bills, warranties, subscriptions, debts, savings and tontines, saved in", "ton propre": "your own", "cloud.": "cloud.",
     "Continuer avec Google": "Continue with Google", "Continuer avec Microsoft": "Continue with Microsoft", "Continuer avec Apple (iCloud)": "Continue with Apple (iCloud)",
     "Gmail, Google Workspace": "Gmail, Google Workspace", "Hotmail, Outlook, Live, compte pro": "Hotmail, Outlook, Live, work account", "Bientôt, avec l'app iPhone": "Coming soon, with the iPhone app",
     "Pas encore configuré (voir le guide)": "Not set up yet (see the guide)",
