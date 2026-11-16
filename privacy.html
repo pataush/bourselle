@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Politique de confidentialité – Bourselle</title>
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<style>
+  body { font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; color: #1c2b39; background: #f6f3ec; margin: 0; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 1.8rem; color: #16324a; margin-bottom: .2em; }
+  h2 { font-size: 1.15rem; color: #16324a; margin-top: 1.8em; }
+  a { color: #1b6b5a; }
+  .muted { color: #5b6b78; font-size: .9rem; }
+  .back { display: inline-block; margin-bottom: 20px; }
+</style>
+</head>
+<body>
+<main>
+<a class="back" href="./">← Retour à Bourselle</a>
+<h1>Politique de confidentialité</h1>
+<p class="muted">Dernière mise à jour : 16 novembre 2026</p>
+
+<p>Bourselle est une application web de suivi de budget (dépenses, revenus, factures, garanties, abonnements, dettes, objectifs, tontines). Cette page explique quelles données elle utilise et où elles sont conservées.</p>
+
+<h2>En bref</h2>
+<ul>
+  <li>Bourselle n'a <strong>pas de serveur</strong> qui stocke tes données. Tout est enregistré dans <strong>ton propre</strong> Google Drive ou OneDrive.</li>
+  <li>Personne d'autre que toi (et les personnes avec qui tu partages tes fichiers) ne peut lire tes données.</li>
+  <li>Aucune donnée n'est vendue, partagée avec des tiers ou utilisée pour de la publicité.</li>
+</ul>
+
+<h2>Données utilisées</h2>
+<ul>
+  <li><strong>Identité de base</strong> : ton nom, ton adresse e-mail et ta photo de profil, fournis par Google ou Microsoft lors de la connexion. Ils servent uniquement à afficher ton compte dans l'app.</li>
+  <li><strong>Tes données de budget</strong> : opérations, catégories, réglages, justificatifs (photos de tickets, factures) que tu saisis ou importes.</li>
+</ul>
+
+<h2>Où sont stockées les données</h2>
+<ul>
+  <li><strong>Avec Google</strong> : dans un dossier « Bourselle » de ton Google Drive. L'app demande uniquement l'autorisation <code>drive.file</code>, qui lui permet de voir et modifier <em>seulement les fichiers qu'elle a créés</em>, jamais le reste de ton Drive.</li>
+  <li><strong>Avec Microsoft</strong> : dans le dossier « Applications/Bourselle » de ton OneDrive, via l'autorisation <code>Files.ReadWrite.AppFolder</code>, limitée à ce dossier.</li>
+  <li><strong>Sans compte</strong> (mode essai) : uniquement dans le navigateur de ton appareil.</li>
+</ul>
+<p>Une copie de travail est gardée dans le navigateur de ton appareil pour que l'app fonctionne hors connexion. Elle est effacée lorsque tu te déconnectes ou vides les données du site.</p>
+
+<h2>Traitements sur l'appareil</h2>
+<p>La lecture des tickets de caisse (reconnaissance de texte) et l'import des relevés bancaires (CSV, OFX) sont faits <strong>directement sur ton appareil</strong>. Les fichiers ne sont envoyés à aucun service d'analyse.</p>
+
+<h2>Utilisation des données Google</h2>
+<p>L'utilisation et le transfert par Bourselle des informations reçues des API Google respectent la <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">politique relative aux données utilisateur des services API Google</a>, y compris les exigences d'utilisation limitée. Les données Google ne servent qu'à afficher et enregistrer ton budget à ta demande ; elles ne sont ni transférées à des tiers, ni utilisées pour de la publicité, ni lues par des humains.</p>
+
+<h2>Services tiers</h2>
+<ul>
+  <li>Google (connexion et Google Drive) et Microsoft (connexion et OneDrive), selon le compte que tu choisis.</li>
+  <li>GitHub Pages, qui héberge les fichiers de l'application (aucune donnée de budget n'y transite).</li>
+  <li>Google Fonts, pour l'affichage des polices.</li>
+</ul>
+
+<h2>Tes droits</h2>
+<p>Tes données t'appartiennent. Tu peux à tout moment :</p>
+<ul>
+  <li>les exporter depuis l'app, ou télécharger les fichiers depuis ton Drive / OneDrive ;</li>
+  <li>les supprimer en effaçant le dossier « Bourselle » de ton Drive ou OneDrive ;</li>
+  <li>retirer l'accès de Bourselle : sur <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">myaccount.google.com/permissions</a> (Google) ou <a href="https://account.live.com/consent/Manage" target="_blank" rel="noopener">account.live.com/consent/Manage</a> (Microsoft).</li>
+</ul>
+
+<h2>Sécurité</h2>
+<p>Les échanges se font en HTTPS. Les jetons de connexion restent dans ton navigateur et expirent automatiquement. Bourselle ne voit jamais ton mot de passe.</p>
+
+<h2>Enfants</h2>
+<p>Bourselle ne s'adresse pas aux enfants de moins de 15 ans.</p>
+
+<h2>Contact</h2>
+<p>Pour toute question, ouvre une demande sur la <a href="https://github.com/pataush/bourselle/issues" target="_blank" rel="noopener">page du projet</a>.</p>
+
+<p class="muted"><a href="conditions.html">Conditions d'utilisation</a></p>
+</main>
+</body>
+</html>
