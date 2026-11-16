@@ -92,6 +92,39 @@ function fmtCur(c, v) {
 }
 function curSymOf(c) { try { return (new Intl.NumberFormat(appLocale(), { style: "currency", currency: c }).formatToParts(1).find(p => p.type === "currency") || {}).value || c; } catch (e) { return c; } }
 
+// Devise proposée selon la région de l'appareil : fuseau horaire (où l'on est) puis région de la langue (ex. fr-SN).
+const CC_CUR = { FR: "EUR", BE: "EUR", LU: "EUR", MC: "EUR", DE: "EUR", AT: "EUR", IT: "EUR", ES: "EUR", PT: "EUR", NL: "EUR", IE: "EUR", FI: "EUR", GR: "EUR", SK: "EUR", SI: "EUR", EE: "EUR", LV: "EUR", LT: "EUR", MT: "EUR", CY: "EUR", HR: "EUR", AD: "EUR", RE: "EUR", GP: "EUR", MQ: "EUR", GF: "EUR", YT: "EUR", PM: "EUR", BL: "EUR", MF: "EUR",
+  SN: "XOF", CI: "XOF", ML: "XOF", BF: "XOF", NE: "XOF", TG: "XOF", BJ: "XOF", GW: "XOF", CM: "XAF", GA: "XAF", CG: "XAF", CF: "XAF", TD: "XAF", GQ: "XAF",
+  US: "USD", PR: "USD", EC: "USD", SV: "USD", PA: "USD", GB: "GBP", CA: "CAD", CH: "CHF", LI: "CHF", MA: "MAD", DZ: "DZD", TN: "TND", GN: "GNF", CD: "CDF", HT: "HTG", NG: "NGN", GH: "GHS", KM: "KMF", MG: "MGA",
+  JP: "JPY", CN: "CNY", IN: "INR", AU: "AUD", NZ: "NZD", SE: "SEK", NO: "NOK", DK: "DKK", PL: "PLN", CZ: "CZK", HU: "HUF", RO: "RON", TR: "TRY", RU: "RUB", BR: "BRL", MX: "MXN", AR: "ARS", ZA: "ZAR", EG: "EGP",
+  KE: "KES", UG: "UGX", TZ: "TZS", RW: "RWF", BI: "BIF", ET: "ETB", CV: "CVE", MR: "MRU", MU: "MUR", AE: "AED", SA: "SAR", QA: "QAR", KW: "KWD", IL: "ILS", LB: "LBP", SG: "SGD", HK: "HKD", KR: "KRW", TH: "THB", VN: "VND", PH: "PHP", NC: "XPF", PF: "XPF", WF: "XPF" };
+const TZ_CC = { Paris: "FR", Brussels: "BE", Luxembourg: "LU", Monaco: "MC", Berlin: "DE", Vienna: "AT", Rome: "IT", Madrid: "ES", Lisbon: "PT", Amsterdam: "NL", Dublin: "IE", Helsinki: "FI", Athens: "GR", Bratislava: "SK", Ljubljana: "SI", Tallinn: "EE", Riga: "LV", Vilnius: "LT", Malta: "MT", Nicosia: "CY", Zagreb: "HR", Andorra: "AD",
+  Reunion: "RE", Guadeloupe: "GP", Martinique: "MQ", Cayenne: "GF", Mayotte: "YT", Miquelon: "PM",
+  Dakar: "SN", Abidjan: "CI", Bamako: "ML", Ouagadougou: "BF", Niamey: "NE", Lome: "TG", "Porto-Novo": "BJ", Bissau: "GW", Douala: "CM", Libreville: "GA", Brazzaville: "CG", Bangui: "CF", Ndjamena: "TD", Malabo: "GQ",
+  London: "GB", Zurich: "CH", Vaduz: "LI", Casablanca: "MA", "El_Aaiun": "MA", Algiers: "DZ", Tunis: "TN", Conakry: "GN", Kinshasa: "CD", Lubumbashi: "CD", "Port-au-Prince": "HT", Lagos: "NG", Accra: "GH", Comoro: "KM", Antananarivo: "MG",
+  Tokyo: "JP", Shanghai: "CN", Kolkata: "IN", Calcutta: "IN", Auckland: "NZ", Stockholm: "SE", Oslo: "NO", Copenhagen: "DK", Warsaw: "PL", Prague: "CZ", Budapest: "HU", Bucharest: "RO", Istanbul: "TR", Moscow: "RU",
+  Johannesburg: "ZA", Cairo: "EG", Nairobi: "KE", Kampala: "UG", "Dar_es_Salaam": "TZ", Kigali: "RW", Bujumbura: "BI", "Addis_Ababa": "ET", "Cape_Verde": "CV", Nouakchott: "MR", Mauritius: "MU", Dubai: "AE", Riyadh: "SA", Qatar: "QA", Kuwait: "KW",
+  Jerusalem: "IL", "Tel_Aviv": "IL", Beirut: "LB", Singapore: "SG", "Hong_Kong": "HK", Seoul: "KR", Bangkok: "TH", "Ho_Chi_Minh": "VN", Saigon: "VN", Manila: "PH", Noumea: "NC", Tahiti: "PF", Wallis: "WF",
+  "Puerto_Rico": "PR", "Mexico_City": "MX", Cancun: "MX", Monterrey: "MX", Tijuana: "MX", "Sao_Paulo": "BR", Bahia: "BR", Fortaleza: "BR", Recife: "BR", Manaus: "BR", Belem: "BR", "Buenos_Aires": "AR", Cordoba: "AR" };
+function regionCurrency() {
+  const ok = c => c && APP_CURRENCIES.some(x => x[0] === c);
+  let tz = ""; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || ""; } catch (e) {}
+  const city = tz.split("/").pop();
+  let tzCur = CC_CUR[TZ_CC[city]];
+  if (!tzCur) {
+    if (/^(Australia)\//.test(tz)) tzCur = "AUD";
+    else if (/^America\/(Toronto|Vancouver|Montreal|Halifax|Winnipeg|Edmonton|Regina|St_Johns|Moncton|Whitehorse|Yellowknife|Iqaluit)/.test(tz)) tzCur = "CAD";
+    else if (/^(America\/(New_York|Chicago|Denver|Los_Angeles|Phoenix|Anchorage|Detroit|Boise|Indiana|Kentucky|North_Dakota|Menominee|Juneau|Sitka|Nome|Adak)|Pacific\/Honolulu|US\/)/.test(tz)) tzCur = "USD";
+  }
+  let langCur = null;
+  for (const l of navigator.languages || [navigator.language || ""]) { const m = /-([A-Za-z]{2})\b/.exec(l || ""); if (m && ok(CC_CUR[m[1].toUpperCase()])) { langCur = CC_CUR[m[1].toUpperCase()]; break; } }
+  // Africa/Abidjan et Africa/Lagos servent aussi à plusieurs pays voisins : la région de la langue départage.
+  if ((city === "Abidjan" || city === "Lagos") && langCur && !["EUR", "USD", "GBP"].includes(langCur)) return langCur;
+  if (ok(tzCur)) return tzCur;
+  if (ok(langCur)) return langCur;
+  return window.LANG === "en" ? "USD" : "EUR";
+}
+
 // ---------- Taux de change ----------
 // Taux = nombre d'unités de la devise étrangère pour 1 unité de la devise du budget.
 // Parités fixes (franc CFA, franc comorien ↔ euro) ; sinon taux du jour (ExchangeRate-API, Frankfurter en secours),
@@ -167,8 +200,8 @@ function applyData(d) {
   if (!(d && d.settings) && window.LANG === "en" && window.T) {   // nouveau compte en anglais : catégories par défaut en anglais
     for (const c of settings.cats) c.name = T(c.name);
     for (const k of ["rentree", "epargne", "invest"]) settings[k] = settings[k].map(x => T(x));
-    if (!settings.currency) settings.currency = /^en-(US)/i.test(navigator.language || "") ? "USD" : /^en-GB/i.test(navigator.language || "") ? "GBP" : "EUR";
   }
+  if (!(d && d.settings) && !settings.currency) settings.currency = regionCurrency();   // nouveau compte : devise de la région
   applyCurrency();
 }
 function scheduleSave() {
@@ -465,6 +498,7 @@ function renderReglages() {
   <div class="card"><h2>Langue et devise</h2>
     <div class="two"><div><label class="lbl" for="setLang">Langue</label><select class="field" id="setLang"><option value="fr"${window.LANG !== "en" ? " selected" : ""}>Français</option><option value="en"${window.LANG === "en" ? " selected" : ""}>English</option></select></div>
       <div><label class="lbl" for="setCur">Devise</label><select class="field" id="setCur">${APP_CURRENCIES.map(([c, l]) => `<option value="${c}"${c === (settings.currency || "EUR") ? " selected" : ""}>${esc(c)} · ${esc(l)}</option>`).join("")}</select></div></div>
+    ${(() => { const rc = regionCurrency(), lb = (APP_CURRENCIES.find(x => x[0] === rc) || [, rc])[1]; return rc !== baseCurrency() ? `<div class="banner" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:10px"><span><span>Devise de ta région :</span> <b>${esc(rc)} · ${esc(lb)}</b></span><button class="btn" type="button" id="useRegionCur" data-c="${esc(rc)}">Utiliser cette devise</button></div>` : ""; })()}
     <p class="hint">En changeant de devise, tu peux convertir tous tes montants au taux du jour. Les tontines peuvent avoir leur propre devise, convertie dans celle-ci.</p>
     <p class="hint">Une opération peut aussi être saisie dans une autre devise (bouton à côté du montant) : elle est convertie au taux du jour, que tu peux corriger. Taux fournis par <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener">Rates By Exchange Rate API</a>${(fxCache() || {}).day ? ` · mis à jour le ${esc(frDate(fxCache().day))}` : ""}.</p></div>
   <div class="card"><h2>Budget mensuel par catégorie<small>total ${esc(eur(totalBud, true))}</small></h2>
@@ -507,6 +541,7 @@ function renderReglages() {
   };
   bindRecsCard();
   document.getElementById("setCur").onchange = e => changeCurrency(e.target.value);
+  const urc = document.getElementById("useRegionCur"); if (urc) urc.onclick = () => { const sel = document.getElementById("setCur"); if (sel) sel.value = urc.dataset.c; changeCurrency(urc.dataset.c); };
   document.getElementById("setLang").onchange = e => { if (typeof setLang === "function") setLang(e.target.value); };
   document.getElementById("impBtn2").onclick = startImport;
   document.getElementById("warnDays").onchange = e => { const v = parseInt(e.target.value, 10); if (v > 0 && v < 1000) { settings.warnDays = v; saveSettings(); render(); } else e.target.value = warnDays(); };
