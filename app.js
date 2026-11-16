@@ -425,7 +425,7 @@ function txListHTML(list, withYear) {
     else if (x.type === "rentree") { name = x.note || x.cat; color = "#2f6fb0"; sub = "Rentrée · " + x.cat; cls = "in"; sign = "+"; }
     else { name = x.note || x.cat; color = x.type === "epargne" ? "#1f8a5b" : "#16324a"; sub = (x.type === "epargne" ? "Épargne · " : "Investissement · ") + x.cat; cls = "save"; sign = "→"; }
     html += `<button class="tx" data-id="${esc(x.id)}"><span class="ic" style="background:${color}">${esc((x.type === "depense" ? catById(x.cat).name : x.cat || "?").slice(0, 2))}</span>
-      <span><div class="n">${esc(name)}${x.ndf ? `<span class="badge ${x.ndfStatus === "rembourse" ? "done" : "todo"}">${x.ndfStatus === "rembourse" ? "Remboursée" : "Note de frais"}</span>` : ""}</div><div class="s">${esc(sub)}${x.files && x.files.length ? `<span class="clip">${CLIP}${x.files.length}</span>` : ""}${x.warranty ? ` · garantie jusqu'au ${esc(frDate(x.warranty.end))}` : ""}</div></span><span class="a num ${cls}">${sign} ${esc(eur(x.amount))}${x.orig ? `<small class="orig">${esc(fmtCur(x.orig.cur, x.orig.amount))}</small>` : ""}</span></button>`;
+      <span><div class="n">${esc(name)}${x.ndf ? `<span class="badge ${x.ndfStatus === "rembourse" ? "done" : "todo"}">${x.ndfStatus === "rembourse" ? "Remboursée" : "Note de frais"}</span>` : ""}</div><div class="s">${esc(sub)}${x.files && x.files.length ? `<span class="clip">${CLIP}${x.files.length}</span>` : ""}${x.warranty ? ` · garantie jusqu'au ${esc(frDate(x.warranty.end))}` : ""}</div></span><span class="a num ${cls}">${sign} ${esc(eur(x.amount))}${x.orig && x.orig.cur !== baseCurrency() ? `<small class="orig">${esc(fmtCur(x.orig.cur, x.orig.amount))}</small>` : ""}</span></button>`;
   }
   return html;
 }
@@ -465,7 +465,7 @@ function renderReglages() {
   <div class="card"><h2>Langue et devise</h2>
     <div class="two"><div><label class="lbl" for="setLang">Langue</label><select class="field" id="setLang"><option value="fr"${window.LANG !== "en" ? " selected" : ""}>Français</option><option value="en"${window.LANG === "en" ? " selected" : ""}>English</option></select></div>
       <div><label class="lbl" for="setCur">Devise</label><select class="field" id="setCur">${APP_CURRENCIES.map(([c, l]) => `<option value="${c}"${c === (settings.currency || "EUR") ? " selected" : ""}>${esc(c)} · ${esc(l)}</option>`).join("")}</select></div></div>
-    <p class="hint">Changer de devise change l'affichage de tous les montants ; ceux déjà saisis ne sont pas convertis. Les tontines peuvent avoir leur propre devise, convertie dans celle-ci.</p>
+    <p class="hint">En changeant de devise, tu peux convertir tous tes montants au taux du jour. Les tontines peuvent avoir leur propre devise, convertie dans celle-ci.</p>
     <p class="hint">Une opération peut aussi être saisie dans une autre devise (bouton à côté du montant) : elle est convertie au taux du jour, que tu peux corriger. Taux fournis par <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener">Rates By Exchange Rate API</a>${(fxCache() || {}).day ? ` · mis à jour le ${esc(frDate(fxCache().day))}` : ""}.</p></div>
   <div class="card"><h2>Budget mensuel par catégorie<small>total ${esc(eur(totalBud, true))}</small></h2>
     ${settings.cats.map((c, i) => `<div class="set-row"><input type="color" value="${esc(c.color)}" data-i="${i}" data-f="color" aria-label="Couleur ${esc(c.name)}">
@@ -506,7 +506,7 @@ function renderReglages() {
     if (v.length) { settings[k] = v; saveSettings(); }
   };
   bindRecsCard();
-  document.getElementById("setCur").onchange = e => { settings.currency = e.target.value; applyCurrency(); saveSettings(); render(); toast(`Devise : ${e.target.value}`); };
+  document.getElementById("setCur").onchange = e => changeCurrency(e.target.value);
   document.getElementById("setLang").onchange = e => { if (typeof setLang === "function") setLang(e.target.value); };
   document.getElementById("impBtn2").onclick = startImport;
   document.getElementById("warnDays").onchange = e => { const v = parseInt(e.target.value, 10); if (v > 0 && v < 1000) { settings.warnDays = v; saveSettings(); render(); } else e.target.value = warnDays(); };
@@ -702,6 +702,64 @@ function fxPreview() {
 }
 document.getElementById("fAmount").addEventListener("input", () => { if (form && form.ocur && form.ocur !== baseCurrency()) fxPreview(); });
 document.getElementById("fRate").addEventListener("input", e => { if (!form) return; form.orate = parseNum(e.target.value) || ""; fxPreview(); });
+// ---------- Changer la devise du budget ----------
+// R = nombre d'unités de la nouvelle devise pour 1 unité de l'ancienne.
+function convertAll(R, to) {
+  const r2 = v => Math.round((Number(v) || 0) * R * 100) / 100;
+  for (const d of Object.values(months)) for (const t of Object.values(d.items || {})) {
+    if (t.orig && t.orig.cur === to) { t.amount = t.orig.amount; t.orig.rate = 1; }
+    else { t.amount = r2(t.amount); if (t.orig && t.amount > 0) t.orig.rate = Math.round(t.orig.amount / t.amount * 1e6) / 1e6; }
+  }
+  for (const c of settings.cats) if (c.budget) c.budget = r2(c.budget);
+  for (const x of Object.values(subs)) x.amount = r2(x.amount);
+  for (const x of Object.values(recs)) x.amount = r2(x.amount);
+  for (const x of Object.values(goals)) { x.target = r2(x.target); if (x.initial) x.initial = r2(x.initial); }
+  for (const x of Object.values(debts)) { x.amount = r2(x.amount); if (x.monthly) x.monthly = r2(x.monthly); for (const p of x.payments || []) p.amount = r2(p.amount); }
+  for (const g of Object.values(groups)) for (const e of Object.values(g.expenses || {})) e.amount = r2(e.amount);
+  for (const t of Object.values(tontines)) if (t.rate) t.rate = Math.round(Number(t.rate) / R * 1e6) / 1e6;   // taux = devise de la tontine pour 1 unité du budget
+  const fl = settings.fxLast || {}; for (const k of Object.keys(fl)) fl[k] = Math.round(fl[k] / R * 1e6) / 1e6;
+}
+function changeCurrency(to) {
+  const from = baseCurrency(), sel = document.getElementById("setCur");
+  if (to === from) return;
+  const hasData = Object.values(months).some(d => Object.keys(d.items || {}).length) || Object.keys(subs).length || Object.keys(debts).length || Object.keys(goals).length || Object.keys(recs).length;
+  if (!hasData) { settings.currency = to; applyCurrency(); saveSettings(); render(); toast(`Devise : ${to}`); return; }
+  let mode = "convert";
+  const f = openForm(`<div class="f2"><h3>Passer de ${esc(from)} à ${esc(to)}</h3>
+    <div class="chips" id="ccMode"></div>
+    <div id="ccRateWrap"><div class="fx-rate" style="margin-top:12px"><span>1 ${esc(curSymOf(from))} =</span><input id="ccRate" class="field num" inputmode="decimal" aria-label="Taux de change"><span>${esc(curSymOf(to))}</span></div>
+      <p class="hint" id="ccSrc" style="margin:6px 0 0">Recherche du taux du jour…</p>
+      <p class="hint" id="ccEx" style="margin:6px 0 0"></p></div>
+    <p class="hint" id="ccHelp" style="margin:10px 0 0"></p></div>`, () => {
+    if (mode === "convert") {
+      const R = parseNum(val("ccRate"));
+      if (!(R > 0)) { toast("Indique le taux de change"); return false; }
+      convertAll(R, to);
+    }
+    settings.currency = to; applyCurrency(); localStorage.removeItem(FX_KEY);
+    saveSettings(); saveMonth(); saveSubs(); saveDebts(); saveRecs(); saveGoals(); saveGroups(); saveTontines();
+    render(); toast(mode === "convert" ? `Tous les montants sont convertis en ${to}` : `Devise : ${to}`);
+  });
+  f.querySelector("button[type=submit]").textContent = "Changer la devise";
+  document.getElementById("f2Cancel").addEventListener("click", () => { if (sel) sel.value = from; });
+  document.getElementById("s2bg").addEventListener("click", () => { if (sel) sel.value = from; }, { once: true });
+  const help = () => {
+    document.getElementById("ccRateWrap").hidden = mode !== "convert";
+    document.getElementById("ccHelp").textContent = mode === "convert"
+      ? "Tous tes montants (opérations, budgets, abonnements, dettes, objectifs, groupes) sont convertis à ce taux. Les opérations saisies dans la nouvelle devise retrouvent leur montant exact."
+      : "Les montants ne changent pas : seul le symbole de la devise change. À choisir si tes montants étaient déjà dans la nouvelle devise.";
+  };
+  chipsPick("ccMode", [["convert", "Convertir mes montants"], ["label", "Changer seulement l'affichage"]], mode, v => { mode = v; help(); });
+  help();
+  const ex = () => { const R = parseNum(val("ccRate")); document.getElementById("ccEx").textContent = R > 0 ? `Exemple : ${fmtCur(from, 100)} → ${fmtCur(to, Math.round(100 * R * 100) / 100)}` : ""; };
+  document.getElementById("ccRate").addEventListener("input", ex);
+  const fx = fxFixed(to, from);
+  const fill = (rate, txt) => { const el = document.getElementById("ccRate"); if (el && !el.value) el.value = numStr(fxRound(rate)); document.getElementById("ccSrc").innerHTML = txt; ex(); };
+  if (fx) fill(fx, "Parité fixe.");
+  else fetch(`https://open.er-api.com/v6/latest/${from}`).then(r => r.json()).then(d => {
+    if (d.result === "success" && d.rates[to]) fill(d.rates[to], `Taux du jour : <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener">ExchangeRate-API</a>. Tu peux le corriger.`); else throw 0;
+  }).catch(() => { const c = fxCache(); const r = c && c.base === from && c.rates && c.rates[to]; if (r) fill(r, "Dernier taux connu (hors connexion)."); else document.getElementById("ccSrc").textContent = "Indique le taux de change."; });
+}
 function closeSheet(saved) {
   if (form && !saved) for (const id of form.uploaded) dropAsset(id);   // annulé : on retire les fichiers ajoutés
   document.getElementById("sheetRoot").classList.remove("open"); form = null;
