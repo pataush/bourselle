@@ -2390,3 +2390,5 @@ async function boot() {
   showLogin("");   // Google demande un clic pour ouvrir sa fenêtre de connexion
 }
 boot();
+// Langue changée dans Réglages ou sur l'écran de connexion : on redessine sans recharger (la session reste ouverte).
+window.addEventListener("bourselle-lang", () => { try { if (typeof applyCurrency === "function") applyCurrency(); if (typeof store !== "undefined" && store) render(); } catch (e) {} });

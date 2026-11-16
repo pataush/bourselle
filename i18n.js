@@ -199,7 +199,7 @@
     "Bureau :": "Committee:", "pas encore désigné (Modifier › membres)": "not appointed yet (Edit › members)", "Aucune séance enregistrée.": "No meetings recorded.", "Compte-rendu": "Minutes",
     "Nouvelle séance": "New meeting", "Modifier la séance": "Edit meeting", "Bilan complet (PDF)": "Full report (PDF)", "Présents": "Present", "Ordre du jour / échanges": "Agenda / discussion", "Décisions": "Decisions",
     "Règles de la tontine : montant, date limite, pénalités, que faire en cas de départ…": "Savings circle rules: amount, deadline, penalties, what happens if someone leaves…",
-    "Proposer un modèle": "Suggest a template", "Imprimer / PDF": "Print / PDF", "Partager": "Share", "Règlement enregistré": "Rules saved", "Séance enregistrée": "Meeting saved",
+    "Proposer un modèle": "Suggest a template", "Imprimer / PDF": "Print / PDF", "← Fermer": "← Close", "Impression impossible ici": "Printing is not available here", "Partager": "Share", "Règlement enregistré": "Rules saved", "Séance enregistrée": "Meeting saved",
     "Appuie encore une fois pour remplacer le texte actuel par le modèle": "Tap again to replace the current text with the template", "Date du versement": "Payment date",
     "Échanger avec": "Swap with", "Aucun autre tour à venir pour échanger": "No other upcoming turn to swap with", "Enchère retirée": "Bid removed", "L'enchère doit être inférieure au pot": "The bid must be lower than the pot",
     "Caisse mise à jour": "Fund updated", "Indique un motif et un montant": "Enter a reason and an amount", "Indique le montant du prêt": "Enter the loan amount", "Remboursement enregistré": "Repayment saved",
@@ -425,15 +425,24 @@
   // ---------- Traduction de la page ----------
   const SKIP = new Set(["SCRIPT", "STYLE", "TEXTAREA", "INPUT"]);
   const ATTRS = ["placeholder", "aria-label", "title"];
-  const done = new WeakMap();
+  const done = new WeakMap();            // nœud texte → texte traduit affiché
+  const frText = new WeakMap();          // nœud texte → texte français d'origine
+  const frAttr = new WeakMap();          // élément → { attribut: [français, anglais] }
   function tText(n) {
+    if (lang !== "en") return;
     const p = n.parentElement; if (!p || SKIP.has(p.tagName) || p.closest("[data-noi18n]")) return;
     if (done.get(n) === n.data) return;
+    frText.set(n, n.data);
     const t = tr(n.data); if (t !== n.data) n.data = t; done.set(n, n.data);
   }
   function tAttrs(el) {
+    if (lang !== "en" || !el.getAttribute) return;
     if (el.closest && el.closest("[data-noi18n]")) return;
-    for (const a of ATTRS) { const v = el.getAttribute && el.getAttribute(a); if (v && /[A-Za-zÀ-ÿ]/.test(v)) { const t = tr(v); if (t !== v) el.setAttribute(a, t); } }
+    for (const a of ATTRS) {
+      const v = el.getAttribute(a); if (!v || !/[A-Za-zÀ-ÿ]/.test(v)) continue;
+      const rec = frAttr.get(el) || {}; if (rec[a] && rec[a][1] === v) continue;
+      const t = tr(v); rec[a] = [v, t]; frAttr.set(el, rec); if (t !== v) el.setAttribute(a, t);
+    }
   }
   function walk(root) {
     if (lang !== "en" || !root) return;
@@ -443,34 +452,49 @@
     const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT); let n;
     while ((n = w.nextNode())) n.nodeType === 3 ? tText(n) : tAttrs(n);
   }
+  function restoreFR(root) {   // remet le français d'origine partout où une traduction est encore affichée
+    const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT); let n;
+    while ((n = w.nextNode())) {
+      if (n.nodeType === 3) { if (done.get(n) === n.data && frText.has(n)) n.data = frText.get(n); done.delete(n); }
+      else { const rec = frAttr.get(n); if (rec) { for (const a in rec) if (n.getAttribute(a) === rec[a][1]) n.setAttribute(a, rec[a][0]); frAttr.delete(n); } }
+    }
+  }
   window.i18nHTML = function (html) {
     if (lang !== "en") return html;
     const doc = new DOMParser().parseFromString(html, "text/html"); walk(doc.documentElement);
     doc.documentElement.lang = "en";
     return "<!DOCTYPE html>" + doc.documentElement.outerHTML;
   };
-  if (lang === "en") {
-    const obs = new MutationObserver(muts => {
-      for (const m of muts) {
-        if (m.type === "characterData") tText(m.target);
-        else if (m.type === "attributes") tAttrs(m.target);
-        else m.addedNodes.forEach(walk);
-      }
-    });
-    const start = () => { walk(document.body); document.title = tr(document.title); obs.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ATTRS }); };
-    if (document.body) start(); else document.addEventListener("DOMContentLoaded", start);
-    const _prompt = window.prompt; window.prompt = (msg, def) => _prompt.call(window, tr(msg), def);
-    const _N = window.Notification;
-    if (_N) { const N2 = function (title, opts) { return new _N(tr(title), { ...(opts || {}), body: opts && opts.body ? tr(opts.body) : undefined }); }; N2.requestPermission = (...a) => _N.requestPermission(...a); Object.defineProperty(N2, "permission", { get: () => _N.permission }); window.Notification = N2; }
-  }
+  let frTitle = document.title;
+  const obs = new MutationObserver(muts => {
+    if (lang !== "en") return;
+    for (const m of muts) {
+      if (m.type === "characterData") tText(m.target);
+      else if (m.type === "attributes") tAttrs(m.target);
+      else m.addedNodes.forEach(walk);
+    }
+  });
+  const start = () => { frTitle = document.title; walk(document.body); if (lang === "en") document.title = tr(frTitle); obs.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ATTRS }); };
+  if (document.body) start(); else document.addEventListener("DOMContentLoaded", start);
+  const _prompt = window.prompt; window.prompt = (msg, def) => _prompt.call(window, tr(msg), def);
+  const _N = window.Notification;
+  if (_N) { const N2 = function (title, opts) { return new _N(tr(title), { ...(opts || {}), body: opts && opts.body ? tr(opts.body) : undefined }); }; N2.requestPermission = (...a) => _N.requestPermission(...a); Object.defineProperty(N2, "permission", { get: () => _N.permission }); window.Notification = N2; }
+  const langBtnLabel = () => { const b = document.getElementById("langBtn"); if (b) b.textContent = lang === "en" ? "Français" : "English"; };
+  // Changement de langue sans recharger la page : on reste connecté.
   window.setLang = function (l) {
+    if (!["fr", "en"].includes(l) || l === lang) return;
     try { localStorage.setItem(KEY, l); } catch (e) {}
-    location.reload();
+    const wasTitle = document.title;
+    lang = l; window.LANG = l; document.documentElement.lang = l;
+    if (l === "en") { if (wasTitle === frTitle || !frTitle) frTitle = wasTitle; walk(document.body); document.title = tr(frTitle); }
+    else { restoreFR(document.body); document.title = frTitle; }
+    langBtnLabel();
+    try { window.dispatchEvent(new CustomEvent("bourselle-lang", { detail: l })); } catch (e) {}
   };
   // Bouton de langue sur l'écran de connexion
   document.addEventListener("DOMContentLoaded", () => {
     const b = document.getElementById("langBtn"); if (!b) return;
-    b.textContent = lang === "en" ? "Français" : "English";
+    langBtnLabel();
     b.onclick = () => window.setLang(lang === "en" ? "fr" : "en");
   });
 })();

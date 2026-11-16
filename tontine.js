@@ -245,16 +245,35 @@ async function shareText(text, title) {
   try { await navigator.clipboard.writeText(text); toast("Texte copié : colle-le dans ta messagerie"); } catch (e) { toast("Partage impossible ici"); }
 }
 function printDoc(title, body) {
-  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><title>${esc(title)}</title><style>
-    body{font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;color:#16324a;margin:28px}h1{font-size:20px;margin:0 0 4px}h2{font-size:15px;margin:18px 0 6px;border-bottom:1px solid #dfe5ea;padding-bottom:3px}
-    table{border-collapse:collapse;width:100%;font-size:12.5px}td,th{border:1px solid #dfe5ea;padding:5px 6px;text-align:left}th{background:#f3f5f7}.m{color:#6b7c8c;font-size:12px}pre{white-space:pre-wrap;font:inherit}
-    @media print{button{display:none}}</style></head><body><button onclick="print()" style="float:right;padding:8px 14px">Imprimer / PDF</button>${body}
-    <p class="m" style="margin-top:24px">Document généré par Bourselle le ${esc(frDate(todayISO()))}.</p></body></html>`;
-  const w = window.open("", "_blank");
-  const out = window.i18nHTML ? i18nHTML(html) : html;
-  if (w) { w.document.open(); w.document.write(out); w.document.close(); setTimeout(() => { try { w.focus(); w.print(); } catch (e) {} }, 400); }
-  else saveFile(`${title.replace(/[^\w\-]+/g, "-")}.html`, new Blob([out], { type: "text/html" }));
+  // Aperçu dans l'app (et non dans une nouvelle fenêtre) : dans l'app installée, une nouvelle fenêtre n'a pas de bouton retour.
+  closePrintView();
+  const v = document.createElement("div"); v.id = "printView";
+  v.innerHTML = `<style>
+    #printView{position:fixed;inset:0;z-index:9999;background:#fff;overflow:auto;-webkit-overflow-scrolling:touch;color:#16324a}
+    #printView .pv-bar{position:sticky;top:0;display:flex;gap:8px;align-items:center;justify-content:space-between;padding:10px 14px;padding-top:max(10px,env(safe-area-inset-top));background:#16324a;color:#fff;z-index:1}
+    #printView .pv-bar button{font:600 15px system-ui,-apple-system,"Segoe UI",sans-serif;border:0;border-radius:10px;padding:10px 16px;cursor:pointer;min-height:44px}
+    #printView .pv-close{background:rgba(255,255,255,.15);color:#fff}#printView .pv-print{background:#f2b928;color:#16324a}
+    #printView .pv-doc{font:14px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;margin:0 auto;max-width:860px;padding:24px 20px 60px}
+    #printView h1{font-size:20px;margin:0 0 4px}#printView h2{font-size:15px;margin:18px 0 6px;border-bottom:1px solid #dfe5ea;padding-bottom:3px}
+    #printView table{border-collapse:collapse;width:100%;font-size:12.5px}#printView td,#printView th{border:1px solid #dfe5ea;padding:5px 6px;text-align:left}#printView th{background:#f3f5f7}
+    #printView .m{color:#6b7c8c;font-size:12px}#printView pre{white-space:pre-wrap;font:inherit}
+    #printView .pv-wrap{overflow-x:auto}
+    @media print{body>*:not(#printView){display:none!important}#printView{position:static;overflow:visible}#printView .pv-bar{display:none}#printView .pv-doc{padding:0;max-width:none}}
+  </style><div class="pv-bar"><button type="button" class="pv-close">← Fermer</button><button type="button" class="pv-print">Imprimer / PDF</button></div>
+  <div class="pv-doc">${body}<p class="m" style="margin-top:24px">Document généré par Bourselle le ${esc(frDate(todayISO()))}.</p></div>`;
+  v.querySelectorAll(".pv-doc table").forEach(tb => { const w = document.createElement("div"); w.className = "pv-wrap"; tb.replaceWith(w); w.appendChild(tb); });
+  document.body.appendChild(v);
+  printView.prevTitle = document.title; document.title = title;   // nom proposé pour le PDF
+  v.querySelector(".pv-close").onclick = () => history.state && history.state.printView ? history.back() : closePrintView();
+  v.querySelector(".pv-print").onclick = () => { try { window.print(); } catch (e) { toast("Impression impossible ici"); } };
+  try { history.pushState({ printView: true }, ""); } catch (e) {}
 }
+function printView() {}
+function closePrintView() {
+  const v = document.getElementById("printView"); if (!v) return;
+  v.remove(); if (printView.prevTitle) document.title = printView.prevTitle;
+}
+window.addEventListener("popstate", () => closePrintView());
 
 // ---------- Écran Tontines ----------
 renderTontines = function () {
