@@ -540,11 +540,11 @@ const view = document.getElementById("view");
 // Ordre des suivis : d'abord un ordre par défaut (du plus courant au plus rare), puis il s'adapte à
 // ce que chaque personne ouvre le plus souvent sur son appareil. Recalculé à l'ouverture de l'app
 // seulement, pour que les onglets ne bougent pas pendant qu'on s'en sert.
-const SUBS_DEF = [["abos", "Abonnements"], ["objectifs", "Objectifs"], ["dettes", "Dettes"], ["partage", "Partage"], ["frais", "Frais"], ["garanties", "Garanties"], ["tontines", "Tontines"]];
+const SUBS_DEF = [["abos", "Abonnements"], ["tontines", "Tontines"], ["objectifs", "Objectifs"], ["partage", "Partage"], ["dettes", "Dettes"], ["frais", "Frais"], ["garanties", "Garanties"]];
 const SUB_KEY = "bourselle-suivis";
 function subUse() { try { return JSON.parse(localStorage.getItem(SUB_KEY) || "{}") || {}; } catch (e) { return {}; } }
 function bumpSub(k) { try { const u = subUse(); u[k] = (u[k] || 0) + 1; localStorage.setItem(SUB_KEY, JSON.stringify(u)); } catch (e) {} }
-const SUBS = (() => { const u = subUse(); return SUBS_DEF.map((x, i) => [x, i]).sort((a, b) => (u[b[0][0]] || 0) - (u[a[0][0]] || 0) || a[1] - b[1]).map(x => x[0]); })();
+const SUBS = SUBS_DEF;   // ordre fixe : abonnements, tontines, objectifs, partage, dettes, frais, garanties
 let lastSub = SUBS[0][0];
 function isSub(t) { return SUBS.some(([k]) => k === t); }
 function render() {
