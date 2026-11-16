@@ -190,7 +190,7 @@ function reminderEvents() {
   for (const [id, t] of Object.entries(tontines)) {
     if (t.closed) continue;
     for (const r of tonRounds(t)) if (daysUntil(r.date) >= 0)
-      ev.push({ uid: `ton-${id}-${r.k}`, date: r.date, title: `Tontine ${t.name} : cotisation ${eur(t.amount)}${r.who === t.me ? " · c'est ton tour de recevoir" : ""}`, desc: "", alarms: [remindDays()] });
+      ev.push({ uid: `ton-${id}-${r.k}`, date: r.date, title: `Tontine ${t.name} : cotisation ${typeof tm === "function" ? tm(t, dueOf(t, t.me)) : eur(t.amount)}${(r.m || [r.who]).includes(t.me) ? " · c'est ton tour de recevoir" : ""}`, desc: "", alarms: [remindDays()] });
   }
   return ev;
 }
@@ -198,7 +198,7 @@ function buildICS() {
   const stamp = new Date().toISOString().replace(/[-:]/g, "").replace(/\.\d+/, "");
   const L = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Bourselle//Rappels//FR", "CALSCALE:GREGORIAN", "X-WR-CALNAME:Bourselle"];
   for (const e of reminderEvents()) {
-    L.push("BEGIN:VEVENT", `UID:${e.uid}@bourselle`, `DTSTAMP:${stamp}`, `DTSTART;VALUE=DATE:${icsDate(e.date)}`, `DTEND;VALUE=DATE:${icsDate(addDays(e.date, 1))}`, icsFold(`SUMMARY:${icsText(e.title)}`));
+    L.push("BEGIN:VEVENT", `UID:${e.uid}@bourselle`, `DTSTAMP:${stamp}`, `DTSTART;VALUE=DATE:${icsDate(e.date)}`, `DTEND;VALUE=DATE:${icsDate(addDays(e.date, 1))}`, icsFold(`SUMMARY:${icsText(window.T ? T(e.title) : e.title)}`));
     if (e.rrule) L.push(`RRULE:${e.rrule}`);
     if (e.desc) L.push(icsFold(`DESCRIPTION:${icsText(e.desc)}`));
     for (const d of [...new Set(e.alarms)].filter(d => d >= 0)) L.push("BEGIN:VALARM", "ACTION:DISPLAY", icsFold(`DESCRIPTION:${icsText(e.title)}`), `TRIGGER:-P${d}DT${d ? 0 : 9}H`.replace("-P0DT9H", "PT9H"), "END:VALARM");
@@ -209,7 +209,7 @@ function buildICS() {
 }
 function dueSoon() {
   const n = remindDays(), out = [];
-  for (const e of reminderEvents()) { const d = daysUntil(e.date); if (d >= 0 && d <= Math.max(n, e.uid.startsWith("gar-") ? 7 : n)) out.push(`${e.title} (${d === 0 ? "aujourd'hui" : d === 1 ? "demain" : "dans " + d + " jours"})`); }
+  for (const e of reminderEvents()) { const d = daysUntil(e.date); if (d >= 0 && d <= Math.max(n, e.uid.startsWith("gar-") ? 7 : n)) out.push(`${window.T ? T(e.title) : e.title} (${d === 0 ? "aujourd'hui" : d === 1 ? "demain" : "dans " + d + " jours"})`); }
   return out;
 }
 function notifyDue() {
@@ -226,7 +226,7 @@ function csvOut(rows) { return "\uFEFF" + rows.map(r => r.map(v => { v = String(
 function itemsOfYear(y) { return allItems().filter(x => x.date && x.date.startsWith(y + "-")).sort((a, b) => a.date.localeCompare(b.date) || (a.created || 0) - (b.created || 0)); }
 function poste(x) { return x.type === "depense" ? catById(x.cat).name : x.cat || TYPE_LABEL[x.type]; }
 function buildLedger(y) {
-  const rows = [["Date", "Pièce", "Libellé", "Type", "Poste", "Débit (sortie)", "Crédit (entrée)", "Solde cumulé", "Justificatifs", "Note de frais"]];
+  const rows = [["Date", "Pièce", "Libellé", "Type", "Poste", "Débit (sortie)", "Crédit (entrée)", "Solde cumulé", "Justificatifs", "Note de frais"].map(h => window.T ? T(h) : h)];
   let bal = 0, n = 0, deb = 0, cre = 0;
   for (const x of itemsOfYear(y)) {
     const a = Number(x.amount) || 0, inn = x.type === "rentree";
@@ -243,7 +243,7 @@ function buildSynthese(y) {
     if (!lines.has(k)) lines.set(k, { type: x.type, name: poste(x), m: Array(12).fill(0) });
     lines.get(k).m[Number(x.date.slice(5, 7)) - 1] += Number(x.amount) || 0;
   }
-  const head = ["Type", "Poste", "janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc.", "Total"], rows = [head];
+  const head = (window.LANG === "en" ? ["Type", "Item", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Total"] : ["Type", "Poste", "janv.", "févr.", "mars", "avr.", "mai", "juin", "juil.", "août", "sept.", "oct.", "nov.", "déc.", "Total"]), rows = [head];
   const tot = {};
   for (const t of ["rentree", "depense", "epargne", "invest"]) {
     const ls = [...lines.values()].filter(l => l.type === t).sort((a, b) => a.name.localeCompare(b.name, "fr"));
