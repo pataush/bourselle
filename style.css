@@ -209,7 +209,7 @@ nav.tabs .cnt { position: absolute; top: 3px; right: calc(50% - 22px); min-width
 .f2 h3 { font-family: var(--display); font-size: 1.1rem; margin: 0 0 6px; }
 @media (prefers-reduced-motion: no-preference) { .sheet { animation: up .22s ease-out; } @keyframes up { from { transform: translateY(30px); opacity: .6; } } }
 
-.login { min-height: 100%; display: grid; place-items: center; padding: 28px 18px calc(28px + env(safe-area-inset-bottom)); background: var(--head); color: var(--head-ink); }
+.login { position: relative; min-height: 100%; display: grid; place-items: center; padding: 28px 18px calc(28px + env(safe-area-inset-bottom)); background: var(--head); color: var(--head-ink); }
 .login-in { width: 100%; max-width: 400px; display: flex; flex-direction: column; gap: 14px; }
 .login .logo img { width: 72px; height: 72px; border-radius: 18px; box-shadow: 0 6px 20px rgba(0,0,0,.25); }
 .login h1 { font-family: var(--display); font-weight: 800; font-size: 2rem; margin: 0; letter-spacing: -.02em; }
@@ -276,3 +276,26 @@ select.field { appearance: auto; }
 .plus-usage div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px dashed var(--line); padding-bottom: 4px; }
 .plus-h { font-family: var(--display); font-size: .95rem; margin: 16px 0 6px; display: flex; align-items: center; gap: 6px; }
 .plus-lock { font-family: var(--body); font-size: .66rem; font-weight: 700; background: var(--accent); color: var(--accent-ink); padding: 1px 7px; border-radius: 999px; }
+/* ---------- Tontines complètes ---------- */
+.ton-tabs { margin-top: 4px; gap: 6px; }
+.ton-tabs .chip { padding: 5px 10px; font-size: .76rem; }
+.ton-panel { border-top: 1px dashed var(--line); padding-top: 8px; }
+.ton-panel .fc-list { margin-top: 0; }
+.fc-it.ton-row { grid-template-columns: 22px 78px 1fr auto; align-items: start; }
+.fc-it.ton-mem { grid-template-columns: 1fr auto; align-items: center; }
+.ton-btns { display: flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.ton-btns .chip { padding: 4px 9px; font-size: .74rem; text-decoration: none; }
+.ton-btns a.chip { color: inherit; }
+.ton-round { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; font-size: .86rem; }
+.ton-kpi { display: flex; justify-content: space-between; align-items: baseline; font-size: .9rem; }
+.ton-kpi b { font-family: var(--display); font-size: 1.15rem; }
+.ton-role { font-size: .66rem; font-weight: 700; background: var(--ink); color: var(--surface); padding: 1px 6px; border-radius: 99px; }
+.ton-members { display: grid; gap: 6px; }
+.ton-mrow { display: grid; grid-template-columns: auto 1fr 1fr; gap: 6px; align-items: center; border: 1px solid var(--line); border-radius: 12px; padding: 8px; }
+.ton-mrow [data-f=parts], .ton-mrow [data-f=role] { grid-column: span 1; }
+.ton-mrow [data-del] { justify-self: end; }
+.ton-me { font-size: .76rem; display: flex; align-items: center; gap: 4px; white-space: nowrap; }
+.ton-checks { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: .86rem; }
+.ton-more { margin-top: 12px; border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; }
+.ton-more summary { cursor: pointer; font-weight: 600; font-size: .88rem; }
+.lang-btn { position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 12px; border: 1px solid rgba(255,255,255,.35); background: rgba(255,255,255,.12); color: inherit; border-radius: 999px; padding: 6px 12px; font: inherit; font-size: .8rem; cursor: pointer; z-index: 2; }
