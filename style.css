@@ -299,3 +299,11 @@ select.field { appearance: auto; }
 .ton-more { margin-top: 12px; border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; }
 .ton-more summary { cursor: pointer; font-weight: 600; font-size: .88rem; }
 .lang-btn { position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 12px; border: 1px solid rgba(255,255,255,.35); background: rgba(255,255,255,.12); color: inherit; border-radius: 999px; padding: 6px 12px; font: inherit; font-size: .8rem; cursor: pointer; z-index: 2; }
+/* ---------- Devise d'une opération ---------- */
+.cur-sel { font-family: var(--display); font-weight: 700; font-size: 1.05rem; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); padding: 4px 6px; max-width: 34%; }
+.fx-line { margin: -2px 0 8px; text-align: center; }
+.fx-rate { display: inline-flex; align-items: center; gap: 6px; font-size: .86rem; flex-wrap: wrap; justify-content: center; }
+.fx-rate input { width: 110px; text-align: right; padding: 6px 8px; }
+.fx-rate b { margin-left: 6px; }
+.fx-line .hint { margin: 4px 0 0; font-size: .74rem; }
+.tx .a small.orig { display: block; font-size: .7rem; font-weight: 500; color: var(--muted); text-align: right; }

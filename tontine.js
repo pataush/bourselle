@@ -31,6 +31,7 @@ function curFmt(c, v) {
 function tm(t, v) { return curFmt(tcur(t), v); }
 // Nombre d'unités de la devise de la tontine pour 1 unité de la devise du budget.
 function fixedRate(from, to) {
+  if (typeof fxFixed === "function") return fxFixed(from, to);
   if (from === to) return 1;
   const cfa = c => c === "XOF" || c === "XAF";
   if (cfa(from) && cfa(to)) return 1;
@@ -235,10 +236,11 @@ const isOrganizer = t => ["president", "tresorier", "secretaire"].includes(tmem(
 
 // ---------- Messages (WhatsApp, reçus) ----------
 function waLink(phone, text) { const d = String(phone || "").replace(/[^\d]/g, "").replace(/^00/, ""); return `https://wa.me/${d}?text=${encodeURIComponent(text)}`; }
-function relanceText(t, r, m, due) { return `Bonjour ${m.name}, petit rappel : ta cotisation de ${tm(t, due)} pour la tontine « ${t.name} » (${t.type === "rotative" ? "tour" : "période"} ${r.k + 1}, le ${frDate(r.date)}) n'est pas encore réglée. Merci !`; }
+const TT = x => (window.T ? window.T(x) : x);
+function relanceText(t, r, m, due) { return TT(`Bonjour ${m.name}, petit rappel : ta cotisation de ${tm(t, due)} pour la tontine « ${t.name} » (${t.type === "rotative" ? "tour" : "période"} ${r.k + 1}, le ${frDate(r.date)}) n'est pas encore réglée. Merci !`); }
 function receiptText(t, r, m, p) {
   const tres = t.members.find(x => x.role === "tresorier");
-  return `REÇU n° ${p.n || "—"}\nTontine « ${t.name} »\n${m.name} a versé ${tm(t, Number(p.amount) + Number(p.pen || 0))}${p.pen ? ` (dont ${tm(t, p.pen)} de pénalité)` : ""} le ${frDate(p.date)}\npour le ${t.type === "rotative" ? "tour" : "période"} ${r.k + 1} du ${frDate(r.date)}.${tres ? `\nTrésorier(e) : ${tres.name}` : ""}`;
+  return TT(`REÇU n° ${p.n || "—"}\nTontine « ${t.name} »\n${m.name} a versé ${tm(t, Number(p.amount) + Number(p.pen || 0))}${p.pen ? ` (dont ${tm(t, p.pen)} de pénalité)` : ""} le ${frDate(p.date)}\npour le ${t.type === "rotative" ? "tour" : "période"} ${r.k + 1} du ${frDate(r.date)}.${tres ? `\nTrésorier(e) : ${tres.name}` : ""}`);
 }
 async function shareText(text, title) {
   try { if (navigator.share) { await navigator.share({ title, text }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
@@ -371,7 +373,41 @@ function tonPanelHTML(id, t, s, v) {
   }
   return "";
 }
-function rulesTemplate(t) {
+function rulesTemplate(t) { return window.LANG === "en" ? rulesTemplateEN(t) : rulesTemplateFR(t); }
+function rulesTemplateEN(t) {
+  const rot = t.type === "rotative", p = t.penalty, per = { semaine: "week", mois: "month", an: "year" }[t.freq] || "period";
+  const role = r => ({ president: "Chair", tresorier: "Treasurer", secretaire: "Secretary" })[r] || "Member";
+  const bureau = t.members.filter(m => m.role).map(m => `- ${role(m.role)}: ${m.name}`).join("\n");
+  return `RULES – TONTINE “${t.name}”
+
+1. Purpose
+${rot ? "Members pay a contribution every turn; each turn, the pot goes to the recipient(s) set by the payout order." : t.type === "pret" ? "Members pay a contribution every period. The fund may lend to members, with interest. At the end, the fund is shared out in proportion to payments." : "Members pay a contribution every period. At the end, the fund is shared out in proportion to payments."}
+
+2. Contribution
+${tm(t, t.amount)} per share, every ${per}, starting on ${frDate(t.start)}.${t.members.some(m => Number(m.parts) !== 1) ? " A member may hold several shares or a half-share; their contribution and what they receive are proportional." : ""}
+
+3. Late payments
+${p.mode ? `Any contribution paid more than ${Number(p.grace) || 0} day(s) after the due date incurs a penalty of ${p.mode === "pct" ? p.value + "% of the contribution" : tm(t, p.value)}, paid into the fund.` : "Late payments must be reported to the committee. No penalty applies."}
+
+4. Fees and emergency fund
+${t.fee ? `Management fee: ${tm(t, t.fee)} per member per ${per}.` : "No management fee."} ${t.caisseContrib ? `Emergency fund: ${tm(t, t.caisseContrib)} per member per ${per}, to help a member in case of an event (bereavement, birth, illness…), as decided by the committee.` : ""}
+${rot ? `
+5. Payout order
+The order is set in advance (by lot or agreement). Two members may swap turns with the committee's approval. A member may get an earlier turn through a bid: the bid amount goes into the fund.
+` : t.type === "pret" ? `
+5. Loans
+A member who is up to date with contributions may borrow from the fund. The interest rate and repayment date are set when the loan is made. Interest benefits all members at the final share-out.
+` : ""}
+6. Leaving the tontine
+A member who has already received the pot must keep paying all contributions until the end. A member who leaves before receiving the pot is refunded their payments at the end of the tontine, unless the committee decides otherwise.
+
+7. Committee
+${bureau || "- To be appointed"}
+
+Done on ${frDate(todayISO())}. Members' signatures:
+${t.members.map(m => `- ${m.name}: ________________`).join("\n")}`;
+}
+function rulesTemplateFR(t) {
   const rot = t.type === "rotative", p = t.penalty;
   const bureau = t.members.filter(m => m.role).map(m => `- ${roleName(m.role)} : ${m.name}`).join("\n");
   return `RÈGLEMENT INTÉRIEUR – TONTINE « ${t.name} »
@@ -452,7 +488,7 @@ function bindTontines() {
     if (a === "pay") { const r = s.unpaid[0] || s.cur; setPaid(id, t, r.k, t.me, todayISO()); render(); toast(`Cotisation ${t.type === "rotative" ? "du tour" : "de la période"} ${r.k + 1} enregistrée (${tm(t, dueOf(t, t.me) + (t.pays[r.k + ":" + t.me].pen || 0))})`); }
     if (a === "pot") { addMyTx(id, t, s.mine.k, "pot", todayISO(), potFor(t, s.mine, t.me)); render(); toast(`${tm(t, potFor(t, s.mine, t.me))} ajoutés à tes rentrées`); }
     if (a === "fin") { const v = fundOf(id, t).share(t.me); addMyTx(id, t, -1, "fin", todayISO(), v); render(); toast(`Ta part (${tm(t, v)}) est ajoutée à tes rentrées`); }
-    if (a === "relall") { const late = lateList(id, t).filter(x => x.m.id !== t.me); const txt = `Tontine « ${t.name} » – cotisations en retard :\n` + late.map(x => `• ${x.m.name} : ${tm(t, x.due)} (${t.type === "rotative" ? "tour" : "période"} ${x.r.k + 1}, ${frDate(x.r.date)})`).join("\n") + "\nMerci de régulariser rapidement 🙏"; window.open(waLink("", txt), "_blank", "noopener"); }
+    if (a === "relall") { const late = lateList(id, t).filter(x => x.m.id !== t.me); const txt = `Tontine « ${t.name} » – cotisations en retard :\n` + late.map(x => `• ${x.m.name} : ${tm(t, x.due)} (${t.type === "rotative" ? "tour" : "période"} ${x.r.k + 1}, ${frDate(x.r.date)})`).join("\n") + "\nMerci de régulariser rapidement 🙏"; window.open(waLink("", TT(txt)), "_blank", "noopener"); }
     if (a === "caisseOut" || a === "caisseIn") caisseForm(id, t, a === "caisseIn" ? "in" : "out");
     if (a === "loan") loanForm(id, t);
     if (a === "meet") meetingForm(id, t, null);
@@ -586,7 +622,7 @@ editTontine = function (id) {
       if (named.length < 2) { toast("Indique au moins deux membres"); return false; }
       if (!named.some(m => m.id === me)) { toast("Coche « moi » sur ta ligne"); return false; }
       if (new Set(named.map(m => m.name.trim().toLowerCase())).size !== named.length) { toast("Deux membres ont le même nom : ajoute une initiale"); return false; }
-      const rate = parseAmount(val("tnRate"));
+      const rate = parseNum(val("tnRate"));
       if (!fixedRate(cur, baseCur()) && !(rate > 0)) { toast(`Indique le taux : combien de ${cur} pour 1 ${baseCur()}`); return false; }
       const nt = { ...t, name: name.slice(0, 60), type, amount, start, freq, currency: cur, rate: fixedRate(cur, baseCur()) ? 0 : rate,
         members: named.map(m => ({ ...m, name: m.name.trim().slice(0, 40), phone: (m.phone || "").trim().slice(0, 25) })), me, order: order.slice(),
@@ -637,6 +673,7 @@ editTontine = function (id) {
     document.getElementById("tnTypeHint").textContent = TON_TYPE_HINT[type];
     const cur = val("tnCur"), fx = fixedRate(cur, baseCur());
     document.getElementById("tnRateWrap").hidden = !!fx;
+    if (!fx && !val("tnRate") && typeof fxRate === "function") fxRate(cur).then(i => { const el = document.getElementById("tnRate"); if (i && el && !el.value && val("tnCur") === cur) el.value = numStr(fxRound(i.rate)); });
     document.querySelector("#tnRateWrap .lbl").textContent = `Taux : ${cur} pour 1 ${baseCur()}`;
     const a = parseAmount(val("tnAmount")), tp = totalParts(tmp);
     if (isRot) {

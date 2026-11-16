@@ -83,6 +83,55 @@ function applyCurrency() {
 }
 function curSym() { try { return (fmt.formatToParts(1).find(p => p.type === "currency") || {}).value || "€"; } catch (e) { return "€"; } }
 applyCurrency();
+function baseCurrency() { return (typeof settings !== "undefined" && settings && settings.currency) || "EUR"; }
+function fmtCur(c, v) {
+  const z = NO_CENTS.includes(c);
+  try { return new Intl.NumberFormat(appLocale(), { style: "currency", currency: c, minimumFractionDigits: z ? 0 : 2, maximumFractionDigits: z ? 0 : 2 }).format(v || 0); }
+  catch (e) { return `${v} ${c}`; }
+}
+function curSymOf(c) { try { return (new Intl.NumberFormat(appLocale(), { style: "currency", currency: c }).formatToParts(1).find(p => p.type === "currency") || {}).value || c; } catch (e) { return c; } }
+
+// ---------- Taux de change ----------
+// Taux = nombre d'unités de la devise étrangère pour 1 unité de la devise du budget.
+// Parités fixes (franc CFA, franc comorien ↔ euro) ; sinon taux du jour (ExchangeRate-API, Frankfurter en secours),
+// gardé sur l'appareil une journée, et le dernier taux utilisé en dernier recours.
+const FX_PEG = { XOF: 655.957, XAF: 655.957, KMF: 491.96775 };
+function fxFixed(cur, base) {
+  if (cur === base) return 1;
+  const pe = c => c === "EUR" ? 1 : FX_PEG[c];
+  return pe(cur) && pe(base) ? pe(cur) / pe(base) : 0;
+}
+const FX_KEY = "bourselle-fx";
+function fxCache() { try { return JSON.parse(localStorage.getItem(FX_KEY) || "null"); } catch (e) { return null; } }
+let fxLoading = null;
+async function fxLoad(force) {
+  const base = baseCurrency(), c = fxCache();
+  if (!force && c && c.base === base && c.day === todayISO()) return c;
+  if (fxLoading) return fxLoading;
+  fxLoading = (async () => {
+    const sources = [
+      async () => { const r = await (await fetch(`https://open.er-api.com/v6/latest/${base}`)).json(); if (r.result !== "success") throw 0; return { rates: r.rates, src: "ExchangeRate-API", url: "https://www.exchangerate-api.com", at: (r.time_last_update_utc || "") }; },
+      async () => { const r = await (await fetch(`https://api.frankfurter.app/latest?from=${base}`)).json(); if (!r.rates) throw 0; return { rates: r.rates, src: "Frankfurter (BCE)", url: "https://frankfurter.dev", at: r.date || "" }; },
+    ];
+    for (const get of sources) {
+      try { const d = await Promise.race([get(), new Promise((_, rej) => setTimeout(() => rej(0), 6000))]); const v = { base, day: todayISO(), ...d }; try { localStorage.setItem(FX_KEY, JSON.stringify(v)); } catch (e) {} return v; }
+      catch (e) {}
+    }
+    return c && c.base === base ? c : null;   // hors ligne : derniers taux connus
+  })();
+  try { return await fxLoading; } finally { fxLoading = null; }
+}
+// { rate, src, live } pour une devise, ou null si inconnue
+async function fxRate(cur) {
+  const base = baseCurrency(), fx = fxFixed(cur, base);
+  if (fx) return { rate: fx, src: "fixe" };
+  const c = await fxLoad();
+  if (c && c.rates && c.rates[cur]) return { rate: c.rates[cur], src: c.src, url: c.url, live: c.day === todayISO() };
+  const last = (settings.fxLast || {})[cur];
+  return last ? { rate: last, src: "dernier" } : null;
+}
+function numStr(v) { return window.LANG === "en" ? String(v) : String(v).replace(".", ","); }
+function fxRound(r) { return r >= 100 ? Math.round(r * 1000) / 1000 : r >= 1 ? Math.round(r * 10000) / 10000 : Math.round(r * 1e6) / 1e6; }
 function eur(v, round) { return (round ? fmt0 : fmt).format(v || 0); }
 function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
 function catById(id) { return settings.cats.find(c => c.id === id) || { id, name: id || "Sans catégorie", color: "#9aa5ad", budget: 0 }; }
@@ -375,7 +424,7 @@ function txListHTML(list, withYear) {
     else if (x.type === "rentree") { name = x.note || x.cat; color = "#2f6fb0"; sub = "Rentrée · " + x.cat; cls = "in"; sign = "+"; }
     else { name = x.note || x.cat; color = x.type === "epargne" ? "#1f8a5b" : "#16324a"; sub = (x.type === "epargne" ? "Épargne · " : "Investissement · ") + x.cat; cls = "save"; sign = "→"; }
     html += `<button class="tx" data-id="${esc(x.id)}"><span class="ic" style="background:${color}">${esc((x.type === "depense" ? catById(x.cat).name : x.cat || "?").slice(0, 2))}</span>
-      <span><div class="n">${esc(name)}${x.ndf ? `<span class="badge ${x.ndfStatus === "rembourse" ? "done" : "todo"}">${x.ndfStatus === "rembourse" ? "Remboursée" : "Note de frais"}</span>` : ""}</div><div class="s">${esc(sub)}${x.files && x.files.length ? `<span class="clip">${CLIP}${x.files.length}</span>` : ""}${x.warranty ? ` · garantie jusqu'au ${esc(frDate(x.warranty.end))}` : ""}</div></span><span class="a num ${cls}">${sign} ${esc(eur(x.amount))}</span></button>`;
+      <span><div class="n">${esc(name)}${x.ndf ? `<span class="badge ${x.ndfStatus === "rembourse" ? "done" : "todo"}">${x.ndfStatus === "rembourse" ? "Remboursée" : "Note de frais"}</span>` : ""}</div><div class="s">${esc(sub)}${x.files && x.files.length ? `<span class="clip">${CLIP}${x.files.length}</span>` : ""}${x.warranty ? ` · garantie jusqu'au ${esc(frDate(x.warranty.end))}` : ""}</div></span><span class="a num ${cls}">${sign} ${esc(eur(x.amount))}${x.orig ? `<small class="orig">${esc(fmtCur(x.orig.cur, x.orig.amount))}</small>` : ""}</span></button>`;
   }
   return html;
 }
@@ -415,7 +464,8 @@ function renderReglages() {
   <div class="card"><h2>Langue et devise</h2>
     <div class="two"><div><label class="lbl" for="setLang">Langue</label><select class="field" id="setLang"><option value="fr"${window.LANG !== "en" ? " selected" : ""}>Français</option><option value="en"${window.LANG === "en" ? " selected" : ""}>English</option></select></div>
       <div><label class="lbl" for="setCur">Devise</label><select class="field" id="setCur">${APP_CURRENCIES.map(([c, l]) => `<option value="${c}"${c === (settings.currency || "EUR") ? " selected" : ""}>${esc(c)} · ${esc(l)}</option>`).join("")}</select></div></div>
-    <p class="hint">Changer de devise change l'affichage de tous les montants ; ceux déjà saisis ne sont pas convertis. Les tontines peuvent avoir leur propre devise, convertie dans celle-ci.</p></div>
+    <p class="hint">Changer de devise change l'affichage de tous les montants ; ceux déjà saisis ne sont pas convertis. Les tontines peuvent avoir leur propre devise, convertie dans celle-ci.</p>
+    <p class="hint">Une opération peut aussi être saisie dans une autre devise (bouton à côté du montant) : elle est convertie au taux du jour, que tu peux corriger. Taux fournis par <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener">Rates By Exchange Rate API</a>${(fxCache() || {}).day ? ` · mis à jour le ${esc(frDate(fxCache().day))}` : ""}.</p></div>
   <div class="card"><h2>Budget mensuel par catégorie<small>total ${esc(eur(totalBud, true))}</small></h2>
     ${settings.cats.map((c, i) => `<div class="set-row"><input type="color" value="${esc(c.color)}" data-i="${i}" data-f="color" aria-label="Couleur ${esc(c.name)}">
       <input class="field" value="${esc(c.name)}" data-i="${i}" data-f="name" aria-label="Nom de la catégorie">
@@ -486,7 +536,7 @@ function renderReglages() {
 }
 
 function buildCSV(filter) {
-  const rows = [["Date", "Type", "Catégorie / source", "Note", "Montant", "Fixe", "Note de frais", "Statut", "Justificatifs", "Article garanti", "Fin de garantie", "Magasin", "N° de série", "Infos garantie"].map(h => window.T ? T(h) : h)];
+  const rows = [["Date", "Type", "Catégorie / source", "Note", "Montant", "Fixe", "Note de frais", "Statut", "Justificatifs", "Article garanti", "Fin de garantie", "Magasin", "N° de série", "Infos garantie", "Montant d'origine", "Devise d'origine", "Taux"].map(h => window.T ? T(h) : h)];
   const all = [];
   for (const [k, d] of Object.entries(months)) for (const [id, t] of Object.entries(d.items || {})) if (!filter || filter(t)) all.push(t);
   all.sort((a, b) => a.date.localeCompare(b.date));
@@ -494,7 +544,8 @@ function buildCSV(filter) {
     t.type === "depense" ? catById(t.cat).name : t.cat, t.note || "", String(t.amount).replace(".", ","), t.fixe ? "Fixe" : "Variable",
     t.ndf ? "Oui" : "", t.ndf ? (t.ndfStatus === "rembourse" ? "Remboursée" + (t.ndfPaidOn ? " le " + t.ndfPaidOn.split("-").reverse().join("/") : "") : "À rembourser") : "",
     String((t.files || []).length || ""), t.warranty ? t.warranty.item : "", t.warranty ? frDate(t.warranty.end) : "",
-    t.warranty ? t.warranty.shop || "" : "", t.warranty ? t.warranty.serial || "" : "", t.warranty ? t.warranty.info || "" : ""]);
+    t.warranty ? t.warranty.shop || "" : "", t.warranty ? t.warranty.serial || "" : "", t.warranty ? t.warranty.info || "" : "",
+    t.orig ? String(t.orig.amount).replace(".", ",") : "", t.orig ? t.orig.cur : "", t.orig ? String(t.orig.rate).replace(".", ",") : ""]);
   return "﻿" + rows.map(r => r.map(v => /[;"\n]/.test(v) ? `"${String(v).replace(/"/g, '""')}"` : v).join(";")).join("\r\n");
 }
 function downloadURL(url, filename) {
@@ -590,6 +641,7 @@ function toast(t) { const el = document.getElementById("toast"); el.textContent 
 // ---------- Formulaire ----------
 let form = null;
 const MAX_FILE = 20 * 1024 * 1024;
+function parseNum(s) { const v = parseFloat(String(s).replace(/\s/g, "").replace(",", ".")); return isFinite(v) ? v : NaN; }
 function parseAmount(s) { const v = parseFloat(String(s).replace(/\s/g, "").replace(",", ".")); return isFinite(v) ? Math.round(v * 100) / 100 : NaN; }
 function openSheet(tx) {
   const editing = !!tx;
@@ -604,7 +656,17 @@ function openSheet(tx) {
   document.getElementById("gSerial").value = w ? w.serial || "" : "";
   document.getElementById("gInfo").value = w ? w.info || "" : "";
   document.getElementById("gEnd").value = w ? w.end : "";
-  document.getElementById("fAmount").value = form.amount === "" ? "" : String(form.amount).replace(".", ",");
+  form.ocur = form.orig && form.orig.cur ? form.orig.cur : baseCurrency();
+  form.orate = form.orig && form.orig.rate ? form.orig.rate : "";
+  const amt0 = form.orig && form.orig.amount != null ? form.orig.amount : form.amount;
+  document.getElementById("fAmount").value = amt0 === "" ? "" : String(amt0).replace(".", ",");
+  const cs = document.getElementById("fCur");
+  if (cs) {
+    cs.innerHTML = APP_CURRENCIES.map(([c]) => `<option value="${c}">${esc(curSymOf(c) === c ? c : curSymOf(c) + " " + c)}</option>`).join("");
+    cs.value = form.ocur;
+    cs.onchange = () => { form.ocur = cs.value; form.orate = ""; drawFx(true); };
+  }
+  drawFx(false);
   document.getElementById("fDate").value = form.date;
   document.getElementById("fNote").value = form.note || "";
   document.getElementById("fDelete").hidden = !editing;
@@ -612,6 +674,33 @@ function openSheet(tx) {
   document.getElementById("sheetRoot").classList.add("open");
   if (!editing) setTimeout(() => document.getElementById("fAmount").focus(), 60);
 }
+function drawFx(fetchRate) {
+  const line = document.getElementById("fxLine"); if (!line || !form) return;
+  const base = baseCurrency(), cur = form.ocur || base;
+  line.hidden = cur === base;
+  if (cur === base) return;
+  const show = info => {
+    if (!form || form.ocur !== cur) return;
+    const ri = document.getElementById("fRate");
+    if (!form.orate && info) form.orate = fxRound(info.rate);
+    if (ri && document.activeElement !== ri) ri.value = form.orate ? numStr(form.orate) : "";
+    const src = document.getElementById("fxSrc");
+    if (src) src.innerHTML = !info ? "Indique le taux de change." : info.src === "fixe" ? "Parité fixe." : info.src === "dernier" ? "Dernier taux utilisé (taux du jour indisponible hors connexion)." : `Taux du jour : <a href="${esc(info.url)}" target="_blank" rel="noopener">${esc(info.src)}</a>. Tu peux le corriger (taux de ta banque ou de ton transfert).`;
+    fxPreview();
+  };
+  document.getElementById("fxBase").textContent = `1 ${curSymOf(base)} =`;
+  document.getElementById("fxCur").textContent = curSymOf(cur);
+  if (form.orate && !fetchRate) { show({ rate: form.orate, src: form.orig && form.orig.src || "dernier" }); return; }
+  document.getElementById("fxSrc").textContent = "Recherche du taux du jour…";
+  fxRate(cur).then(show);
+}
+function fxPreview() {
+  const el = document.getElementById("fxEq"); if (!el || !form) return;
+  const a = parseAmount(document.getElementById("fAmount").value), r = parseNum(document.getElementById("fRate").value);
+  el.textContent = a > 0 && r > 0 ? `≈ ${eur(Math.round(a / r * 100) / 100)}` : "";
+}
+document.getElementById("fAmount").addEventListener("input", () => { if (form && form.ocur && form.ocur !== baseCurrency()) fxPreview(); });
+document.getElementById("fRate").addEventListener("input", e => { if (!form) return; form.orate = parseNum(e.target.value) || ""; fxPreview(); });
 function closeSheet(saved) {
   if (form && !saved) for (const id of form.uploaded) dropAsset(id);   // annulé : on retire les fichiers ajoutés
   document.getElementById("sheetRoot").classList.remove("open"); form = null;
@@ -737,9 +826,13 @@ document.getElementById("fDelete").onclick = () => {
 document.getElementById("sheet").onsubmit = e => {
   e.preventDefault();
   if (form.busy) { toast("Patiente, la facture est en cours d'envoi…"); return; }
-  const amount = parseAmount(document.getElementById("fAmount").value);
+  const amountIn = parseAmount(document.getElementById("fAmount").value);
   const date = document.getElementById("fDate").value;
-  if (!(amount > 0)) { toast("Indique un montant supérieur à 0"); document.getElementById("fAmount").focus(); return; }
+  if (!(amountIn > 0)) { toast("Indique un montant supérieur à 0"); document.getElementById("fAmount").focus(); return; }
+  const ocur = form.ocur || baseCurrency(), foreign = ocur !== baseCurrency();
+  const orate = foreign ? parseNum(document.getElementById("fRate").value) : 1;
+  if (foreign && !(orate > 0)) { toast("Indique le taux de change"); document.getElementById("fRate").focus(); return; }
+  const amount = foreign ? Math.round(amountIn / orate * 100) / 100 : amountIn;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast("Choisis une date"); return; }
   const isNdf = form.type === "depense" && !!form.ndf;
   const tx = { id: form.id, type: form.type, amount, cat: form.cat, date, note: document.getElementById("fNote").value.trim().slice(0, 80),
@@ -754,6 +847,10 @@ document.getElementById("sheet").onsubmit = e => {
       info: document.getElementById("gInfo").value.trim().slice(0, 200) };
   }
   if (isNdf) { tx.ndf = true; tx.ndfStatus = form.ndfStatus || "a_rembourser"; if (tx.ndfStatus === "rembourse") tx.ndfPaidOn = form.ndfPaidOn || todayISO(); }
+  if (foreign) {
+    tx.orig = { cur: ocur, amount: amountIn, rate: orate };
+    settings.fxLast = { ...(settings.fxLast || {}), [ocur]: orate }; saveSettings();
+  }
   if (form.rec) tx.rec = form.rec;
   if ((tx.type === "epargne" || tx.type === "invest") && form.goal && goals[form.goal]) tx.goal = form.goal;
   const old = form.oldKey, removed = form.removed, repeat = !form.oldKey && !isNdf ? form.repeat : "";
