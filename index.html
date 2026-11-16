@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16324a">
+<meta name="description" content="Suivi des dépenses, factures, garanties, abonnements et dettes, enregistré dans ton propre Google Drive ou OneDrive.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bourselle">
+<title>Bourselle – Mon budget</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<section class="login" id="login" hidden>
+  <div class="login-in">
+    <div class="logo"><img src="icons/icon-192.png" alt="" width="72" height="72"></div>
+    <h1>Bourselle</h1>
+    <p class="kicker">Mon budget, simplement</p>
+    <p class="tag">Tes dépenses, factures, garanties, abonnements et dettes, enregistrés dans <b>ton propre</b> cloud.</p>
+    <div class="login-btns">
+      <button class="login-btn" id="loginGoogle"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#4285F4" d="M45 24.5c0-1.6-.1-2.8-.4-4H24v7.6h11.8c-.5 3-2.4 5.6-5.4 7.3v6h7.6c4.5-4.1 7-10.2 7-16.9z"/><path fill="#34A853" d="M24 46c6.2 0 11.4-2 15.2-5.6l-7.6-6c-2 1.4-4.7 2.3-7.6 2.3-5.9 0-10.8-4-12.6-9.3H3.6v6.1C7.4 41.2 15.1 46 24 46z"/><path fill="#FBBC05" d="M11.4 27.4c-.4-1.4-.7-2.8-.7-4.4s.3-3 .7-4.4v-6.1H3.6C2 15.6 1 19.2 1 23s1 7.4 2.6 10.5l7.8-6.1z"/><path fill="#EA4335" d="M24 9.7c3.4 0 6.4 1.2 8.7 3.4l6.6-6.6C35.4 2.9 30.2.5 24 .5 15.1.5 7.4 5.3 3.6 12.5l7.8 6.1C13.2 13.7 18.1 9.7 24 9.7z"/></svg><span><b>Continuer avec Google</b><small></small></span></button>
+      <button class="login-btn" id="loginMicrosoft"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#F25022" d="M4 4h19v19H4z"/><path fill="#7FBA00" d="M25 4h19v19H25z"/><path fill="#00A4EF" d="M4 25h19v19H4z"/><path fill="#FFB900" d="M25 25h19v19H25z"/></svg><span><b>Continuer avec Microsoft</b><small></small></span></button>
+      <button class="login-btn" disabled><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="currentColor" d="M33.6 25.4c0-5 4.1-7.4 4.3-7.5-2.3-3.4-6-3.9-7.3-3.9-3.1-.3-6 1.8-7.6 1.8-1.6 0-4-1.8-6.5-1.7-3.4 0-6.5 2-8.2 5-3.5 6.1-.9 15 2.5 19.9 1.7 2.4 3.6 5.1 6.2 5 2.5-.1 3.4-1.6 6.4-1.6s3.8 1.6 6.4 1.6c2.7 0 4.4-2.4 6-4.8 1.9-2.8 2.7-5.5 2.7-5.6-.1-.1-5.2-2-4.9-8.2zM28.7 10.6c1.4-1.7 2.3-4 2.1-6.3-2 .1-4.4 1.3-5.8 3-1.3 1.5-2.4 3.9-2.1 6.2 2.2.2 4.4-1.1 5.8-2.9z"/></svg><span><b>Continuer avec Apple (iCloud)</b><small>Bientôt, avec l'app iPhone</small></span></button>
+    </div>
+    <p class="login-msg" id="loginMsg" role="status"></p>
+    <button class="demo" id="loginDemo">Essayer sans compte (données sur cet appareil)</button>
+    <p class="fine">L'app accède uniquement à son dossier « Bourselle » dans ton Drive, et à rien d'autre. Personne d'autre ne voit tes données.</p>
+  </div>
+</section>
+
+<div class="reconnect" id="reconnect" hidden><span>Ta session a expiré : tes dernières modifications ne sont pas encore enregistrées.</span><button class="btn primary" id="reconnectBtn">Se reconnecter</button></div>
+
+<div class="app" id="app" hidden>
+  <header class="top">
+    <div class="brand">
+      <h1><img src="icons/icon-192.png" alt=""><span class="nm">Bourselle<span class="sub">Mon budget</span></span></h1>
+      <div class="brand-r"><div class="sync"><span class="dot" id="syncDot"></span><span id="syncTxt">Connexion…</span></div><button class="hbtn" id="searchBtn" aria-label="Rechercher dans mes opérations"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button></div>
+    </div>
+    <div class="period">
+      <button id="prev" aria-label="Période précédente">‹</button>
+      <div class="label" id="periodLabel"></div>
+      <button id="next" aria-label="Période suivante">›</button>
+    </div>
+    <div class="result">
+      <div class="cap" id="resCap">Résultat du mois (rentrées − dépenses)</div>
+      <div class="big num" id="resBig">0 €</div>
+      <div id="resPill"></div>
+    </div>
+  </header>
+  <div class="subnav" id="subnav" hidden></div>
+  <main id="view"></main>
+</div>
+
+<button class="fab" id="fab" hidden aria-label="Ajouter une opération">+</button>
+<nav class="tabs" aria-label="Sections" hidden>
+  <div class="in" role="tablist">
+    <button role="tab" data-tab="mois" aria-selected="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Mois</button>
+    <button role="tab" data-tab="annee" aria-selected="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Année</button>
+    <button role="tab" data-tab="suivis" aria-selected="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>Suivis<span class="cnt" id="garCnt" hidden></span></button>
+    <button role="tab" data-tab="reglages" aria-selected="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Réglages</button>
+  </div>
+</nav>
+
+<div id="sheetRoot">
+  <div class="sheet-bg" id="sheetBg"></div>
+  <form class="sheet" id="sheet" autocomplete="off">
+    <div class="grab"></div>
+    <div class="seg" id="typeSeg" role="group" aria-label="Type d'opération"></div>
+    <button type="button" class="scan-btn" id="scanBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M8 9h8M8 12h8M8 15h5"/></svg>Scanner un ticket</button>
+    <input type="file" id="scanInput" accept="image/*" capture="environment" hidden>
+    <div class="amount"><input id="fAmount" inputmode="decimal" placeholder="0,00" aria-label="Montant"><span>€</span></div>
+    <span class="lbl" id="catLbl">Catégorie</span>
+    <div class="chips" id="fCats"></div>
+    <div class="two">
+      <div><label class="lbl" for="fDate">Date</label><input class="field" type="date" id="fDate"></div>
+      <div><label class="lbl" for="fNote">Note</label><input class="field" id="fNote" placeholder="ex. Carrefour"></div>
+    </div>
+    <div id="goalWrap" hidden><span class="lbl">Objectif d'épargne</span><div class="chips" id="fGoal"></div></div>
+    <div id="repWrap"><span class="lbl">Répéter automatiquement</span><div class="chips" id="fRep"></div><p class="hint" id="repHint" style="margin:6px 0 0"></p></div>
+    <span class="lbl">Type de charge</span>
+    <label class="toggle" for="fFixe"><span id="fixeTxt">Charge fixe (revient chaque mois)</span><input type="checkbox" id="fFixe"></label>
+    <div id="ndfWrap">
+      <span class="lbl">Note de frais</span>
+      <div class="ndf-box">
+        <label class="toggle" for="fNdf" style="border:0;padding:0;background:none"><span>Dépense à me faire rembourser</span><input type="checkbox" id="fNdf"></label>
+        <div class="seg2" id="fNdfStatus" hidden>
+          <button type="button" data-s="a_rembourser">À rembourser</button>
+          <button type="button" data-s="rembourse">Remboursée</button>
+        </div>
+      </div>
+    </div>
+    <div id="garWrap">
+      <span class="lbl">Garantie</span>
+      <div class="ndf-box">
+        <label class="toggle" for="fGar" style="border:0;padding:0;background:none"><span>Cet achat est sous garantie</span><input type="checkbox" id="fGar"></label>
+        <div class="gar-fields" id="garFields" hidden>
+          <input class="field" id="gItem" placeholder="Article (ex. Lave-linge Bosch Série 6)" aria-label="Article">
+          <div class="chips" id="gDur" role="group" aria-label="Durée de la garantie"></div>
+          <input class="field" type="date" id="gEnd" aria-label="Fin de garantie" hidden>
+          <div class="gar-end" id="gEndTxt"></div>
+          <div class="two"><input class="field" id="gShop" placeholder="Magasin / vendeur" aria-label="Magasin"><input class="field" id="gSerial" placeholder="N° de série" aria-label="Numéro de série"></div>
+          <input class="field" id="gInfo" placeholder="Couverture, contact SAV, n° de contrat…" aria-label="Infos garantie">
+        </div>
+      </div>
+    </div>
+    <span class="lbl" id="filesLbl">Facture / justificatif</span>
+    <div class="files" id="fFiles"></div>
+    <input type="file" id="fFileInput" accept="image/*,application/pdf" multiple hidden>
+    <p class="hint" id="filesHint" style="margin:6px 0 0"></p>
+    <div class="actions">
+      <button type="button" class="btn danger" id="fDelete" hidden>Supprimer</button>
+      <button type="button" class="btn" id="fCancel">Annuler</button>
+      <button type="submit" class="btn primary" id="fSave">Enregistrer</button>
+    </div>
+  </form>
+</div>
+<div id="sheet2Root">
+  <div class="sheet-bg" id="s2bg"></div>
+  <form class="sheet" id="sheet2" autocomplete="off"></form>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<div class="viewer" id="viewer" role="dialog" aria-label="Justificatif">
+  <div class="vbar"><button class="btn" id="vClose">Fermer</button><span id="vName" style="font-size:.85rem;opacity:.8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;text-align:center"></span><button class="btn" id="vOpen">Ouvrir</button><button class="btn primary" id="vDl">Télécharger</button></div>
+  <div class="vbody" id="vBody"></div>
+</div>
+
+
+<script src="config.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
+<script src="storage.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
