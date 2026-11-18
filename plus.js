@@ -226,14 +226,15 @@ function csvOut(rows) { return "\uFEFF" + rows.map(r => r.map(v => { v = String(
 function itemsOfYear(y) { return allItems().filter(x => x.date && x.date.startsWith(y + "-")).sort((a, b) => a.date.localeCompare(b.date) || (a.created || 0) - (b.created || 0)); }
 function poste(x) { return x.type === "depense" ? catById(x.cat).name : x.cat || TYPE_LABEL[x.type]; }
 function buildLedger(y) {
-  const rows = [["Date", "Pièce", "Libellé", "Type", "Poste", "Débit (sortie)", "Crédit (entrée)", "Solde cumulé", "Justificatifs", "Note de frais"].map(h => window.T ? T(h) : h)];
-  let bal = 0, n = 0, deb = 0, cre = 0;
+  const rows = [["Date", "Pièce", "Libellé", "Type", "Poste", "Débit (sortie)", "Crédit (entrée)", "Solde cumulé", "Justificatifs", "Note de frais", "Montant HT", "TVA", "Taux de TVA"].map(h => window.T ? T(h) : h)];
+  let bal = 0, n = 0, deb = 0, cre = 0, vat = 0;
   for (const x of itemsOfYear(y)) {
     const a = Number(x.amount) || 0, inn = x.type === "rentree";
     bal += inn ? a : -a; if (inn) cre += a; else deb += a;
-    rows.push([frDate(x.date), `${y}-${String(++n).padStart(4, "0")}`, x.note || poste(x), TYPE_LABEL[x.type] || x.type, poste(x), inn ? "" : nb(a), inn ? nb(a) : "", nb(bal), (x.files || []).length || "", x.ndf ? (x.ndfStatus === "rembourse" ? "Remboursée" : "À rembourser") : ""]);
+    rows.push([frDate(x.date), `${y}-${String(++n).padStart(4, "0")}`, x.note || poste(x), TYPE_LABEL[x.type] || x.type, poste(x), inn ? "" : nb(a), inn ? nb(a) : "", nb(bal), (x.files || []).length || "", x.ndf ? (x.ndfStatus === "rembourse" ? "Remboursée" : "À rembourser") : "",
+      ...(x.vat ? (() => { const k = x.orig && x.vat.cur === x.orig.cur && x.orig.rate ? 1 / x.orig.rate : 1, v = x.vat.amount * k; vat += v; return [nb(a - v), nb(v), x.vat.rate != null ? nb(x.vat.rate) + " %" : (x.vat.rates || []).map(e => nb(e.rate) + " %").join(" + ")]; })() : ["", "", ""])]);
   }
-  rows.push([], ["", "", "Totaux", "", "", nb(deb), nb(cre), nb(cre - deb), "", ""]);
+  rows.push([], ["", "", "Totaux", "", "", nb(deb), nb(cre), nb(cre - deb), "", "", "", nb(vat), ""]);
   return csvOut(rows);
 }
 function buildSynthese(y) {

@@ -573,7 +573,7 @@ function renderReglages() {
 }
 
 function buildCSV(filter) {
-  const rows = [["Date", "Type", "Catégorie / source", "Note", "Montant", "Fixe", "Note de frais", "Statut", "Justificatifs", "Article garanti", "Fin de garantie", "Magasin", "N° de série", "Infos garantie", "Montant d'origine", "Devise d'origine", "Taux"].map(h => window.T ? T(h) : h)];
+  const rows = [["Date", "Type", "Catégorie / source", "Note", "Montant", "Fixe", "Note de frais", "Statut", "Justificatifs", "Article garanti", "Fin de garantie", "Magasin", "N° de série", "Infos garantie", "Montant d'origine", "Devise d'origine", "Taux", "Montant HT", "TVA", "Taux de TVA"].map(h => window.T ? T(h) : h)];
   const all = [];
   for (const [k, d] of Object.entries(months)) for (const [id, t] of Object.entries(d.items || {})) if (!filter || filter(t)) all.push(t);
   all.sort((a, b) => a.date.localeCompare(b.date));
@@ -582,7 +582,9 @@ function buildCSV(filter) {
     t.ndf ? "Oui" : "", t.ndf ? (t.ndfStatus === "rembourse" ? "Remboursée" + (t.ndfPaidOn ? " le " + t.ndfPaidOn.split("-").reverse().join("/") : "") : "À rembourser") : "",
     String((t.files || []).length || ""), t.warranty ? t.warranty.item : "", t.warranty ? frDate(t.warranty.end) : "",
     t.warranty ? t.warranty.shop || "" : "", t.warranty ? t.warranty.serial || "" : "", t.warranty ? t.warranty.info || "" : "",
-    t.orig ? String(t.orig.amount).replace(".", ",") : "", t.orig ? t.orig.cur : "", t.orig ? String(t.orig.rate).replace(".", ",") : ""]);
+    t.orig ? String(t.orig.amount).replace(".", ",") : "", t.orig ? t.orig.cur : "", t.orig ? String(t.orig.rate).replace(".", ",") : "",
+    ...(() => { if (!t.vat) return ["", "", ""]; const k = t.orig && t.vat.cur === t.orig.cur && t.orig.rate ? 1 / t.orig.rate : 1, v = Math.round(t.vat.amount * k * 100) / 100;
+      return [String(Math.round((t.amount - v) * 100) / 100).replace(".", ","), String(v).replace(".", ","), t.vat.rate != null ? String(t.vat.rate).replace(".", ",") + " %" : (t.vat.rates || []).map(e => String(e.rate).replace(".", ",") + " %").join(" + ")]; })()]);
   return "﻿" + rows.map(r => r.map(v => /[;"\n]/.test(v) ? `"${String(v).replace(/"/g, '""')}"` : v).join(";")).join("\r\n");
 }
 function downloadURL(url, filename) {
@@ -687,6 +689,7 @@ function openSheet(tx) {
   form = editing ? { ...clone(tx), oldKey: tx.date.slice(0, 7) }
     : { id: newId(), type: "depense", amount: "", cat: "courses", date: tab === "frais" ? todayISO() : base, note: "", fixe: false, ndf: tab === "frais", ndfStatus: "a_rembourser" };
   form.files = form.files || []; form.uploaded = []; form.removed = []; form.busy = 0; form.repeat = ""; hideGarAsk();
+  form.vat = form.vat ? clone(form.vat) : null;
   const w = form.warranty || null;
   form.gar = { on: !!w, months: w ? (w.months ?? 0) : 24, end: w ? w.end : "" };
   document.getElementById("gItem").value = w ? w.item || "" : "";
@@ -739,6 +742,39 @@ function fxPreview() {
 }
 document.getElementById("fAmount").addEventListener("input", () => { if (form && form.ocur && form.ocur !== baseCurrency()) fxPreview(); });
 document.getElementById("fRate").addEventListener("input", e => { if (!form) return; form.orate = parseNum(e.target.value) || ""; fxPreview(); });
+// ---------- TVA (notes de frais) ----------
+const VAT_CHOICES = [0, 2.1, 5.5, 10, 20, 8.5, 18, 19.25];
+const money = (v, c) => c && c !== baseCurrency() ? fmtCur(c, v) : eur(v);
+const vatTxt = r => window.LANG === "en" ? String(r) + "%" : String(r).replace(".", ",") + " %";
+const vatNum = (v, c) => NO_CENTS.includes(c) ? String(Math.round(v)) : numStr((Math.round(v * 100) / 100).toFixed(2));
+function vatTtc() { const a = parseAmount(document.getElementById("fAmount").value); return a > 0 ? a : 0; }
+function drawVat() {
+  const sel = document.getElementById("fVatRate"), inp = document.getElementById("fVat"), sum = document.getElementById("vatSum");
+  if (!sel || !form) return;
+  const v = form.vat, multi = v && v.rates && v.rates.length > 1;
+  const rates = [...VAT_CHOICES]; if (v && v.rate != null && !rates.includes(v.rate)) rates.push(v.rate);
+  sel.innerHTML = `<option value="">Sans TVA</option>` + rates.map(r => `<option value="${r}">${esc(vatTxt(r))}</option>`).join("") + (multi ? `<option value="multi">Plusieurs taux</option>` : "");
+  sel.value = !v ? "" : multi ? "multi" : v.rate != null ? String(v.rate) : "";
+  if (document.activeElement !== inp) inp.value = v && v.amount != null ? vatNum(v.amount, form.ocur || baseCurrency()) : "";
+  inp.disabled = !v;
+  const ttc = vatTtc(), c = form.ocur || baseCurrency();
+  if (v && ttc > 0 && v.amount >= 0) {
+    const detail = multi ? v.rates.map(e => `${vatTxt(e.rate)} : ${money(e.vat, c)}`).join(" · ") : "";
+    sum.innerHTML = `<span><span>HT</span> <b class="num">${esc(money(ttc - v.amount, c))}</b></span><span><span>TVA</span> <b class="num">${esc(money(v.amount, c))}</b></span><span><span>TTC</span> <b class="num">${esc(money(ttc, c))}</b></span>${detail ? `<small>${esc(detail)}</small>` : ""}${v.estimated ? `<small>TVA calculée à partir du taux : vérifie sur le ticket.</small>` : ""}`;
+  } else sum.innerHTML = v ? "" : `<small>Indique le taux de TVA du ticket pour la récupérer en comptabilité.</small>`;
+}
+document.getElementById("fVatRate").onchange = e => {
+  const val = e.target.value;
+  if (!val) form.vat = null;
+  else if (val !== "multi") { const r = parseFloat(val), ttc = vatTtc(); form.vat = { rate: r, amount: Math.round(ttc * r / (100 + r) * 100) / 100 }; }
+  drawVat();
+};
+document.getElementById("fVat").addEventListener("input", e => { if (!form || !form.vat) return; const v = parseNum(e.target.value); form.vat.amount = v >= 0 ? v : 0; form.vat.manual = true; delete form.vat.estimated; drawVat(); });
+document.getElementById("fAmount").addEventListener("input", () => {
+  if (!form || !form.vat) return;
+  if (form.vat.rate != null && !form.vat.manual && !(form.vat.rates && form.vat.rates.length > 1)) { const r = form.vat.rate; form.vat.amount = Math.round(vatTtc() * r / (100 + r) * 100) / 100; }
+  drawVat();
+});
 // ---------- Changer la devise du budget ----------
 // R = nombre d'unités de la nouvelle devise pour 1 unité de l'ancienne.
 function convertAll(R, to) {
@@ -832,6 +868,8 @@ function drawForm() {
   const st = document.getElementById("fNdfStatus");
   st.hidden = !form.ndf;
   st.querySelectorAll("button").forEach(b => { b.setAttribute("aria-pressed", String(b.dataset.s === (form.ndfStatus || "a_rembourser"))); b.onclick = () => { form.ndfStatus = b.dataset.s; drawForm(); }; });
+  document.getElementById("vatBox").hidden = !(isDep && form.ndf);
+  drawVat();
   drawGar();
   drawGoalPick();
   drawRep();
@@ -963,6 +1001,10 @@ document.getElementById("sheet").onsubmit = e => {
       info: document.getElementById("gInfo").value.trim().slice(0, 200) };
   }
   if (isNdf) { tx.ndf = true; tx.ndfStatus = form.ndfStatus || "a_rembourser"; if (tx.ndfStatus === "rembourse") tx.ndfPaidOn = form.ndfPaidOn || todayISO(); }
+  if (form.type === "depense" && form.vat && form.vat.amount >= 0 && form.vat.amount < amountIn) {
+    const v = form.vat; tx.vat = { rate: v.rate ?? null, amount: Math.round(v.amount * 100) / 100, ht: Math.round((amountIn - v.amount) * 100) / 100, cur: ocur };
+    if (v.rates && v.rates.length > 1) tx.vat.rates = v.rates;
+  }
   if (foreign) {
     tx.orig = { cur: ocur, amount: amountIn, rate: orate };
     settings.fxLast = { ...(settings.fxLast || {}), [ocur]: orate }; saveSettings();
@@ -1805,27 +1847,64 @@ function editGroupExpense(gid, eid) {
 }
 
 // ---------- Scan de ticket ----------
-// Lit le texte d'un ticket (OCR) et en tire montant total, date, magasin et catégorie probable.
+// Lit le texte d'un ticket (OCR) et en tire : montant total (ligne « Total » en priorité), devise, date,
+// magasin, catégorie probable et TVA (taux, montant, hors taxe) pour les notes de frais.
+const RC_CUR = [
+  ["EUR", /€|\beur(?:os?)?\b/i], ["XAF", /\bxaf\b|\bfcfa\b(?=.*\b(cameroun|gabon|congo|tchad|centrafri|guin[ée]e [ée]quatoriale)\b)/i], ["XOF", /\bxof\b|\bf\.?\s?cfa\b|\bcfa\b/i],
+  ["GBP", /£|\bgbp\b/i], ["CHF", /\bchf\b/i], ["CAD", /\bcad\b|\bca\$|\$\s?ca\b/i], ["USD", /\$|\busd\b/i], ["MAD", /\bmad\b|\bdhs?\b/i],
+  ["DZD", /\bdzd\b|\bda\b(?=\s*$)/i], ["TND", /\btnd\b|\bdt\b/i], ["NGN", /₦|\bngn\b/i], ["GHS", /₵|\bghs\b|\bgh¢/i], ["KES", /\bkes\b|\bksh/i],
+  ["GNF", /\bgnf\b/i], ["CDF", /\bcdf\b/i], ["XPF", /\bxpf\b|\bf\s?cfp\b/i], ["ZAR", /\bzar\b/i], ["MGA", /\bmga\b|\bariary\b/i], ["KMF", /\bkmf\b/i]];
+const RC_RATES = [0, 2.1, 5.5, 10, 20, 8.5, 13, 18, 19.25, 19.6, 7, 6, 12, 21, 16, 15, 7.5, 7.7, 8.1, 2.6, 3.8, 17, 19, 9, 14, 5, 8];
 function parseReceipt(text) {
-  const lines = String(text || "").split(/\r?\n/).map(l => l.replace(/\s+/g, " ").trim()).filter(Boolean);
-  const nums = s => (s.match(/\d{1,3}(?:[ . ]\d{3})*[.,]\d{2}(?!\d)|\d+[.,]\d{2}(?!\d)/g) || [])
-    .map(v => parseFloat(v.replace(/[ . ](?=\d{3}(?:[.,]|$))/g, "").replace(",", "."))).filter(v => v > 0 && v < 100000);
-  const pick = (re, not) => {
-    for (let i = 0; i < lines.length; i++) {
-      const l = lines[i];
-      if (!re.test(l) || (not && not.test(l))) continue;
-      const n = nums(l);
-      if (n.length) return n[n.length - 1];
-      const nx = lines[i + 1] && nums(lines[i + 1]);
-      if (nx && nx.length) return nx[nx.length - 1];
+  const fix = l => l.replace(/\bt[o0]ta[l1i]\b/gi, "TOTAL").replace(/(\d)[oO](?=\d|\b)/g, "$10").replace(/([.,])[oO](\d)/g, "$10$2").replace(/([.,]\d)[oO]\b/g, "$10")
+    .replace(/(\d)\s*([.,])\s+(\d{2})(?!\d)/g, "$1$2$3").replace(/\s+/g, " ").trim();
+  const lines = String(text || "").split(/\r?\n/).map(fix).filter(Boolean), L = lines.map(l => l.toLowerCase());
+  // devise : celle de la ligne du total, sinon la plus fréquente
+  const curOf = l => { for (const [c, re] of RC_CUR) if (re.test(l)) return c; return null; };
+  const curCount = {}; for (const l of lines) { const c = curOf(l); if (c) curCount[c] = (curCount[c] || 0) + 1; }
+  const curMain = Object.keys(curCount).sort((a, b) => curCount[b] - curCount[a])[0] || null;
+  const noCents = c => NO_CENTS.includes(c);
+  // nombres d'une ligne (avec ou sans centimes selon la devise)
+  const nums = (s, ints) => {
+    const re = ints ? /(?<![\d.,])\d{1,3}(?:[  .]\d{3})+(?:[.,]\d{1,2})?(?![\d])|(?<![\d.,])\d+(?:[.,]\d{1,2})?(?![\d.,]*\d)/g
+                    : /(?<![\d.,])\d{1,3}(?:[  .]\d{3})*[.,]\d{2}(?!\d)|(?<![\d.,])\d+[.,]\d{2}(?!\d)/g;
+    const out = []; let m;
+    while ((m = re.exec(s))) {
+      let v = m[0].replace(/[  ](?=\d{3})/g, "");
+      if (/^\d{1,3}(\.\d{3})+([.,]\d{1,2})?$/.test(v) && (ints || /,\d{2}$/.test(v))) v = v.replace(/\.(?=\d{3})/g, "");
+      const n = parseFloat(v.replace(",", "."));
+      if (n > 0 && n < 1e7) out.push({ v: n, i: m.index, end: m.index + m[0].length });
     }
-    return null;
+    return out;
   };
-  const excl = /sous[ -]?total|total\s*h\.?t|\bht\b|tva|remise|economi|fidélit|fidelit|rendu|monnaie|points?/i;
-  let amount = pick(/net\s*[àa]\s*payer|total\s*(ttc|[àa]\s*payer)|montant\s*(ttc|d[uû]|[àa]\s*payer)|[àa]\s*payer/i, excl)
-    ?? pick(/\btotal\b/i, excl)
-    ?? pick(/carte\s*bancaire|\bcb\b|paiement|montant|esp[eè]ces/i, excl);
-  if (amount == null) { const all = lines.flatMap(nums); amount = all.length ? Math.max(...all) : null; }
+  const near = (l, list) => {   // le nombre collé au symbole de devise, sinon le dernier
+    for (const n of list) { const a = l.slice(Math.max(0, n.i - 5), n.i), b = l.slice(n.end, n.end + 6); if (curOf(a) || curOf(b)) return n.v; }
+    return list.length ? list[list.length - 1].v : null;
+  };
+  const ints = noCents(curMain);
+  const EXCL = /sous[ -]?total|s\/total|subtotal|total\s*h\.?t|\bh\.?t\.?\b|t\.?v\.?a|\btax\b|remise|r[ée]duc|economi|[ée]conomi|fid[ée]lit|cagnotte|avoir|rendu|monnaie|points?\b|nb\.?\s*art|articles?\b|qt[ée]|quantit|poids|\bkg\b|litres?\b|\bl\b\s*$/i;
+  const TOT = /\btotal\b|net\s*[àa]\s*payer|[àa]\s*payer|montant\s*(ttc|d[uû]|total)|\bttc\b|amount\s*due|grand\s*total|\bsomme\b/i;
+  const PAY = /carte|\bcb\b|visa|mastercard|\bcarte bancaire|esp[eè]ces|paiement|pay[ée]|r[eè]glement|\bmontant\b|sans contact|mobile money|orange money|wave\b/i;
+  const cands = [];
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i]; if (EXCL.test(l) && !/\bttc\b|total\s*ttc/i.test(l)) continue;
+    const isTot = TOT.test(l), isPay = !isTot && PAY.test(l);
+    let list = nums(l, ints || !!curOf(l)), src = l;
+    if (!list.length && (isTot || isPay) && lines[i + 1] && !EXCL.test(lines[i + 1])) { src = lines[i + 1]; list = nums(src, ints || !!curOf(src)); }
+    if (!list.length) continue;
+    const v = near(src, list); if (v == null) continue;
+    let score = isTot ? 100 + (/ttc|payer|grand|due/i.test(l) ? 20 : 0) : isPay ? 55 : curOf(src) ? 25 : 0;
+    if (!score) continue;
+    if (curOf(src)) score += 15;
+    score += 10 * i / lines.length;
+    cands.push({ v, score, cur: curOf(src) });
+  }
+  for (const c of cands) c.score += 25 * (cands.filter(o => o !== c && Math.abs(o.v - c.v) < 0.005).length ? 1 : 0);   // même montant sur « Total » et « CB » : très probable
+  cands.sort((a, b) => b.score - a.score);
+  let amount = cands.length ? cands[0].v : null;
+  if (amount == null) { const all = lines.flatMap(l => nums(l, ints)).map(n => n.v); amount = all.length ? Math.max(...all) : null; }
+  const cur = (cands[0] && cands[0].cur) || curMain;
+  // date
   let date = null;
   for (const l of lines) {
     const m = l.match(/\b(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4}|\d{2})\b/);
@@ -1833,13 +1912,16 @@ function parseReceipt(text) {
     let [, d, mo, y] = m; d = +d; mo = +mo; y = +y; if (y < 100) y += 2000;
     if (d >= 1 && d <= 31 && mo >= 1 && mo <= 12 && y >= 2000 && y <= 2100) { date = `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`; break; }
   }
-  const skip = /ticket|facture|bienvenue|merci|t[eé]l|siret|siren|www|http|caisse|client|n°|tva|date|heure|^\d/i;
+  // TVA
+  const vat = amount ? receiptVat(lines, amount, nums, ints) : null;
+  // magasin et catégorie
+  const skip = /ticket|facture|bienvenue|merci|\bt[eé]l\b|t[ée]l[ée]phone|siret|siren|www|http|caisse|client|n°|tva|date|heure|^\d/i;
   const shopLine = lines.slice(0, 8).find(l => /[a-zà-ü]{3,}/i.test(l) && !skip.test(l)) || "";
   const shop = shopLine.replace(/[^\p{L}\p{N}&' .-]/gu, "").trim().toLowerCase().replace(/(^|[\s-])\p{L}/gu, s => s.toUpperCase()).slice(0, 40);
   const hay = (shop + " " + lines.slice(0, 12).join(" ")).toLowerCase();
   const rules = [
-    ["courses", /carrefour|leclerc|auchan|lidl|intermarch|monoprix|casino|franprix|super ?u\b|hyper ?u\b|aldi|netto|picard|biocoop|grand frais|boulangerie|boucherie|march[eé]/],
-    ["transport", /total ?energies|esso|\bbp\b|shell|avia|station|carburant|gazole|sp ?95|sncf|ratp|uber|p[eé]age|parking|autoroute/],
+    ["courses", /carrefour|leclerc|auchan|lidl|intermarch|monoprix|casino|franprix|super ?u\b|hyper ?u\b|aldi|netto|picard|biocoop|grand frais|boulangerie|boucherie|march[eé]|supermarch/],
+    ["transport", /total ?energies|esso|\bbp\b|shell|avia|station|carburant|gazole|sp ?95|sncf|ratp|uber|p[eé]age|parking|autoroute|taxi|vtc/],
     ["sante", /pharmacie|parapharmacie|m[eé]decin|docteur|dentiste|opticien|laboratoire/],
     ["loisirs", /restaurant|brasserie|caf[eé]|bistro|mcdonald|mc do|burger|kfc|pizza|sushi|cin[eé]ma|bowling|th[eé][aâ]tre|bar /],
     ["maison", /leroy merlin|castorama|bricorama|brico|ikea|conforama|but\b|maisons du monde|jardiland/],
@@ -1847,7 +1929,54 @@ function parseReceipt(text) {
     ["telecom", /orange|sfr|bouygues|free mobile|\bfree\b/],
   ];
   const r = rules.find(([, re]) => re.test(hay));
-  return { amount: amount != null ? Math.round(amount * 100) / 100 : null, date, shop, cat: r ? r[0] : null };
+  const dec = noCents(cur) ? 1 : 100;
+  return { amount: amount != null ? Math.round(amount * dec) / dec : null, cur: cur || null, date, shop, cat: r ? r[0] : null, vat };
+}
+// TVA du ticket : lignes « TVA 20 % … », tableau « Taux HT TVA TTC », « Total HT », « dont TVA ».
+function receiptVat(lines, ttc, nums, ints) {
+  const tol = v => Math.max(0.03, Math.abs(v) * 0.012);
+  const isRate = v => RC_RATES.some(r => Math.abs(r - v) < 0.001);
+  const entries = []; let vatTotal = null, htTotal = null, table = 0, pctOnly = null;
+  const add = (rate, ht, tva) => { if (!(tva >= 0) || tva > ttc * 0.3) return; const k = entries.find(e => Math.abs(e.rate - rate) < 0.001 && Math.abs(e.vat - tva) < 0.005); if (!k) entries.push({ rate, base: Math.round(ht * 100) / 100, vat: Math.round(tva * 100) / 100 }); };
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i], low = l.toLowerCase();
+    if (/(taux|code|tx).*(h\.?t|base|net).*(t\.?v\.?a|tax)/i.test(l)) { table = 6; continue; }
+    const isVat = /t\.?v\.?a|\btax\b|\bvat\b|\bmwst|\biva\b/i.test(l);
+    const pm = l.match(/(\d{1,2}(?:[.,]\d{1,2})?)\s*%/);
+    let rate = pm ? parseFloat(pm[1].replace(",", ".")) : null;
+    const rest = pm ? l.slice(0, pm.index) + " " + l.slice(pm.index + pm[0].length) : l;
+    let ns = nums(rest, ints).map(n => n.v);
+    if (rate == null && table > 0 && ns.length >= 2 && isRate(ns[0])) { rate = ns[0]; ns = ns.slice(1); }
+    if (table > 0) table--;
+    if (/total\s*h\.?t|\bh\.?t\.?\s*total|montant\s*h\.?t|net\s*h\.?t/i.test(l) && !pm && ns.length) { htTotal = ns[ns.length - 1]; continue; }
+    if (isVat && /total|montant|dont/i.test(low) && !pm && ns.length) { vatTotal = ns[ns.length - 1]; continue; }
+    if (rate == null || !(rate >= 0 && rate <= 30) || !(isVat || table > 0 || /\bht\b|\bttc\b/i.test(low))) continue;
+    if (!ns.length) { if (isVat) pctOnly = rate; continue; }
+    const p = rate / 100; let done = false;
+    for (let a = 0; a < ns.length && !done; a++) for (let b = 0; b < ns.length && !done; b++) for (let c = 0; c < ns.length && !done; c++) {
+      if (a === b || b === c || a === c) continue;
+      if (Math.abs(ns[a] + ns[b] - ns[c]) <= 0.02 && Math.abs(ns[a] * p - ns[b]) <= tol(ns[b])) { add(rate, ns[a], ns[b]); done = true; }
+    }
+    for (let a = 0; a < ns.length && !done; a++) for (let b = 0; b < ns.length && !done; b++) {
+      if (a === b) continue;
+      if (Math.abs(ns[a] * p - ns[b]) <= tol(ns[b])) { add(rate, ns[a], ns[b]); done = true; }
+      else if (Math.abs(ns[a] * p / (1 + p) - ns[b]) <= tol(ns[b])) { add(rate, ns[a] - ns[b], ns[b]); done = true; }
+    }
+    if (!done && isVat && ns.length === 1) { const v = ns[0]; if (v < ttc * 0.3) add(rate, v / p || 0, v); }
+  }
+  const r2 = v => Math.round(v * 100) / 100;
+  const nearRate = x => RC_RATES.reduce((b, r) => Math.abs(r - x) < Math.abs(b - x) ? r : b, 20);
+  let total, rate = null, estimated = false;
+  if (entries.length) { total = r2(entries.reduce((s, e) => s + e.vat, 0)); if (vatTotal != null && Math.abs(vatTotal - total) > 0.05 && vatTotal < ttc * 0.3) total = vatTotal; rate = entries.length === 1 ? entries[0].rate : null; }
+  else if (htTotal != null && htTotal < ttc && ttc - htTotal < ttc * 0.3) { total = r2(ttc - htTotal); rate = nearRate(total / htTotal * 100); }
+  else if (vatTotal != null && vatTotal < ttc * 0.3) { total = vatTotal; rate = nearRate(vatTotal / (ttc - vatTotal) * 100); }
+  else if (pctOnly != null) { total = r2(ttc * pctOnly / (100 + pctOnly)); rate = pctOnly; estimated = true; }
+  else return null;
+  if (!(total >= 0)) return null;
+  const out = { amount: total, rate, ht: r2(ttc - total) };
+  if (entries.length > 1) out.rates = entries;
+  if (estimated) out.estimated = true;
+  return out;
 }
 async function runScan(file) {
   const btn = document.getElementById("scanBtn"), f0 = form, label = btn.innerHTML;
@@ -1856,13 +1985,18 @@ async function runScan(file) {
     const r = await scanReceipt(file);
     if (form !== f0) return;
     form.type = "depense";
-    if (r.amount) document.getElementById("fAmount").value = String(r.amount.toFixed(2)).replace(".", ",");
+    if (r.cur && APP_CURRENCIES.some(([c]) => c === r.cur) && r.cur !== (form.ocur || baseCurrency())) {
+      form.ocur = r.cur; form.orate = ""; const cs = document.getElementById("fCur"); if (cs) cs.value = r.cur; drawFx(true);
+    }
+    if (r.amount) document.getElementById("fAmount").value = NO_CENTS.includes(r.cur) ? String(Math.round(r.amount)) : String(r.amount.toFixed(2)).replace(".", ",");
+    if (r.vat) form.vat = { ...r.vat };
     if (r.date && /^\d{4}-\d{2}-\d{2}$/.test(r.date)) document.getElementById("fDate").value = r.date;
     if (r.shop && !document.getElementById("fNote").value) document.getElementById("fNote").value = r.shop.slice(0, 80);
     if (r.cat && settings.cats.some(c => c.id === r.cat)) { form.cat = r.cat; form.fixe = !!catById(r.cat).fixe; }
     drawForm();
     if (assets) uploadPicked([file]);
-    const found = [r.amount && "montant", r.date && "date", r.shop && "magasin"].filter(Boolean);
+    if (r.cur && r.cur !== baseCurrency()) fxPreview();
+    const found = [r.amount && "montant", r.cur && r.cur !== baseCurrency() && "devise", r.date && "date", r.shop && "magasin", r.vat && "TVA"].filter(Boolean);
     toast(found.length ? `Ticket lu (${found.join(", ")}) : vérifie avant d'enregistrer.` : "Je n'ai pas réussi à lire ce ticket : complète à la main.");
   } catch (e) {
     toast(e && e.message ? e.message : "Lecture impossible : complète à la main.");
@@ -2284,6 +2418,8 @@ function renderFrais() {
   const todo = all.filter(x => x.ndfStatus !== "rembourse").sort((a, b) => a.date.localeCompare(b.date));
   const done = all.filter(x => x.ndfStatus === "rembourse" && (x.ndfPaidOn || x.date).startsWith(String(cur.y))).sort((a, b) => (b.ndfPaidOn || b.date).localeCompare(a.ndfPaidOn || a.date));
   const sum = l => l.reduce((s, x) => s + Number(x.amount), 0);
+  const vatBase = x => !x.vat ? 0 : x.orig && x.vat.cur === x.orig.cur && x.orig.rate ? x.vat.amount / x.orig.rate : x.vat.amount;
+  const vatSum = l => l.reduce((s, x) => s + vatBase(x), 0);
   const noFile = todo.filter(x => !(x.files && x.files.length)).length;
   setHeader("Notes de frais", "Total à te faire rembourser", sum(todo), true);
   document.getElementById("periodLabel").textContent = `Notes de frais · ${cur.y}`;
@@ -2291,12 +2427,15 @@ function renderFrais() {
     <div class="tile"><div class="k"><span class="sw" style="background:var(--accent)"></span>À rembourser</div><div class="v num">${eur(sum(todo))}</div></div>
     <div class="tile"><div class="k"><span class="sw" style="background:var(--good)"></span>Remboursé en ${cur.y}</div><div class="v num">${eur(sum(done))}</div></div>
   </div>`;
+  const tv = vatSum(todo);
+  if (todo.length) html += `<div class="card vat-tot"><div class="k">À rembourser</div><div class="vat-cols"><span><span>HT</span><b class="num">${esc(eur(sum(todo) - tv))}</b></span><span><span>TVA</span><b class="num">${esc(eur(tv))}</b></span><span><span>TTC</span><b class="num">${esc(eur(sum(todo)))}</b></span></div>${todo.some(x => !x.vat) ? `<p class="hint" style="margin:6px 0 0">${todo.filter(x => !x.vat).length} note(s) sans TVA renseignée.</p>` : ""}</div>`;
   if (noFile) html += `<div class="banner">${noFile} note${noFile > 1 ? "s" : ""} de frais sans justificatif : ajoute la facture pour la faire rembourser.</div>`;
   const item = (x, isTodo) => {
     const c = catById(x.cat), n = x.files ? x.files.length : 0;
     return `<div class="ndf-item"><div><div class="n">${esc(x.note || c.name)}</div>
       <div class="s">${esc(new Date(x.date + "T12:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }))} · ${esc(c.name)}${!isTodo && x.ndfPaidOn ? " · remboursée le " + esc(x.ndfPaidOn.split("-").reverse().join("/")) : ""}${n ? `<span class="clip">${CLIP}${n}</span>` : ` · <span style="color:var(--bad)">sans facture</span>`}</div></div>
       <div class="num" style="font-weight:700">${esc(eur(x.amount))}</div>
+      ${x.vat ? `<div class="vat-line num"><span>HT ${esc(money(x.vat.ht ?? (x.orig ? x.orig.amount : x.amount) - x.vat.amount, x.vat.cur))}</span><span>TVA ${esc(money(x.vat.amount, x.vat.cur))}${x.vat.rate != null ? ` (${esc(vatTxt(x.vat.rate))})` : x.vat.rates ? ` (${esc(x.vat.rates.map(e => vatTxt(e.rate)).join(" + "))})` : ""}</span><span>TTC ${esc(money(x.orig && x.vat.cur === x.orig.cur ? x.orig.amount : x.amount, x.vat.cur))}</span></div>` : ""}
       <div class="acts">
         ${isTodo ? `<button class="btn primary" data-act="paid" data-id="${esc(x.id)}">Marquer remboursée</button>` : `<button class="btn" data-act="unpaid" data-id="${esc(x.id)}">Remettre à rembourser</button>`}
         ${n ? `<button class="btn" data-act="view" data-id="${esc(x.id)}">Voir la facture${n > 1 ? "s" : ""}</button>` : ""}

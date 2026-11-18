@@ -319,3 +319,13 @@ select.field { appearance: auto; }
 .eco-lvl{align-self:flex-start;font-size:11.5px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--good-soft);color:var(--good)}.eco-lvl.l2{background:color-mix(in srgb,var(--accent) 22%,transparent);color:var(--text,inherit)}.eco-lvl.l3{background:var(--bad-soft);color:var(--bad)}
 .eco-todo{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line,#eef1f4)}
 .eco-todo .btn{white-space:nowrap;flex-shrink:0;padding:8px 14px}
+/* TVA des notes de frais */
+.vat-box{margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.vat-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}.vat-f{display:flex;flex-direction:column;gap:4px;font-size:12.5px;color:var(--muted);font-weight:600}
+.vat-f .field{margin:0}
+.vat-sum{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:8px;font-size:14px}.vat-sum small{flex-basis:100%;color:var(--muted);font-size:12px}
+.vat-sum>span>span,.vat-line>span{color:var(--muted)}
+.vat-line{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:12.5px;margin-top:2px}
+.vat-tot .k{font-size:13px;color:var(--muted);font-weight:600;margin-bottom:6px}.vat-cols{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.vat-cols>span{display:flex;flex-direction:column;gap:2px}.vat-cols>span>span{font-size:12px;color:var(--muted);font-weight:600}.vat-cols b{font-size:17px}
+.ndf-item .vat-line{grid-column:1/-1}

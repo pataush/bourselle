@@ -102,6 +102,13 @@
           <button type="button" data-s="a_rembourser">À rembourser</button>
           <button type="button" data-s="rembourse">Remboursée</button>
         </div>
+        <div class="vat-box" id="vatBox" hidden>
+          <div class="vat-row">
+            <label class="vat-f"><span>Taux de TVA</span><select class="field" id="fVatRate"></select></label>
+            <label class="vat-f"><span>Montant de la TVA</span><input class="field" id="fVat" inputmode="decimal" placeholder="0,00"></label>
+          </div>
+          <div class="vat-sum" id="vatSum"></div>
+        </div>
       </div>
     </div>
     <div id="garWrap">
