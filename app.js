@@ -628,19 +628,20 @@ const view = document.getElementById("view");
 // Ordre des suivis : d'abord un ordre par défaut (du plus courant au plus rare), puis il s'adapte à
 // ce que chaque personne ouvre le plus souvent sur son appareil. Recalculé à l'ouverture de l'app
 // seulement, pour que les onglets ne bougent pas pendant qu'on s'en sert.
-const SUBS_DEF = [["abos", "Abonnements"], ["tontines", "Tontines"], ["objectifs", "Objectifs"], ["partage", "Partage"], ["dettes", "Dettes"], ["frais", "Frais"], ["garanties", "Garanties"]];
+const SUBS_DEF = [["abos", "Abonnements"], ["tontines", "Tontines"], ["objectifs", "Objectifs"], ["economies", "Économies"], ["partage", "Partage"], ["dettes", "Dettes"], ["frais", "Frais"], ["garanties", "Garanties"]];
 const SUB_KEY = "bourselle-suivis";
 function subUse() { try { return JSON.parse(localStorage.getItem(SUB_KEY) || "{}") || {}; } catch (e) { return {}; } }
 function bumpSub(k) { try { const u = subUse(); u[k] = (u[k] || 0) + 1; localStorage.setItem(SUB_KEY, JSON.stringify(u)); } catch (e) {} }
-const SUBS = SUBS_DEF;   // ordre fixe : abonnements, tontines, objectifs, partage, dettes, frais, garanties
+const SUBS = SUBS_DEF;   // ordre fixe : abonnements, tontines, objectifs, économies, partage, dettes, frais, garanties
 let lastSub = SUBS[0][0];
 function isSub(t) { return SUBS.some(([k]) => k === t); }
 function render() {
-  const arrows = !["garanties", "abos", "dettes", "recherche", "objectifs", "partage", "tontines"].includes(tab);
+  const arrows = !["garanties", "abos", "dettes", "recherche", "objectifs", "economies", "partage", "tontines"].includes(tab);
+  if (!document.getElementById("app").hidden) document.getElementById("fab").hidden = tab === "economies";
   document.getElementById("prev").style.visibility = arrows ? "visible" : "hidden";
   document.getElementById("next").style.visibility = arrows ? "visible" : "hidden";
   if (tab === "mois") renderMois(); else if (tab === "annee") renderAnnee(); else if (tab === "frais") renderFrais();
-  else if (tab === "garanties") renderGaranties(); else if (tab === "abos") renderAbos(); else if (tab === "dettes") renderDettes(); else if (tab === "recherche") renderRecherche(); else if (tab === "objectifs") renderObjectifs(); else if (tab === "partage") renderPartage(); else if (tab === "tontines") renderTontines(); else renderReglages();
+  else if (tab === "garanties") renderGaranties(); else if (tab === "abos") renderAbos(); else if (tab === "dettes") renderDettes(); else if (tab === "recherche") renderRecherche(); else if (tab === "objectifs") renderObjectifs(); else if (tab === "economies" && typeof renderEconomies === "function") renderEconomies(); else if (tab === "partage") renderPartage(); else if (tab === "tontines") renderTontines(); else renderReglages();
   const nGar = garItems().filter(x => garStatus(x.warranty) === "soon").length;
   const nAbo = Object.values(subs).filter(x => subStatus(x).st === "soon").length;
   const nFrais = allItems().filter(x => x.type === "depense" && x.ndf && x.ndfStatus !== "rembourse").length;
@@ -649,7 +650,7 @@ function render() {
   const sn = document.getElementById("subnav");
   sn.hidden = !isSub(tab);
   if (isSub(tab)) {
-    const c = { frais: nFrais, garanties: nGar, abos: nAbo, dettes: 0, objectifs: 0, partage: 0, tontines: nTon };
+    const c = { frais: nFrais, garanties: nGar, abos: nAbo, dettes: 0, objectifs: 0, economies: 0, partage: 0, tontines: nTon };
     sn.innerHTML = `<div class="seg" role="tablist">${SUBS.map(([k, l]) => `<button type="button" role="tab" aria-pressed="${k === tab}" data-sub="${k}">${l}${c[k] ? `<span class="cnt">${c[k]}</span>` : ""}</button>`).join("")}</div>`;
     sn.querySelectorAll("[data-sub]").forEach(b => b.onclick = () => switchTab(b.dataset.sub));
     const act = sn.querySelector('[aria-pressed="true"]'); if (act) act.scrollIntoView({ inline: "center", block: "nearest" });
