@@ -204,6 +204,7 @@ function applyData(d) {
   if (!(d && d.settings) && !settings.currency) settings.currency = regionCurrency();   // nouveau compte : devise de la région
   applyCurrency();
 }
+function saveNow() { clearTimeout(saveTimer); if (dirty) flush(); }   // suppressions : enregistrer sans attendre
 function scheduleSave() {
   dirty = true; setSync("", "Modifications en attente…");
   clearTimeout(saveTimer); saveTimer = setTimeout(flush, 700);
@@ -684,7 +685,7 @@ function openSheet(tx) {
   const base = cur.y === now.getFullYear() && cur.m === now.getMonth() + 1 ? todayISO() : `${ym(cur.y, cur.m)}-01`;
   form = editing ? { ...clone(tx), oldKey: tx.date.slice(0, 7) }
     : { id: newId(), type: "depense", amount: "", cat: "courses", date: tab === "frais" ? todayISO() : base, note: "", fixe: false, ndf: tab === "frais", ndfStatus: "a_rembourser" };
-  form.files = form.files || []; form.uploaded = []; form.removed = []; form.busy = 0; form.repeat = "";
+  form.files = form.files || []; form.uploaded = []; form.removed = []; form.busy = 0; form.repeat = ""; hideGarAsk();
   const w = form.warranty || null;
   form.gar = { on: !!w, months: w ? (w.months ?? 0) : 24, end: w ? w.end : "" };
   document.getElementById("gItem").value = w ? w.item || "" : "";
@@ -860,6 +861,18 @@ function drawGar() {
 }
 document.getElementById("fDate").addEventListener("change", () => { if (form) drawGar(); });
 document.getElementById("gEnd").addEventListener("change", () => { if (form) drawGar(); });
+// La facture d'un achat garanti vient d'être retirée : proposer de supprimer aussi la garantie.
+function askDropWarranty() {
+  let box = document.getElementById("garAsk");
+  if (!box) { box = document.createElement("div"); box.id = "garAsk"; box.className = "banner"; document.getElementById("filesHint").after(box); }
+  const item = (document.getElementById("gItem").value || "").trim() || (document.getElementById("fNote").value || "").trim();
+  box.hidden = false;
+  box.innerHTML = `<div style="margin-bottom:8px"><span>Cette facture servait de preuve pour la garantie</span>${item ? ` <b>« ${esc(item)} »</b>` : ""}. <span>Supprimer aussi la garantie ?</span></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" id="garKeep">Garder la garantie</button><button type="button" class="btn danger" id="garDrop">Supprimer la garantie</button></div>`;
+  document.getElementById("garKeep").onclick = () => { box.hidden = true; };
+  document.getElementById("garDrop").onclick = () => { form.gar.on = false; drawGar(); box.hidden = true; toast("Garantie retirée : enregistre pour confirmer"); };
+}
+function hideGarAsk() { const b = document.getElementById("garAsk"); if (b) b.hidden = true; }
 function drawFiles() {
   const box = document.getElementById("fFiles"), hint = document.getElementById("filesHint");
   let html = form.files.map((f, i) => `<button type="button" class="file" data-i="${i}" aria-label="Voir ${esc(f.name)}">
@@ -877,7 +890,9 @@ function drawFiles() {
       form.files.splice(Number(b.dataset.i), 1);
       if (form.uploaded.includes(f.id)) { dropAsset(f.id); form.uploaded = form.uploaded.filter(id => id !== f.id); }
       else form.removed.push(f.id);
-      drawFiles(); return;
+      drawFiles();
+      if (!form.files.length && form.gar.on) askDropWarranty();
+      return;
     }
     openViewer(f);
   });
@@ -912,10 +927,16 @@ document.getElementById("fCancel").onclick = () => closeSheet(false);
 document.getElementById("fDelete").onclick = () => {
   if (!form) return;
   const btn = document.getElementById("fDelete");
-  if (btn.dataset.confirm !== "1") { btn.dataset.confirm = "1"; btn.textContent = "Confirmer ?"; setTimeout(() => { btn.dataset.confirm = ""; btn.textContent = "Supprimer"; }, 3000); return; }
+  const gar = form.gar && form.gar.on, nf = (form.files || []).length;
+  if (btn.dataset.confirm !== "1") {
+    btn.dataset.confirm = "1"; btn.textContent = "Confirmer ?";
+    if (gar || nf) toast(gar ? "La garantie et la facture de cet achat seront aussi supprimées." : "La facture jointe sera aussi supprimée.");
+    setTimeout(() => { btn.dataset.confirm = ""; btn.textContent = "Supprimer"; }, 4000); return;
+  }
   btn.dataset.confirm = ""; btn.textContent = "Supprimer";
   for (const id of form.uploaded) dropAsset(id);
-  deleteTx(form.id, form.oldKey); closeSheet(true); toast("Opération supprimée");
+  deleteTx(form.id, form.oldKey); closeSheet(true); toast(gar ? "Opération et garantie supprimées" : "Opération supprimée");
+  saveNow();
 };
 document.getElementById("sheet").onsubmit = e => {
   e.preventDefault();
@@ -1018,7 +1039,8 @@ function renderGaranties() {
       Acheté le ${esc(frDate(x.date))} · ${esc(eur(x.amount))}${w.shop ? " · " + esc(w.shop) : ""}${w.serial ? "<br>N° de série : " + esc(w.serial) : ""}${w.info ? "<br>" + esc(w.info) : ""}</div>
       <div class="bar"><i style="width:${pct}%"></i></div>
       <div class="acts">${n ? `<button class="btn" data-act="view" data-id="${esc(x.id)}">Voir la facture</button>` : `<span class="hint" style="color:var(--bad)">Pas de facture jointe</span>`}
-        <button class="btn" data-act="edit" data-id="${esc(x.id)}">${n ? "Modifier" : "Ajouter la facture"}</button></div></div>`;
+        <button class="btn" data-act="edit" data-id="${esc(x.id)}">${n ? "Modifier" : "Ajouter la facture"}</button>
+        <button class="btn danger" data-act="drop" data-id="${esc(x.id)}" aria-label="Supprimer la garantie de ${esc(w.item)}">Supprimer la garantie</button></div></div>`;
   };
   const section = (list, title, col, empty) => `<div class="sec-h"><span class="sw" style="background:${col}"></span>${title} <small class="hint">(${list.length})</small></div>
     ${list.length ? `<div class="gar-list">${list.map(card).join("")}</div>` : `<div class="empty">${empty}</div>`}`;
@@ -1032,6 +1054,11 @@ function renderGaranties() {
   view.innerHTML = html;
   view.querySelectorAll("[data-act]").forEach(b => b.onclick = () => {
     const x = items.find(i => i.id === b.dataset.id); if (!x) return;
+    if (b.dataset.act === "drop") {   // retire la garantie, garde la dépense et sa facture
+      if (b.dataset.c !== "1") { b.dataset.c = "1"; b.textContent = "Confirmer ?"; toast("La dépense et sa facture sont conservées."); setTimeout(() => { if (b.isConnected) { b.dataset.c = ""; b.textContent = "Supprimer la garantie"; } }, 4000); return; }
+      const t = months[x.key] && months[x.key].items[x.id]; if (t) { delete t.warranty; saveMonth(x.key); render(); saveNow(); toast("Garantie supprimée"); }
+      return;
+    }
     if (b.dataset.act === "view") openViewer(x.files[0]);
     else { const { key, st, d, ...tx } = x; openSheet(tx); }
   });
