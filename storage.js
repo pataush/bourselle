@@ -11,6 +11,9 @@
  *   fileBlob(id)             -> Blob
  *   deleteFile(id)           -> met le fichier à la corbeille
  *   folderUrl()              -> lien pour ouvrir le dossier « Bourselle » dans le Drive
+ *   placeFile(id, path, name) -> range un fichier existant dans Bourselle/<path> sous un nouveau nom -> { url }
+ *   putFile(path, name, blob, type) -> crée ou remplace Bourselle/<path>/<name> -> { id, url }
+ *   folderLink(path)         -> lien pour ouvrir Bourselle/<path>
  *   signOut()
  *
  * Pour ajouter iCloud plus tard : écrire un adaptateur de plus avec cette interface.
@@ -118,6 +121,17 @@
       if (!folderId) folderId = await findOrCreateFolder(FOLDER, "root");
       if (!filesFolderId) filesFolderId = await findOrCreateFolder(FILES_FOLDER, folderId);
     }
+    const folderCache = {};
+    async function folderPath(path) {   // crée au besoin Bourselle/a/b/c et renvoie l'identifiant du dernier dossier
+      await ensureFolders();
+      let parent = folderId, key = "";
+      for (const part of path) {
+        key += "/" + part;
+        if (!folderCache[key]) folderCache[key] = await findOrCreateFolder(safeName(part), parent);
+        parent = folderCache[key];
+      }
+      return parent;
+    }
     function multipart(meta, blob, type) {
       const b = "mb" + Math.random().toString(36).slice(2);
       const body = new Blob([
@@ -177,6 +191,29 @@
         await api(`${API}/files/${encodeURIComponent(id)}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ trashed: true }) });
       },
       folderUrl: () => folderId ? `https://drive.google.com/drive/folders/${folderId}` : "https://drive.google.com/",
+      async placeFile(id, path, name) {
+        const dest = await folderPath(path);
+        const cur = await (await api(`${API}/files/${encodeURIComponent(id)}?fields=parents,name`)).json();
+        const remove = (cur.parents || []).filter(p => p !== dest).join(",");
+        await api(`${API}/files/${encodeURIComponent(id)}?addParents=${dest}${remove ? "&removeParents=" + remove : ""}&fields=id`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: safeName(name) }) });
+        return { url: `https://drive.google.com/file/d/${id}/view` };
+      },
+      async putFile(path, name, blob, type) {
+        const dest = await folderPath(path);
+        const query = `name='${name.replace(/'/g, "\\'")}' and '${dest}' in parents and trashed=false`;
+        const r = await (await api(`${API}/files?q=${q(query)}&fields=files(id)`)).json();
+        let id;
+        if (r.files && r.files.length) {
+          id = r.files[0].id;
+          await api(`${UPLOAD}/files/${id}?uploadType=media&fields=id`, { method: "PATCH", headers: { "Content-Type": type }, body: blob });
+        } else {
+          const m = multipart({ name, parents: [dest] }, blob, type);
+          id = (await (await api(`${UPLOAD}/files?uploadType=multipart&fields=id`, { method: "POST", headers: { "Content-Type": m.contentType }, body: m.body })).json()).id;
+        }
+        return { id, url: `https://drive.google.com/file/d/${id}/view` };
+      },
+      async folderLink(path) { return `https://drive.google.com/drive/folders/${await folderPath(path)}`; },
       signOut() {
         if (token && window.google && google.accounts) google.accounts.oauth2.revoke(token, () => {});
         token = null; localStorage.removeItem("mb-google-hint");
@@ -216,6 +253,23 @@
       return check(await fetch(url, { ...opts, headers: { ...(opts.headers || {}), Authorization: "Bearer " + t } }));
     }
     const path = p => `${G}/me/drive/special/approot:/${p.split("/").map(encodeURIComponent).join("/")}`;
+    const msCache = {};
+    async function msFolder(folder) {   // crée au besoin approot/a/b/c et renvoie { id, webUrl }
+      let parentUrl = `${G}/me/drive/special/approot`, rel = [], last = null;
+      for (const part of folder.map(safeName)) {
+        rel.push(part); const key = rel.join("/");
+        if (!msCache[key]) {
+          try { msCache[key] = await (await api(`${path(key)}?select=id,webUrl`)).json(); }
+          catch (e) {
+            if (e.code !== "not_found") throw e;
+            msCache[key] = await (await api(`${parentUrl}/children`, { method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name: part, folder: {}, "@microsoft.graph.conflictBehavior": "replace" }) })).json();
+          }
+        }
+        last = msCache[key]; parentUrl = `${G}/me/drive/items/${last.id}`;
+      }
+      return last;
+    }
     async function download(itemUrl) {
       const meta = await (await api(`${itemUrl}?select=id,eTag,@microsoft.graph.downloadUrl`)).json();
       const res = await fetch(meta["@microsoft.graph.downloadUrl"]);
@@ -284,6 +338,18 @@
       async fileBlob(id) { const { res } = await download(`${G}/me/drive/items/${encodeURIComponent(id)}`); return res.blob(); },
       async deleteFile(id) { await api(`${G}/me/drive/items/${encodeURIComponent(id)}`, { method: "DELETE" }); },
       folderUrl: () => root ? root.webUrl : "https://onedrive.live.com/",
+      async placeFile(id, folder, name) {
+        const dest = await msFolder(folder);
+        const item = await (await api(`${G}/me/drive/items/${encodeURIComponent(id)}?@microsoft.graph.conflictBehavior=rename`, { method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: safeName(name), parentReference: { id: dest.id } }) })).json();
+        return { url: item.webUrl || "" };
+      },
+      async putFile(folder, name, blob, type) {
+        await msFolder(folder);
+        const item = await (await api(`${path([...folder.map(safeName), safeName(name)].join("/"))}:/content`, { method: "PUT", headers: { "Content-Type": type }, body: blob })).json();
+        return { id: item.id, url: item.webUrl || "" };
+      },
+      async folderLink(folder) { return (await msFolder(folder)).webUrl || (root && root.webUrl) || ""; },
       signOut() {
         const a = account; account = null;
         if (msal && a) msal.logoutRedirect({ account: a, postLogoutRedirectUri: redirectUri }).catch(() => {});

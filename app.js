@@ -216,6 +216,7 @@ async function flush() {
     version = await store.save(snapshot());
     lastError = null; hideReconnect();
     setSync("ok", "Enregistré · " + store.label);
+    if (typeof ndfSyncSoon === "function") ndfSyncSoon();
   } catch (e) {
     dirty = true; lastError = e;
     if (e.code === "auth") { setSync("warn", "Reconnexion nécessaire"); showReconnect(); }
@@ -2444,8 +2445,7 @@ function renderFrais() {
   };
   html += `<div class="card"><h2>À rembourser<small>${todo.length}</small></h2>${todo.length ? todo.map(x => item(x, true)).join("") : `<div class="empty">Aucune note de frais en attente. Appuie sur + pour en ajouter une.</div>`}</div>`;
   html += `<div class="card"><h2>Remboursées en ${cur.y}<small>${done.length}</small></h2>${done.length ? done.map(x => item(x, false)).join("") : `<div class="empty">Rien de remboursé en ${cur.y}.</div>`}</div>`;
-  html += `<div class="card"><h2>Exporter</h2><p class="hint" style="margin-top:0">Liste des notes de frais (CSV), par exemple pour ton employeur.</p>
-    <button class="btn" id="ndfCsv">Télécharger les notes de frais</button></div>
+  html += (typeof ndfCardHTML === "function" ? ndfCardHTML(cur.y) : `<div class="card"><h2>Exporter</h2><button class="btn" id="ndfCsv">Télécharger les notes de frais</button></div>`) + `
     <p class="hint" style="text-align:center;margin:0">Les notes de frais ne sont pas comptées dans tes dépenses personnelles.</p>`;
   view.innerHTML = html;
   const byId = id => all.find(x => x.id === id);
@@ -2458,6 +2458,7 @@ function renderFrais() {
     else if (a === "edit") { const { key, ...tx } = x; openSheet(tx); }
   });
   document.getElementById("ndfCsv").onclick = () => saveFile(`notes-de-frais-${todayISO()}.csv`, buildCSV(t => t.type === "depense" && t.ndf));
+  if (typeof ndfBind === "function") ndfBind(cur.y);
 }
 
 // ---------- Connexion ----------
