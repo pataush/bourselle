@@ -103,6 +103,11 @@
           <button type="button" data-s="rembourse">Remboursée</button>
         </div>
         <div class="vat-box" id="vatBox" hidden>
+          <label class="vat-f" style="margin-bottom:10px"><span>Type de frais</span><select class="field" id="fNdfType"></select></label>
+          <div class="vat-row" style="margin-bottom:10px">
+            <label class="vat-f"><span>Motif</span><input class="field" id="fNdfMotif" placeholder="ex. Rdv suivi projet"></label>
+            <label class="vat-f"><span>Client</span><input class="field" id="fNdfClient" placeholder="ex. Client2"></label>
+          </div>
           <div class="vat-row">
             <label class="vat-f"><span>Taux de TVA</span><select class="field" id="fVatRate"></select></label>
             <label class="vat-f"><span>Montant de la TVA</span><input class="field" id="fVat" inputmode="decimal" placeholder="0,00"></label>

@@ -63,6 +63,7 @@ let recs = {};            // opérations automatiques
 let goals = {};           // objectifs d'épargne
 let groups = {};          // dépenses partagées
 let tontines = {};        // tontines
+let trips = {};           // déplacements (indemnités kilométriques) des notes de frais
 
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
 function ym(y, m) { return `${y}-${String(m).padStart(2, "0")}`; }
@@ -193,9 +194,9 @@ function setSync(state, txt) {
   document.getElementById("syncTxt").textContent = txt;
 }
 let version = null, saveTimer = null, saving = false, dirty = false, lastError = null;
-function snapshot() { return { app: "bourselle", version: 1, savedAt: new Date().toISOString(), months, settings, subs, debts, recs, goals, groups, tontines }; }
+function snapshot() { return { app: "bourselle", version: 1, savedAt: new Date().toISOString(), months, settings, subs, debts, recs, goals, groups, tontines, trips }; }
 function applyData(d) {
-  months = (d && d.months) || {}; subs = (d && d.subs) || {}; debts = (d && d.debts) || {}; recs = (d && d.recs) || {}; goals = (d && d.goals) || {}; groups = (d && d.groups) || {}; tontines = (d && d.tontines) || {};
+  months = (d && d.months) || {}; trips = (d && d.trips) || {}; subs = (d && d.subs) || {}; debts = (d && d.debts) || {}; recs = (d && d.recs) || {}; goals = (d && d.goals) || {}; groups = (d && d.groups) || {}; tontines = (d && d.tontines) || {};
   settings = { ...clone(DEFAULT_SETTINGS), ...((d && d.settings) || {}) };
   if (!(d && d.settings) && window.LANG === "en" && window.T) {   // nouveau compte en anglais : catégories par défaut en anglais
     for (const c of settings.cats) c.name = T(c.name);
@@ -551,7 +552,7 @@ function renderReglages() {
   document.getElementById("dlAll").onclick = () => {
     const m = clone(months);
     for (const d of Object.values(m)) for (const t of Object.values(d.items || {})) delete t.files;
-    saveFile(`bourselle-sauvegarde-${todayISO()}.json`, JSON.stringify({ app: "bourselle", version: 1, exportedAt: new Date().toISOString(), months: m, settings, subs, debts, recs, goals, groups, tontines }, null, 1));
+    saveFile(`bourselle-sauvegarde-${todayISO()}.json`, JSON.stringify({ app: "bourselle", version: 1, exportedAt: new Date().toISOString(), months: m, settings, subs, debts, recs, goals, groups, tontines, trips }, null, 1));
   };
   document.getElementById("importFile").onchange = async e => {
     const f = e.target.files && e.target.files[0]; e.target.value = "";
@@ -612,6 +613,7 @@ function importData(d) {
   for (const [id, x] of Object.entries(d.goals || {})) if (!goals[id]) { goals[id] = x; n++; }
   for (const [id, x] of Object.entries(d.groups || {})) if (!groups[id]) { groups[id] = x; n++; }
   for (const [id, x] of Object.entries(d.tontines || {})) if (!tontines[id]) { tontines[id] = x; n++; }
+  for (const [id, x] of Object.entries(d.trips || {})) if (!trips[id]) { trips[id] = x; n++; }
   if (d.settings && Array.isArray(d.settings.cats)) {
     for (const c of d.settings.cats) {
       const mine = settings.cats.find(x => x.id === c.id);
@@ -690,7 +692,7 @@ function openSheet(tx) {
   form = editing ? { ...clone(tx), oldKey: tx.date.slice(0, 7) }
     : { id: newId(), type: "depense", amount: "", cat: "courses", date: tab === "frais" ? todayISO() : base, note: "", fixe: false, ndf: tab === "frais", ndfStatus: "a_rembourser" };
   form.files = form.files || []; form.uploaded = []; form.removed = []; form.busy = 0; form.repeat = ""; hideGarAsk();
-  form.vat = form.vat ? clone(form.vat) : null;
+  form.vat = form.vat ? clone(form.vat) : null; form.ndfType = form.ndfType || ""; form.ndfMotif = form.ndfMotif || ""; form.ndfClient = form.ndfClient || "";
   const w = form.warranty || null;
   form.gar = { on: !!w, months: w ? (w.months ?? 0) : 24, end: w ? w.end : "" };
   document.getElementById("gItem").value = w ? w.item || "" : "";
@@ -749,7 +751,15 @@ const money = (v, c) => c && c !== baseCurrency() ? fmtCur(c, v) : eur(v);
 const vatTxt = r => window.LANG === "en" ? String(r) + "%" : String(r).replace(".", ",") + " %";
 const vatNum = (v, c) => NO_CENTS.includes(c) ? String(Math.round(v)) : numStr((Math.round(v * 100) / 100).toFixed(2));
 function vatTtc() { const a = parseAmount(document.getElementById("fAmount").value); return a > 0 ? a : 0; }
+function drawNdfType() {
+  const ts = document.getElementById("fNdfType"); if (!ts || !form || typeof NDF_TYPES === "undefined") return;
+  if (!ts.options.length) ts.innerHTML = NDF_TYPES.map(([k, l]) => `<option value="${k}">${esc(l)}</option>`).join("");
+  ts.value = ndfTypeNorm(form.ndfType) || ndfTypeOf({ note: document.getElementById("fNote").value, cat: form.cat, vat: form.vat });
+  const m = document.getElementById("fNdfMotif"), c = document.getElementById("fNdfClient");
+  if (document.activeElement !== m) m.value = form.ndfMotif || ""; if (document.activeElement !== c) c.value = form.ndfClient || "";
+}
 function drawVat() {
+  drawNdfType();
   const sel = document.getElementById("fVatRate"), inp = document.getElementById("fVat"), sum = document.getElementById("vatSum");
   if (!sel || !form) return;
   const v = form.vat, multi = v && v.rates && v.rates.length > 1;
@@ -764,6 +774,10 @@ function drawVat() {
     sum.innerHTML = `<span><span>HT</span> <b class="num">${esc(money(ttc - v.amount, c))}</b></span><span><span>TVA</span> <b class="num">${esc(money(v.amount, c))}</b></span><span><span>TTC</span> <b class="num">${esc(money(ttc, c))}</b></span>${detail ? `<small>${esc(detail)}</small>` : ""}${v.estimated ? `<small>TVA calculée à partir du taux : vérifie sur le ticket.</small>` : ""}`;
   } else sum.innerHTML = v ? "" : `<small>Indique le taux de TVA du ticket pour la récupérer en comptabilité.</small>`;
 }
+document.getElementById("fNdfType").onchange = e => { form.ndfType = e.target.value; };
+document.getElementById("fNdfMotif").addEventListener("input", e => { if (form) form.ndfMotif = e.target.value; });
+document.getElementById("fNdfClient").addEventListener("input", e => { if (form) form.ndfClient = e.target.value; });
+document.getElementById("fNote").addEventListener("input", () => { if (form && form.ndf) drawNdfType(); });
 document.getElementById("fVatRate").onchange = e => {
   const val = e.target.value;
   if (!val) form.vat = null;
@@ -791,6 +805,7 @@ function convertAll(R, to) {
   for (const x of Object.values(debts)) { x.amount = r2(x.amount); if (x.monthly) x.monthly = r2(x.monthly); for (const p of x.payments || []) p.amount = r2(p.amount); }
   for (const g of Object.values(groups)) for (const e of Object.values(g.expenses || {})) e.amount = r2(e.amount);
   for (const t of Object.values(tontines)) if (t.rate) t.rate = Math.round(Number(t.rate) / R * 1e6) / 1e6;   // taux = devise de la tontine pour 1 unité du budget
+  for (const t of Object.values(trips)) { if (t.rate) t.rate = Math.round(t.rate * R * 1e4) / 1e4; if (t.amount) t.amount = r2(t.amount); }
   const fl = settings.fxLast || {}; for (const k of Object.keys(fl)) fl[k] = Math.round(fl[k] / R * 1e6) / 1e6;
 }
 function changeCurrency(to) {
@@ -1002,6 +1017,11 @@ document.getElementById("sheet").onsubmit = e => {
       info: document.getElementById("gInfo").value.trim().slice(0, 200) };
   }
   if (isNdf) { tx.ndf = true; tx.ndfStatus = form.ndfStatus || "a_rembourser"; if (tx.ndfStatus === "rembourse") tx.ndfPaidOn = form.ndfPaidOn || todayISO(); }
+  if (isNdf) {
+    tx.ndfType = document.getElementById("fNdfType").value || ndfTypeOf({ note: tx.note, cat: tx.cat, vat: form.vat });
+    const mo = document.getElementById("fNdfMotif").value.trim(), cl = document.getElementById("fNdfClient").value.trim();
+    if (mo) tx.ndfMotif = mo.slice(0, 120); if (cl) tx.ndfClient = cl.slice(0, 80);
+  }
   if (form.type === "depense" && form.vat && form.vat.amount >= 0 && form.vat.amount < amountIn) {
     const v = form.vat; tx.vat = { rate: v.rate ?? null, amount: Math.round(v.amount * 100) / 100, ht: Math.round((amountIn - v.amount) * 100) / 100, cur: ocur };
     if (v.rates && v.rates.length > 1) tx.vat.rates = v.rates;
@@ -2428,13 +2448,12 @@ function renderFrais() {
     <div class="tile"><div class="k"><span class="sw" style="background:var(--accent)"></span>À rembourser</div><div class="v num">${eur(sum(todo))}</div></div>
     <div class="tile"><div class="k"><span class="sw" style="background:var(--good)"></span>Remboursé en ${cur.y}</div><div class="v num">${eur(sum(done))}</div></div>
   </div>`;
-  const tv = vatSum(todo);
-  if (todo.length) html += `<div class="card vat-tot"><div class="k">À rembourser</div><div class="vat-cols"><span><span>HT</span><b class="num">${esc(eur(sum(todo) - tv))}</b></span><span><span>TVA</span><b class="num">${esc(eur(tv))}</b></span><span><span>TTC</span><b class="num">${esc(eur(sum(todo)))}</b></span></div>${todo.some(x => !x.vat) ? `<p class="hint" style="margin:6px 0 0">${todo.filter(x => !x.vat).length} note(s) sans TVA renseignée.</p>` : ""}</div>`;
+  if (typeof ndfDocHTML === "function") html += ndfDocHTML();
   if (noFile) html += `<div class="banner">${noFile} note${noFile > 1 ? "s" : ""} de frais sans justificatif : ajoute la facture pour la faire rembourser.</div>`;
   const item = (x, isTodo) => {
     const c = catById(x.cat), n = x.files ? x.files.length : 0;
     return `<div class="ndf-item"><div><div class="n">${esc(x.note || c.name)}</div>
-      <div class="s">${esc(new Date(x.date + "T12:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }))} · ${esc(c.name)}${!isTodo && x.ndfPaidOn ? " · remboursée le " + esc(x.ndfPaidOn.split("-").reverse().join("/")) : ""}${n ? `<span class="clip">${CLIP}${n}</span>` : ` · <span style="color:var(--bad)">sans facture</span>`}</div></div>
+      <div class="s">${esc(new Date(x.date + "T12:00:00").toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" }))} · ${esc(typeof ndfTypeOf === "function" ? T(NDF_TYPES.find(t => t[0] === ndfTypeOf(x))[1]) : c.name)}${x.ndfMotif ? " · " + esc(x.ndfMotif) : ""}${x.ndfClient ? " · " + esc(x.ndfClient) : ""}${!isTodo && x.ndfPaidOn ? " · remboursée le " + esc(x.ndfPaidOn.split("-").reverse().join("/")) : ""}${n ? `<span class="clip">${CLIP}${n}</span>` : ` · <span style="color:var(--bad)">sans facture</span>`}</div></div>
       <div class="num" style="font-weight:700">${esc(eur(x.amount))}</div>
       ${x.vat ? `<div class="vat-line num"><span>HT ${esc(money(x.vat.ht ?? (x.orig ? x.orig.amount : x.amount) - x.vat.amount, x.vat.cur))}</span><span>TVA ${esc(money(x.vat.amount, x.vat.cur))}${x.vat.rate != null ? ` (${esc(vatTxt(x.vat.rate))})` : x.vat.rates ? ` (${esc(x.vat.rates.map(e => vatTxt(e.rate)).join(" + "))})` : ""}</span><span>TTC ${esc(money(x.orig && x.vat.cur === x.orig.cur ? x.orig.amount : x.amount, x.vat.cur))}</span></div>` : ""}
       <div class="acts">
