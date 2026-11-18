@@ -52,9 +52,17 @@ function licenceFits(p) {
   if (p.x && p.x < todayISO()) return { ok: false, why: "expired" };
   return { ok: true };
 }
+// Accès complet du propriétaire : empreinte SHA-256 de l'adresse (l'adresse elle-même n'est pas publiée).
+const OWNER_HASHES = ["91959f39f66b2a1ca4ba68dc60665c1c43737e3b151bda7a01055d3b430fdd0e"];
+async function isOwner() {
+  const em = myEmail(); if (!em || !(window.crypto && crypto.subtle)) return false;
+  const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(em));
+  return OWNER_HASHES.includes([...new Uint8Array(d)].map(x => x.toString(16).padStart(2, "0")).join(""));
+}
 async function refreshPlus() {
   const code = settings && settings.licence;
   let st = { ok: false };
+  if (await isOwner()) { const changed = !plusState.ok || plusState.plan !== "vie"; plusState = { ok: true, plan: "vie", until: "", emails: [myEmail()], owner: true }; return changed; }
   if (code) {
     const r = await verifyLicence(code);
     if (r.ok) { const f = licenceFits(r.p); st = { ok: f.ok, why: f.why, plan: r.p.p, until: r.p.x || "", emails: r.p.e || [] }; }
@@ -138,7 +146,7 @@ async function activateCode(code) {
   applyData = function (d) {
     _applyData(d);
     plusState = { ok: false };
-    if (settings.licence) refreshPlus().then(ch => { if (ch && store) render(); });
+    refreshPlus().then(ch => { if (ch && store) render(); });
   };
   document.getElementById("scanBtn").onclick = () => {
     if (!canUse("scan")) return showPlus("scan");
@@ -319,4 +327,4 @@ function bindPlusCard() {
   render = function () { _render(); if (!notified && store && isPlus()) { notified = true; setTimeout(notifyDue, 1500); } };
 }
 // Les données ont pu être chargées avant ce fichier (mode démo) : on vérifie le code tout de suite aussi.
-if (settings && settings.licence) refreshPlus().then(ch => { if (ch && store) render(); });
+if (settings) refreshPlus().then(ch => { if (ch && store) render(); });
