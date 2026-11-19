@@ -146,7 +146,7 @@ async function fxLoad(force) {
   fxLoading = (async () => {
     const sources = [
       async () => { const r = await (await fetch(`https://open.er-api.com/v6/latest/${base}`)).json(); if (r.result !== "success") throw 0; return { rates: r.rates, src: "ExchangeRate-API", url: "https://www.exchangerate-api.com", at: (r.time_last_update_utc || "") }; },
-      async () => { const r = await (await fetch(`https://api.frankfurter.app/latest?from=${base}`)).json(); if (!r.rates) throw 0; return { rates: r.rates, src: "Frankfurter (BCE)", url: "https://frankfurter.dev", at: r.date || "" }; },
+      async () => { const r = await (await fetch(`https://api.frankfurter.dev/v1/latest?from=${base}`)).json(); if (!r.rates) throw 0; return { rates: r.rates, src: "Frankfurter (BCE)", url: "https://frankfurter.dev", at: r.date || "" }; },
     ];
     for (const get of sources) {
       try { const d = await Promise.race([get(), new Promise((_, rej) => setTimeout(() => rej(0), 6000))]); const v = { base, day: todayISO(), ...d }; try { localStorage.setItem(FX_KEY, JSON.stringify(v)); } catch (e) {} return v; }
@@ -174,7 +174,7 @@ async function fxRateAt(cur, day) {
   let m = {}; try { m = JSON.parse(localStorage.getItem(FXH_KEY) || "{}"); } catch (e) {}
   if (m[k]) return { rate: m[k][0], src: "hist", day: m[k][1], url: "https://frankfurter.dev" };
   try {
-    const r = await Promise.race([fetch(`https://api.frankfurter.app/${day}?from=${base}&to=${cur}`).then(x => x.json()), new Promise((_, rej) => setTimeout(() => rej(0), 6000))]);
+    const r = await Promise.race([fetch(`https://api.frankfurter.dev/v1/${day}?from=${base}&to=${cur}`).then(x => x.json()), new Promise((_, rej) => setTimeout(() => rej(0), 6000))]);
     const v = r && r.rates && r.rates[cur];
     if (!(v > 0)) return null;
     m[k] = [v, r.date || day]; const ks = Object.keys(m); if (ks.length > 300) delete m[ks[0]];
