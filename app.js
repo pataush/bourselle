@@ -165,6 +165,28 @@ async function fxRate(cur) {
   const last = (settings.fxLast || {})[cur];
   return last ? { rate: last, src: "dernier" } : null;
 }
+// Taux à une date passée (BCE via Frankfurter), pour les notes de frais. { rate, src:"hist", day } ou null
+const FXH_KEY = "bourselle-fx-hist";
+async function fxRateAt(cur, day) {
+  const base = baseCurrency(), fx = fxFixed(cur, base);
+  if (fx) return { rate: fx, src: "fixe" };
+  const k = `${base}|${cur}|${day}`;
+  let m = {}; try { m = JSON.parse(localStorage.getItem(FXH_KEY) || "{}"); } catch (e) {}
+  if (m[k]) return { rate: m[k][0], src: "hist", day: m[k][1], url: "https://frankfurter.dev" };
+  try {
+    const r = await Promise.race([fetch(`https://api.frankfurter.app/${day}?from=${base}&to=${cur}`).then(x => x.json()), new Promise((_, rej) => setTimeout(() => rej(0), 6000))]);
+    const v = r && r.rates && r.rates[cur];
+    if (!(v > 0)) return null;
+    m[k] = [v, r.date || day]; const ks = Object.keys(m); if (ks.length > 300) delete m[ks[0]];
+    try { localStorage.setItem(FXH_KEY, JSON.stringify(m)); } catch (e) {}
+    return { rate: v, src: "hist", day: r.date || day, url: "https://frankfurter.dev" };
+  } catch (e) { return null; }
+}
+// Recalcule le taux automatique (note de frais : date du ticket) si l'utilisateur ne l'a pas saisi lui-même
+function fxAuto() {
+  if (!form || !form.ocur || form.ocur === baseCurrency() || form.orateManual) return;
+  form.orate = ""; drawFx(true);
+}
 function numStr(v) { return window.LANG === "en" ? String(v) : String(v).replace(".", ","); }
 function fxRound(r) { return r >= 100 ? Math.round(r * 1000) / 1000 : r >= 1 ? Math.round(r * 10000) / 10000 : Math.round(r * 1e6) / 1e6; }
 function eur(v, round) { return (round ? fmt0 : fmt).format(v || 0); }
@@ -702,13 +724,15 @@ function openSheet(tx) {
   document.getElementById("gEnd").value = w ? w.end : "";
   form.ocur = form.orig && form.orig.cur ? form.orig.cur : baseCurrency();
   form.orate = form.orig && form.orig.rate ? form.orig.rate : "";
+  form.orateManual = !!(form.orig && form.orig.manual);
+  form.orateSrc = form.orig && form.orig.rateDay ? { src: "hist", day: form.orig.rateDay } : null;
   const amt0 = form.orig && form.orig.amount != null ? form.orig.amount : form.amount;
   document.getElementById("fAmount").value = amt0 === "" ? "" : String(amt0).replace(".", ",");
   const cs = document.getElementById("fCur");
   if (cs) {
     cs.innerHTML = APP_CURRENCIES.map(([c]) => `<option value="${c}">${esc(curSymOf(c) === c ? c : curSymOf(c) + " " + c)}</option>`).join("");
     cs.value = form.ocur;
-    cs.onchange = () => { form.ocur = cs.value; form.orate = ""; drawFx(true); };
+    cs.onchange = () => { form.ocur = cs.value; form.orate = ""; form.orateManual = false; drawFx(true); };
   }
   drawFx(false);
   document.getElementById("fDate").value = form.date;
@@ -729,14 +753,17 @@ function drawFx(fetchRate) {
     if (!form.orate && info) form.orate = fxRound(info.rate);
     if (ri && document.activeElement !== ri) ri.value = form.orate ? numStr(form.orate) : "";
     const src = document.getElementById("fxSrc");
-    if (src) src.innerHTML = !info ? "Indique le taux de change." : info.src === "fixe" ? "Parité fixe." : info.src === "dernier" ? "Dernier taux utilisé (taux du jour indisponible hors connexion)." : `Taux du jour : <a href="${esc(info.url)}" target="_blank" rel="noopener">${esc(info.src)}</a>. Tu peux le corriger (taux de ta banque ou de ton transfert).`;
+    form.orateSrc = info && info.src === "hist" ? { src: "hist", day: info.day } : null;
+    if (src) src.innerHTML = !info ? "Indique le taux de change." : info.src === "fixe" ? "Parité fixe." : info.src === "hist" ? `Taux BCE du ${esc(frDate(info.day))} (date du ticket) : <a href="${esc(info.url)}" target="_blank" rel="noopener">Frankfurter</a>. Tu peux le corriger.` : info.src === "manuel" ? "Taux saisi à la main." : info.src === "enregistre" ? "Taux enregistré avec l'opération. Tu peux le corriger." : info.src === "dernier" ? "Dernier taux utilisé (taux du jour indisponible hors connexion)." : `Taux du jour : <a href="${esc(info.url)}" target="_blank" rel="noopener">${esc(info.src)}</a>. Tu peux le corriger (taux de ta banque ou de ton transfert).`;
     fxPreview();
   };
   document.getElementById("fxBase").textContent = `1 ${curSymOf(base)} =`;
   document.getElementById("fxCur").textContent = curSymOf(cur);
-  if (form.orate && !fetchRate) { show({ rate: form.orate, src: form.orig && form.orig.src || "dernier" }); return; }
-  document.getElementById("fxSrc").textContent = "Recherche du taux du jour…";
-  fxRate(cur).then(show);
+  if (form.orate && !fetchRate) { show(form.orig && form.orig.rateDay && !form.orateManual ? { rate: form.orate, src: "hist", day: form.orig.rateDay, url: "https://frankfurter.dev" } : { rate: form.orate, src: form.orig ? (form.orateManual ? "manuel" : "enregistre") : "dernier" }); return; }
+  const d = document.getElementById("fDate").value;
+  const hist = form.ndf && form.type === "depense" && /^\d{4}-\d{2}-\d{2}$/.test(d) && d < todayISO();
+  document.getElementById("fxSrc").textContent = hist ? "Recherche du taux à la date du ticket…" : "Recherche du taux du jour…";
+  (hist ? fxRateAt(cur, d).then(i => i || fxRate(cur)) : fxRate(cur)).then(show);
 }
 function fxPreview() {
   const el = document.getElementById("fxEq"); if (!el || !form) return;
@@ -744,7 +771,7 @@ function fxPreview() {
   el.textContent = a > 0 && r > 0 ? `≈ ${eur(Math.round(a / r * 100) / 100)}` : "";
 }
 document.getElementById("fAmount").addEventListener("input", () => { if (form && form.ocur && form.ocur !== baseCurrency()) fxPreview(); });
-document.getElementById("fRate").addEventListener("input", e => { if (!form) return; form.orate = parseNum(e.target.value) || ""; fxPreview(); });
+document.getElementById("fRate").addEventListener("input", e => { if (!form) return; form.orate = parseNum(e.target.value) || ""; form.orateManual = true; fxPreview(); });
 // ---------- TVA (notes de frais) ----------
 const VAT_CHOICES = [0, 2.1, 5.5, 10, 20, 8.5, 18, 19.25];
 const money = (v, c) => c && c !== baseCurrency() ? fmtCur(c, v) : eur(v);
@@ -880,7 +907,7 @@ function drawForm() {
   document.getElementById("ndfWrap").hidden = !isDep;
   const nd = document.getElementById("fNdf");
   nd.checked = !!form.ndf;
-  nd.onchange = () => { form.ndf = nd.checked; if (form.ndf) { form.fixe = false; form.ndfStatus = form.ndfStatus || "a_rembourser"; } drawForm(); };
+  nd.onchange = () => { form.ndf = nd.checked; if (form.ndf) { form.fixe = false; form.ndfStatus = form.ndfStatus || "a_rembourser"; } drawForm(); fxAuto(); };
   const st = document.getElementById("fNdfStatus");
   st.hidden = !form.ndf;
   st.querySelectorAll("button").forEach(b => { b.setAttribute("aria-pressed", String(b.dataset.s === (form.ndfStatus || "a_rembourser"))); b.onclick = () => { form.ndfStatus = b.dataset.s; drawForm(); }; });
@@ -914,7 +941,7 @@ function drawGar() {
   const end = garEnd();
   document.getElementById("gEndTxt").textContent = end ? `Garantie jusqu'au ${frDate(end)} (${leftTxt(daysUntil(end))})` : "";
 }
-document.getElementById("fDate").addEventListener("change", () => { if (form) drawGar(); });
+document.getElementById("fDate").addEventListener("change", () => { if (form) { drawGar(); if (form.ndf) fxAuto(); } });
 document.getElementById("gEnd").addEventListener("change", () => { if (form) drawGar(); });
 // La facture d'un achat garanti vient d'être retirée : proposer de supprimer aussi la garantie.
 function askDropWarranty() {
@@ -1005,6 +1032,8 @@ document.getElementById("sheet").onsubmit = e => {
   const amount = foreign ? Math.round(amountIn / orate * 100) / 100 : amountIn;
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast("Choisis une date"); return; }
   const isNdf = form.type === "depense" && !!form.ndf;
+  if (isNdf && typeof ndfAllowed === "function" && !ndfAllowed(form.id, date)) { showPlus("ndf"); return; }
+  if (isNdf && !settings.ndfTrial) { settings.ndfTrial = todayISO(); saveSettings(); }   // début du mois d'essai des notes de frais
   const tx = { id: form.id, type: form.type, amount, cat: form.cat, date, note: document.getElementById("fNote").value.trim().slice(0, 80),
     fixe: form.type === "depense" && !isNdf ? !!form.fixe : false, created: form.created || Date.now(), files: form.files };
   if (form.type === "depense" && form.gar.on) {
@@ -1028,6 +1057,8 @@ document.getElementById("sheet").onsubmit = e => {
   }
   if (foreign) {
     tx.orig = { cur: ocur, amount: amountIn, rate: orate };
+    if (form.orateManual) tx.orig.manual = true;
+    else if (form.orateSrc && form.orateSrc.day) tx.orig.rateDay = form.orateSrc.day;
     settings.fxLast = { ...(settings.fxLast || {}), [ocur]: orate }; saveSettings();
   }
   if (form.rec) tx.rec = form.rec;
@@ -2007,11 +2038,12 @@ async function runScan(file) {
     if (form !== f0) return;
     form.type = "depense";
     if (r.cur && APP_CURRENCIES.some(([c]) => c === r.cur) && r.cur !== (form.ocur || baseCurrency())) {
-      form.ocur = r.cur; form.orate = ""; const cs = document.getElementById("fCur"); if (cs) cs.value = r.cur; drawFx(true);
+      form.ocur = r.cur; form.orate = ""; form.orateManual = false; const cs = document.getElementById("fCur"); if (cs) cs.value = r.cur;
     }
     if (r.amount) document.getElementById("fAmount").value = NO_CENTS.includes(r.cur) ? String(Math.round(r.amount)) : String(r.amount.toFixed(2)).replace(".", ",");
     if (r.vat) form.vat = { ...r.vat };
     if (r.date && /^\d{4}-\d{2}-\d{2}$/.test(r.date)) document.getElementById("fDate").value = r.date;
+    if (r.cur && (form.ocur || baseCurrency()) !== baseCurrency() && !form.orateManual) { form.orate = ""; drawFx(true); }
     if (r.shop && !document.getElementById("fNote").value) document.getElementById("fNote").value = r.shop.slice(0, 80);
     if (r.cat && settings.cats.some(c => c.id === r.cat)) { form.cat = r.cat; form.fixe = !!catById(r.cat).fixe; }
     drawForm();

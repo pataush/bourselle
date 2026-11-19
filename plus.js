@@ -6,7 +6,7 @@
 // (La clé privée correspondante reste chez l'éditeur, elle n'est jamais publiée.)
 const PLUS_PUB = { kty: "EC", crv: "P-256", x: "FVolf7Ixuv9wbaEw8Liyh1YbtbrZOsghwVphdfVVOLM", y: "rsfy0EMVoZkRjGF0asb7-kY3EMaDg6ICztrXPUcaaGM" };
 const PLUS_CFG = (window.APP_CONFIG && window.APP_CONFIG.plus) || {};
-const FREE = { scan: 5, import: 1, tontines: 1, groups: 1, ...(PLUS_CFG.free || {}) };
+const FREE = { scan: 5, import: 1, tontines: 1, groups: 1, ndf: 5, ndfTrialDays: 30, ...(PLUS_CFG.free || {}) };
 const OFFERS = [
   { id: "mensuel", name: "Plus mensuel", price: "2,99 €", per: "par mois", note: "Sans engagement" },
   { id: "annuel", name: "Plus annuel", price: "24,99 €", per: "par an", note: "2 mois offerts", best: true },
@@ -19,6 +19,7 @@ const PLUS_WHY = {
   import: `Tu as utilisé ton import de relevé gratuit ce mois-ci.`,
   tontines: `La version gratuite permet de suivre ${FREE.tontines} tontine.`,
   groups: `La version gratuite permet ${FREE.groups} groupe partagé.`,
+  ndf: `Ton mois d'essai est terminé : la version gratuite permet ${FREE.ndf} tickets en note de frais par mois.`,
   rappels: "Les rappels avancés font partie de Bourselle Plus.",
   compta: "Les exports comptables font partie de Bourselle Plus.",
 };
@@ -26,6 +27,7 @@ const PLUS_LIST = [
   ["Scan de tickets illimité", `gratuit : ${FREE.scan} par mois`],
   ["Import des relevés bancaires illimité", `gratuit : ${FREE.import} par mois`],
   ["Tontines et groupes partagés illimités", `gratuit : ${FREE.tontines} de chaque`],
+  ["Notes de frais illimitées", `gratuit : ${FREE.ndf} tickets par mois, illimité le premier mois`],
   ["Rappels avancés", "garanties, prélèvements et tontines dans ton agenda, notifications"],
   ["Exports comptables", "grand livre et synthèse mensuelle, prêts pour Excel"],
   ["Forfait famille", "un seul abonnement pour 5 comptes, chacun garde ses données"],
@@ -88,6 +90,22 @@ function countUse(k) {
   saveSettings();
 }
 function canUse(k) { return isPlus() || usedThisMonth(k) < FREE[k]; }
+// ---------- Notes de frais : 1 mois d'essai illimité, puis 5 tickets par mois ----------
+function ndfTrialEnd() { if (!settings.ndfTrial) return null; const d = new Date(settings.ndfTrial + "T12:00:00"); d.setDate(d.getDate() + FREE.ndfTrialDays); return d.toISOString().slice(0, 10); }
+function ndfInTrial() { const e = ndfTrialEnd(); return !e || todayISO() < e; }
+function ndfCount(ym, exceptId) { return allItems().filter(x => x.type === "depense" && x.ndf && x.date && x.date.startsWith(ym) && x.id !== exceptId).length; }
+function ndfAllowed(id, date) {
+  if (isPlus() || ndfInTrial()) return true;
+  const ym = date.slice(0, 7), prev = id && allItems().find(x => x.id === id);
+  if (prev && prev.ndf && prev.date && prev.date.startsWith(ym)) return true;   // modifier une note existante reste possible
+  return ndfCount(ym, id) < FREE.ndf;
+}
+function ndfQuotaHTML(ym) {
+  if (isPlus()) return "";
+  if (ndfInTrial()) { const e = ndfTrialEnd(); return `<div class="banner">${e ? `<span>Mois d'essai : notes de frais illimitées jusqu'au</span> <b>${esc(frDate(e))}</b>.` : `<span>Ton premier mois de notes de frais est illimité.</span>`} <span>Ensuite : ${FREE.ndf} tickets gratuits par mois.</span></div>`; }
+  const n = ndfCount(ym || todayISO().slice(0, 7));
+  return `<div class="banner"><span>Version gratuite :</span> <b class="num">${Math.min(n, FREE.ndf)} / ${FREE.ndf}</b> <span>tickets en note de frais ce mois-ci.</span> <button type="button" class="btn" id="ndfPlus" style="margin-left:6px">Illimité avec Plus</button></div>`;
+}
 
 // ---------- Écran « Bourselle Plus » ----------
 function showPlus(feature) {
@@ -105,7 +123,8 @@ function showPlus(feature) {
     <p class="hint" id="buyMsg" role="status" style="margin:0"></p>
     <label class="lbl" for="plusCode">J'ai un code d'activation</label>
     <textarea class="field" id="plusCode" rows="3" placeholder="BRS1.…" spellcheck="false" autocapitalize="off"></textarea>
-    <p class="hint" style="margin:0">Le code est envoyé par e-mail après le paiement. Il est lié à l'adresse de ton compte${myEmail() ? ` (${esc(myEmail())})` : ""}.</p></div>`,
+    <p class="hint" style="margin:0">Le code est envoyé par e-mail après le paiement. Il est lié à l'adresse de ton compte${myEmail() ? ` (${esc(myEmail())})` : ""}.</p>
+    ${PLUS_CFG.api ? `<button type="button" class="btn" id="plusResend" style="align-self:flex-start">Je n'ai pas reçu mon code</button>` : ""}</div>`,
     () => {
       const code = val("plusCode");
       if (!code) return true;
@@ -115,6 +134,19 @@ function showPlus(feature) {
   const sub = f.querySelector("button[type=submit]"); sub.textContent = "Activer le code";
   f.querySelector("#f2Cancel").textContent = "Fermer";
   f.querySelectorAll("[data-buy]").forEach(b => b.onclick = () => buy(b.dataset.buy));
+  const rs = f.querySelector("#plusResend"); if (rs) rs.onclick = () => resendCode(rs);
+}
+// Redemander son code : le serveur l'envoie à l'adresse du compte (jamais affiché ici).
+async function resendCode(btn) {
+  const em = myEmail(), msg = document.getElementById("buyMsg");
+  if (!em) { if (msg) msg.textContent = "Connecte-toi avec le compte utilisé pour le paiement, puis réessaie."; return; }
+  btn.disabled = true;
+  try {
+    const r = await fetch(PLUS_CFG.api.replace(/\/$/, "") + "/resend", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: em }) });
+    if (!r.ok) throw new Error(r.status);
+    if (msg) msg.textContent = `Si un achat est enregistré pour ${em}, le code vient d'être renvoyé à cette adresse. Pense à regarder dans les indésirables.`;
+  } catch (e) { if (msg) msg.textContent = "Envoi impossible pour l'instant. Réessaie dans quelques minutes."; }
+  setTimeout(() => { btn.disabled = false; }, 60000);
 }
 function buy(id) {
   const url = (PLUS_CFG.checkout || {})[id], msg = document.getElementById("buyMsg");
@@ -279,7 +311,8 @@ function plusCardHTML() {
          <div><span>Scans de tickets</span><b class="num">${usedThisMonth("scan")} / ${FREE.scan}</b></div>
          <div><span>Imports de relevés</span><b class="num">${usedThisMonth("import")} / ${FREE.import}</b></div>
          <div><span>Tontines</span><b class="num">${Object.keys(tontines).length} / ${FREE.tontines}</b></div>
-         <div><span>Groupes partagés</span><b class="num">${Object.keys(groups).length} / ${FREE.groups}</b></div></div>`;
+         <div><span>Groupes partagés</span><b class="num">${Object.keys(groups).length} / ${FREE.groups}</b></div>
+         <div><span>Notes de frais ce mois-ci</span><b class="num">${ndfInTrial() ? "essai" : `${ndfCount(todayISO().slice(0, 7))} / ${FREE.ndf}`}</b></div></div>`;
   return `<div class="card plus-card"><h2>Bourselle Plus<small>${st.ok ? "activé" : "en option"}</small></h2>${status}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn ${st.ok ? "" : "primary"}" id="plusOpen">${st.ok ? "Mon offre" : "Découvrir Plus"}</button></div>
     <h3 class="plus-h">Rappels avancés${lock}</h3>
@@ -328,3 +361,8 @@ function bindPlusCard() {
 }
 // Les données ont pu être chargées avant ce fichier (mode démo) : on vérifie le code tout de suite aussi.
 if (settings) refreshPlus().then(ch => { if (ch && store) render(); });
+// Retour de la page de paiement (…/bourselle/?plus=merci) : on ouvre l'écran Plus pour coller le code reçu.
+if (/[?&]plus=merci\b/.test(location.search)) {
+  history.replaceState(null, "", location.pathname);
+  setTimeout(() => { if (store) { showPlus(); const m = document.getElementById("buyMsg"); if (m) m.textContent = "Merci pour ton achat ! Ton code d'activation arrive par e-mail dans quelques minutes : colle-le ci-dessous."; } }, 1500);
+}

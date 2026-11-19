@@ -113,7 +113,9 @@ function ndfVat(x) {   // HT et TVA dans la devise du budget
   const k = x.orig && x.vat.cur === x.orig.cur && x.orig.rate ? 1 / x.orig.rate : 1, vat = Math.round(x.vat.amount * k * 100) / 100;
   return { vat, ht: Math.round((ttc - vat) * 100) / 100, ttc };
 }
-const ndfLabel = x => [x.note || catById(x.cat).name, x.ndfMotif, x.ndfClient].filter(Boolean).join(" - ");
+const ndfFx = x => !x.orig || !x.orig.cur || x.orig.cur === baseCurrency() ? "" :
+  ` (${fmtCur(x.orig.cur, x.orig.amount).replace(/[\u202f\u00a0]/g, " ")}, taux ${String(x.orig.rate).replace(".", window.LANG === "en" ? "." : ",")}${x.orig.rateDay ? ` BCE du ${frDate(x.orig.rateDay)}` : ""})`;
+const ndfLabel = x => [x.note || catById(x.cat).name, x.ndfMotif, x.ndfClient].filter(Boolean).join(" - ") + ndfFx(x);
 // Barème kilométrique (voitures, jusqu'à 5 000 km / an) ; +20 % pour les véhicules 100 % électriques.
 const NDF_BAREME = { 3: 0.529, 4: 0.606, 5: 0.636, 6: 0.665, 7: 0.697 };
 const ndfBareme = (cv, elec) => { const r = NDF_BAREME[Math.min(7, Math.max(3, Number(cv) || 5))]; return Math.round(r * (elec ? 1.2 : 1) * 1000) / 1000; };
@@ -354,7 +356,7 @@ let ndfYm = null;
 function ndfDocHTML() {
   const list = ndfMonthsList(); if (!ndfYm || !list.includes(ndfYm)) ndfYm = list[0];
   const d = ndfMonthData(ndfYm), i = ndfInfo(ndfYm), v = ndfVehicle(), blank = (s, ph) => s ? esc(s) : `<span class="ph">[${esc(tt(ph))}]</span>`;
-  return `<div class="card ndf-doc">
+  return `${typeof ndfQuotaHTML === "function" ? ndfQuotaHTML(ndfYm) : ""}<div class="card ndf-doc">
     <div class="ndf-month"><label class="lbl" for="ndfMonth">Mois</label><select class="field" id="ndfMonth">${list.map(ym => `<option value="${ym}" ${ym === ndfYm ? "selected" : ""}>${esc(ndfMonthName(ym))}</option>`).join("")}</select></div>
     <div class="ndf-head"><div class="ndf-id"><h2 style="margin:0 0 4px">Note de frais</h2>
       <div><b>N° ${esc(i.num)}</b> – <span>du</span> <b>${esc(frDate(i.du))}</b></div>
@@ -381,14 +383,17 @@ function ndfDocHTML() {
     <div class="vat-row"><label class="vat-f"><span>Puissance fiscale</span><select class="field" id="vehCv">${[3, 4, 5, 6, 7].map(c => `<option value="${c}" ${Number(v.cv) === c ? "selected" : ""}>${c === 3 ? "3 CV et moins" : c === 7 ? "7 CV et plus" : c + " CV"}</option>`).join("")}</select></label>
       <label class="vat-f"><span>Barème retenu</span><div class="field num" style="display:flex;align-items:center">${esc(String(ndfBareme(v.cv, v.electric)).replace(".", ","))} € / km</div></label></div>
     <label class="check" style="margin-top:8px"><input type="checkbox" id="vehElec" ${v.electric ? "checked" : ""}> <span>Véhicule 100 % électrique (+20 %)</span></label>
-    <div class="acts" style="margin-top:10px"><label class="btn" for="cgFile">${v.file ? "Remplacer la carte grise" : "Scanner la carte grise"}</label><input type="file" id="cgFile" accept="image/*,application/pdf" capture="environment" hidden>
+    <div class="acts" style="margin-top:10px"><button type="button" class="btn primary" id="cgAdd" aria-expanded="false">${v.file ? "Remplacer la carte grise" : "Ajouter la carte grise"}</button>
       ${v.file ? `<button class="btn" id="cgView">Voir la carte grise</button>` : ""}</div>
+    <div class="acts" id="cgChoice" hidden style="margin-top:8px"><label class="btn" for="cgCam">Prendre une photo</label><label class="btn" for="cgFile">Choisir un fichier</label></div>
+    <input type="file" id="cgCam" accept="image/*" capture="environment" hidden><input type="file" id="cgFile" accept="image/*,application/pdf" hidden>
     <p class="hint" style="margin:8px 0 0">${v.file ? `<span>Carte grise enregistrée dans</span> <b>Bourselle › ${esc(ndfRoot())} › ${esc(tt("Véhicule"))}</b>.` : `<span>La photocopie de la carte grise est à joindre aux indemnités kilométriques : elle sera rangée dans ton Drive.</span>`}</p></div>`;
 }
 function ndfDocBind() {
   const ms = document.getElementById("ndfMonth"); if (!ms) return;
   ms.onchange = () => { ndfYm = ms.value; render(); };
   document.getElementById("ndfPrint").onclick = () => ndfPrint(ndfYm);
+  const up = document.getElementById("ndfPlus"); if (up) up.onclick = () => showPlus("ndf");
   document.getElementById("tripAdd").onclick = () => editTrip(null, ndfYm);
   document.querySelectorAll("[data-trip]").forEach(b => b.onclick = () => editTrip(b.dataset.trip));
   for (const [id, k] of [["ndfName", "ndfName"], ["ndfFonction", "ndfFonction"], ["ndfSoc", "ndfCompany"], ["ndfAddr", "ndfAddress"]]) {
@@ -398,7 +403,9 @@ function ndfDocBind() {
   const v = ndfVehicle();
   document.getElementById("vehCv").onchange = e => { v.cv = Number(e.target.value); saveSettings(); render(); };
   document.getElementById("vehElec").onchange = e => { v.electric = e.target.checked; saveSettings(); render(); };
-  document.getElementById("cgFile").onchange = e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; if (f) ndfCarteGrise(f); };
+  const cgAdd = document.getElementById("cgAdd"), cgChoice = document.getElementById("cgChoice");
+  cgAdd.onclick = () => { cgChoice.hidden = !cgChoice.hidden; cgAdd.setAttribute("aria-expanded", String(!cgChoice.hidden)); };
+  for (const id of ["cgCam", "cgFile"]) document.getElementById(id).onchange = e => { const f = e.target.files && e.target.files[0]; e.target.value = ""; cgChoice.hidden = true; if (f) ndfCarteGrise(f); };
   const cv = document.getElementById("cgView"); if (cv) cv.onclick = () => openViewer(v.file);
   // les détails restent ouverts après un changement
   const det = document.querySelector(".ndf-who"); if (det) { det.open = !!ndfDocBind.open; det.ontoggle = () => { ndfDocBind.open = det.open; }; }
