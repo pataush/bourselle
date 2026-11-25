@@ -19,6 +19,7 @@ const HUB_ICONS = {
   achat: '<path d="M3 4h2l2.2 10.2a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.5L20.5 8H6.2"/><circle cx="10" cy="20" r="1.4"/><circle cx="17" cy="20" r="1.4"/>',
   cagnotte: '<path d="M19 9c0-2-2-4-6-4H9C6 5 4 7 4 10c0 2 1 3.5 2.5 4.3V18h3v-2h4v2h3v-3c1-.6 1.8-1.5 2.2-2.6H21V10h-1.5c-.1-.4-.3-.7-.5-1z"/><path d="M12 3v3"/>',
   pay: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>',
+  bill: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
 };
 const hubIcon = k => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${HUB_ICONS[k]}</svg>`;
 function hubBalances() {
@@ -57,10 +58,10 @@ function renderAccueil() {
   document.getElementById("resPill").innerHTML = owed || owe ? `<span class="pill" style="background:rgba(255,255,255,.15);color:#fff">On te doit ${esc(eur(owed, true))} · tu dois ${esc(eur(owe, true))}</span>` : "";
   const soc = typeof socOn === "function" && socOn();
   let html = banner + `<div class="hub-acts">
+    <button type="button" data-hub="bill">${hubIcon("bill")}<span>Partager un paiement</span></button>
     <button type="button" data-hub="group">${hubIcon("group")}<span>Nouveau groupe</span></button>
     <button type="button" data-hub="achat">${hubIcon("achat")}<span>Achat groupé</span></button>
-    <button type="button" data-hub="cagnotte">${hubIcon("cagnotte")}<span>Cagnotte</span></button>
-    <button type="button" data-hub="pay">${hubIcon("pay")}<span>Me faire payer</span></button></div>`;
+    <button type="button" data-hub="cagnotte">${hubIcon("cagnotte")}<span>Cagnotte</span></button></div>`;
   if (!soc) html += `<div class="card hub-intro"><h2>Partager sans compte bancaire connecté</h2><p class="hint" style="margin:0">Fais les comptes entre amis, organise des achats groupés et des cagnottes, et paie-toi de banque à banque : l'argent ne passe jamais par Bourselle. Connecte-toi avec Google ou Microsoft (Profil) pour inviter tes amis par lien.</p></div>`;
   // Achats groupés et cagnottes
   const ds = DEALS.slice().sort((a, b) => (a.status !== "open") - (b.status !== "open") || (b.updated || 0) - (a.updated || 0));
@@ -80,7 +81,7 @@ function renderAccueil() {
   const tt = totals(itemsOf(todayISO().slice(0, 4) * 1, todayISO().slice(5, 7) * 1));
   html += `<div class="hub-sec"><span>Mon budget</span></div><button type="button" class="card hub-bud" id="hubBud"><span><small>Ce mois-ci</small><b class="num ${tt.result >= 0 ? "good" : "bad"}">${tt.result >= 0 ? "+" : ""}${esc(eur(tt.result))}</b></span><span class="hint">Rentrées ${esc(eur(tt.rentree || 0, true))} · dépenses ${esc(eur(tt.depense || 0, true))}</span><span class="pm-chev">›</span></button>`;
   view.innerHTML = html;
-  view.querySelectorAll("[data-hub]").forEach(b => b.onclick = () => ({ group: () => editGroup(null), achat: () => editDeal(null, "achat"), cagnotte: () => editDeal(null, "cagnotte"), pay: () => editPay() })[b.dataset.hub]());
+  view.querySelectorAll("[data-hub]").forEach(b => b.onclick = () => ({ bill: () => editBill(), group: () => editGroup(null), achat: () => editDeal(null, "achat"), cagnotte: () => editDeal(null, "cagnotte"), pay: () => editPay() })[b.dataset.hub]());
   view.querySelectorAll("[data-deal]").forEach(b => b.onclick = () => showDeal(b.dataset.deal));
   view.querySelectorAll("[data-g]").forEach(b => b.onclick = () => { openGroup = b.dataset.g; switchTab("partage"); });
   { const b = document.getElementById("hubGroups"); if (b) b.onclick = () => { openGroup = null; switchTab("partage"); }; }
@@ -93,6 +94,7 @@ function showAddMenu() {
   const row = (id, icon, label, sub) => `<button type="button" class="pm-row" id="${id}"><span class="pm-ic" aria-hidden="true">${icon}</span><span class="pm-t"><b>${esc(label)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</span><span class="pm-chev" aria-hidden="true">›</span></button>`;
   const f = openForm(`<div class="f2 pm"><h3>Ajouter</h3><div class="pm-list">
     ${gl.length ? row("amExp", hubIcon("group"), "Une dépense de groupe", gl.length === 1 ? gl[0][1].name : `${gl.length} groupes`) : ""}
+    ${row("amBill", hubIcon("bill"), "Un paiement à partager", "Chacun reçoit sa part à accepter")}
     ${row("amGroup", hubIcon("group"), "Un nouveau groupe", "Coloc, voyage, couple…")}
     ${row("amAchat", hubIcon("achat"), "Un achat groupé", "Places, minimum, date limite")}
     ${row("amCag", hubIcon("cagnotte"), "Une cagnotte", "Cadeau, week-end, pot commun")}
@@ -100,7 +102,7 @@ function showAddMenu() {
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
   const go = (id, fn) => { const b = f.querySelector("#" + id); if (b) b.onclick = () => { closeForm(); setTimeout(fn, 250); }; };
   go("amExp", () => { if (gl.length === 1) editGroupExpense(gl[0][0], null); else { openGroup = null; switchTab("partage"); } });
-  go("amGroup", () => editGroup(null)); go("amAchat", () => editDeal(null, "achat")); go("amCag", () => editDeal(null, "cagnotte")); go("amTx", () => openSheet(null));
+  go("amBill", () => editBill()); go("amGroup", () => editGroup(null)); go("amAchat", () => editDeal(null, "achat")); go("amCag", () => editDeal(null, "cagnotte")); go("amTx", () => openSheet(null));
 }
 
 // ---------- Un achat groupé / une cagnotte ----------

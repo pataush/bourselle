@@ -193,14 +193,20 @@ function socInboxHTML() {
   if (!socOn()) return "";
   const pend = SOC.in.filter(c => c.status === "pending");
   if (!pend.length) return "";
-  return `<div class="card soc-in"><h2>Réclamations reçues<small>${pend.length}</small></h2>${pend.map(c => `<div class="soc-claim">
-    <div><b>@${esc(c.from)}</b>${c.fromName ? ` <span class="hint">(${esc(c.fromName)})</span>` : ""} <span>te réclame</span> <b class="num">${esc(socMoney(c))}</b></div>
-    <div class="hint">${esc(c.name || "Dette")}${c.note ? " · " + esc(c.note) : ""}${c.due ? ` · <span>avant le ${esc(frDate(c.due))}</span>` : ""}</div>
+  return `<div class="card soc-in"><h2>À accepter<small>${pend.length}</small></h2>${pend.map(c => `<div class="soc-claim">
+    <div><b>@${esc(c.from)}</b>${c.fromName ? ` <span class="hint">(${esc(c.fromName)})</span>` : ""} <span>${c.bill ? "a partagé un paiement : ta part est de" : "te réclame"}</span> <b class="num">${esc(socMoney(c))}</b></div>
+    <div class="hint">${esc(c.name || "Dette")}${c.bill && c.billTotal ? ` · <span>total ${esc(socMoney({ ...c, amount: c.billTotal }))}${c.billN > 1 ? ` · ${c.billN} personnes invitées` : ""}</span>` : ""}${c.note ? " · " + esc(c.note) : ""}${c.due ? ` · <span>avant le ${esc(frDate(c.due))}</span>` : ""}</div>
     <div class="acts"><button class="btn primary" data-soc="accept" data-cid="${esc(c.id)}">Accepter</button><button class="btn" data-soc="decline" data-cid="${esc(c.id)}">Refuser</button></div></div>`).join("")}</div>`;
 }
 // Relancer une réclamation refusée : une nouvelle réclamation part vers la même personne
 function socRelaunch(id) {
   const d = debts[id]; if (!d || !d.claimTo) return;
+  if (d.bill) {   // part d'un paiement partagé : gratuit, on renvoie seulement cette part
+    socApi("/bills", { method: "POST", body: JSON.stringify({ title: d.billTitle || d.name, total: d.billTotal || d.amount, cur: baseCurrency(), due: d.due || "", shares: [{ to: d.claimTo, amount: d.amount }] }) })
+      .then(r => { d.claim = r.claims[0].id; d.claimStatus = "pending"; SOC.out.unshift(r.claims[0]); saveDebts(); render(); toast(`Relance envoyée à @${d.claimTo}`); })
+      .catch(e => toast(e.message));
+    return;
+  }
   if (!isPlus()) return showPlus("claim");
   delete d.claim; d.claimStatus = ""; saveDebts();
   socSendClaim(id);

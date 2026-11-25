@@ -172,7 +172,7 @@ async function hasPlus(env, me, code) {
   return (!em.length || em.includes(me.email)) && (!p.x || p.x >= iso(new Date()));
 }
 const pub = (c, tagOf) => ({ id: c.id, from: c.fromTag, fromName: c.fromName, to: c.toTag, amount: c.amount, cur: c.cur, name: c.name, note: c.note,
-  date: c.date, due: c.due, status: c.status, payments: c.payments || [], created: c.created, updated: c.updated });
+  date: c.date, due: c.due, status: c.status, payments: c.payments || [], created: c.created, updated: c.updated, ...(c.bill ? { bill: c.bill, billTotal: c.billTotal, billN: c.billN } : {}) });
 const grpPub = g => ({ id: g.id, name: g.name, owner: g.ownerTag, members: g.members, expenses: g.expenses, comments: g.comments || {}, reacts: g.reacts || {}, rev: g.rev, updated: g.updated, deleted: !!g.deleted, link: g.link || "", cur: g.cur || "" });
 // ---------- Me faire payer ----------
 // Coordonnées que l'utilisateur choisit de montrer à ceux qui lui doivent de l'argent (membres de ses groupes, lien de paiement).
@@ -577,6 +577,35 @@ async function social(req, env, url, cors) {
     notify(env, [toEmail], lang => ({ title: "Bourselle", body: lang === "en" ? `@${c.fromTag} is claiming ${fmtMoney(c.amount, c.cur, lang)} from you${c.name ? " · " + clip(c.name, 50) : ""}` : `@${c.fromTag} te réclame ${fmtMoney(c.amount, c.cur, lang)}${c.name ? " · " + clip(c.name, 50) : ""}`, url: "./?tab=dettes", tag: "c-" + c.id }));
     return json(pub(c), 200, cors);
   }
+  // ---------- Paiement partagé : une dépense répartie entre plusieurs personnes (gratuit) ----------
+  // Chaque personne reçoit seulement sa part, sous forme de réclamation à accepter ; le créateur suit le total.
+  if (path === "/bills" && req.method === "POST") {
+    const title = String(body.title || "").trim().slice(0, 60); if (!title) throw new HttpErr(400, "indique ce qui a été payé");
+    const shares = (Array.isArray(body.shares) ? body.shares : []).slice(0, 30);
+    if (!shares.length) throw new HttpErr(400, "ajoute au moins une personne");
+    const day = iso(new Date()), rl = "rlc:" + me.email + ":" + day, n0 = Number(await env.CODES.get(rl) || 0);
+    if (n0 + shares.length > 60) throw new HttpErr(429, "trop de demandes aujourd'hui");
+    const myT = await myTag(env, me), cur = String(body.cur || "EUR").slice(0, 3).toUpperCase(), billId = "b" + rid(10), total = num(body.total) || 0;
+    const prepared = [];
+    for (const sh of shares) {
+      const to = String(sh.to || "").trim().toLowerCase().replace(/^@/, ""), amount = num(sh.amount);
+      const toEmail = TAG_RE.test(to) ? await env.CODES.get("tag:" + to) : null;
+      if (!toEmail) throw new HttpErr(404, `aucun utilisateur @${to}`);
+      if (toEmail === me.email) throw new HttpErr(400, "ne t'ajoute pas toi-même : coche « Je fais partie du partage »");
+      if (!(amount > 0 && amount < 1e9)) throw new HttpErr(400, "montant invalide pour @" + to);
+      prepared.push({ to, toEmail, amount });
+    }
+    const out = [];
+    for (const p of prepared) {
+      const c = { id: rid(12), fromEmail: me.email, fromTag: myT, fromName: me.name, toEmail: p.toEmail, toTag: p.to, amount: p.amount, cur, name: title, note: String(body.note || "").slice(0, 200),
+        date: isoOk(body.date) ? body.date : day, due: isoOk(body.due) ? body.due : "", status: "pending", payments: [], created: Date.now(), updated: Date.now(), bill: billId, billTotal: total, billN: prepared.length };
+      await kvP(env, "claim:" + c.id, c); await pushTo(env, "out:" + me.email, c.id); await pushTo(env, "in:" + p.toEmail, c.id);
+      notify(env, [p.toEmail], lang => ({ title: "Bourselle", body: lang === "en" ? `@${myT} shared “${clip(title, 50)}”: your share is ${fmtMoney(c.amount, cur, lang)}. Accept it to see it in your app.` : `@${myT} a partagé « ${clip(title, 50)} » : ta part est de ${fmtMoney(c.amount, cur, lang)}. Accepte-la pour la voir dans ton app.`, url: "./?tab=dettes", tag: "c-" + c.id }));
+      out.push(pub(c));
+    }
+    await env.CODES.put(rl, String(n0 + prepared.length), { expirationTtl: 90000 });
+    return json({ bill: billId, claims: out }, 200, cors);
+  }
   // ---------- Groupes de partage synchronisés entre membres ----------
   // Un groupe partagé est gardé ici ; chaque membre qui a un tag le retrouve dans son app.
   // Fusion par dépense (identifiant + date de mise à jour) : deux membres peuvent ajouter des dépenses en même temps.
@@ -774,7 +803,7 @@ const WORKER = {
         try { return await publicApi(req, env, url, cors); }
         catch (e) { if (e instanceof HttpErr) return json({ error: e.message }, e.status, cors); throw e; }
       }
-      if (/^\/(me|tag|claims|search|groups|deals)(\/|$)/.test(url.pathname)) {
+      if (/^\/(me|tag|claims|search|groups|deals|bills)(\/|$)/.test(url.pathname)) {
         try { return await social(req, env, url, cors); }
         catch (e) { if (e instanceof HttpErr) return json({ error: e.message }, e.status, cors); throw e; }
       }

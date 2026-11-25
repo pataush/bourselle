@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "49";
+const APP_VERSION = "50";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -237,7 +237,7 @@ function homeMoreOpen(v) {
 function showProfileMenu() {
   if (!store) return;
   const u = store.user ? store.user() : {}, local = store.id === "local", soc = typeof socOn === "function" && socOn();
-  const theme = applyTheme.cur || "auto", nextTheme = { auto: "light", light: "dark", dark: "auto" }[theme];
+  const theme0 = applyTheme.cur || "auto", theme = theme0 === "auto" ? (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : theme0;
   const TH = { auto: "Automatique", light: "Clair", dark: "Sombre" };
   const nAl = alertsList().reduce((a, x) => a + x.n, 0);
   const row = (id, icon, label, sub) => `<button type="button" class="pm-row" id="${id}"><span class="pm-ic" aria-hidden="true">${icon}</span><span class="pm-t"><b>${esc(label)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</span><span class="pm-chev" aria-hidden="true">›</span></button>`;
@@ -245,15 +245,15 @@ function showProfileMenu() {
     <div class="pm-head"><span class="avatar">${esc((document.getElementById("avatar").textContent || "B"))}</span>
       <div><b>${esc(u.name || "Mon compte")}</b><div class="hint">${esc(u.email || (local ? "Mode démo, sur cet appareil" : ""))}</div><div class="hint">${esc(store.label || "")}${typeof isPlus === "function" && isPlus() ? " · Bourselle Plus" : ""}</div></div></div>
     ${soc && SOC.tag ? `<div class="pm-tag"><span class="hint">Mon tag</span> <b class="num">@${esc(SOC.tag)}</b><span style="flex:1"></span><button type="button" class="linkbtn" id="pmCopy">Copier</button></div>` : ""}
+    <div class="pm-segs">
+      <div><span class="lbl">Apparence</span><div class="seg2" id="pmTheme"><button type="button" data-th="light" aria-pressed="${theme === "light"}">☀︎ Clair</button><button type="button" data-th="dark" aria-pressed="${theme === "dark"}">☾ Sombre</button></div></div>
+      <div><span class="lbl">Version</span><div class="seg2" id="pmMode"><button type="button" data-m="simple" aria-pressed="${isSimple()}">Simple</button><button type="button" data-m="complete" aria-pressed="${!isSimple()}">Complète</button></div></div></div>
     <div class="pm-list">
       ${soc && SOC.tag ? row("pmQr", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v7h-7"/></svg>', "Mon QR code", "Pour qu'on t'ajoute en contact") : ""}
       ${soc ? row("pmContacts", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.6.9 2.6 2.6 3 5.2"/></svg>', "Mes contacts", `${(settings.contacts || []).length} contact${(settings.contacts || []).length > 1 ? "s" : ""}`) : ""}
       ${soc ? row("pmPush", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/><circle cx="19" cy="5" r="2.5" fill="currentColor"/></svg>', "Notifications en direct", typeof pushOn === "function" && pushOn() ? "Activées sur cet appareil" : "Désactivées") : ""}
       ${soc ? row("pmPay", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>', "Me faire payer", "IBAN, PayPal.me, lien de paiement") : ""}
-      ${row("pmAlerts", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>', "Alertes", nAl ? `${nAl} à voir` : "Rien à signaler")}
       ${typeof showPlus === "function" ? row("pmPlus", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg>', "Bourselle Plus", typeof isPlus === "function" && isPlus() ? "Activé" : "Découvrir l'offre") : ""}
-      ${row("pmTheme", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg>', "Apparence", `${TH[theme]} → toucher pour ${TH[nextTheme].toLowerCase()}`)}
-      ${row("pmMode", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14l-3-3M20 16H6l3 3"/></svg>', isSimple() ? "Passer à la version complète" : "Passer à la version simple", isSimple() ? "Version simple" : "Version complète")}
       ${row("pmLang", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9s1.3-6.3 3.8-9z"/></svg>', window.LANG === "en" ? "Français" : "English", window.LANG === "en" ? "Langue : anglais" : "Langue : français")}
       ${!local && store.folderUrl && store.folderUrl() ? row("pmFolder", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>', "Ouvrir mon dossier", store.label) : ""}
       ${row("pmSettings", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>', "Tous les réglages", "Budget, catégories, devise, exports")}
@@ -266,10 +266,9 @@ function showProfileMenu() {
   on("pmCopy", () => { navigator.clipboard?.writeText("@" + SOC.tag).then(() => toast("Tag copié")).catch(() => toast("@" + SOC.tag)); });
   on("pmQr", () => { closeForm(); socShowQr(); });
   on("pmContacts", () => { closeForm(); switchTab("reglages"); setTimeout(() => document.getElementById("socSearch")?.scrollIntoView({ block: "center" }), 80); });
-  on("pmAlerts", () => { closeForm(); showAlerts(); });
   on("pmPlus", () => { closeForm(); showPlus(); });
-  on("pmTheme", () => { try { localStorage.setItem("bourselle-theme", nextTheme); } catch (e) {} applyTheme.cur = applyTheme(nextTheme); closeForm(); render(); showProfileMenu(); });
-  on("pmMode", () => { closeForm(); setMode(isSimple() ? "complete" : "simple"); });
+  f.querySelectorAll("#pmTheme [data-th]").forEach(b => b.onclick = () => { try { localStorage.setItem("bourselle-theme", b.dataset.th); } catch (e) {} applyTheme.cur = applyTheme(b.dataset.th); f.querySelectorAll("#pmTheme [data-th]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); render(); });
+  f.querySelectorAll("#pmMode [data-m]").forEach(b => b.onclick = () => { if ((b.dataset.m === "simple") !== isSimple()) setMode(b.dataset.m); f.querySelectorAll("#pmMode [data-m]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); });
   on("pmLang", () => { closeForm(); if (typeof setLang === "function") setLang(window.LANG === "en" ? "fr" : "en"); });
   on("pmFolder", () => { window.open(store.folderUrl(), "_blank", "noopener"); });
   on("pmSettings", () => { closeForm(); switchTab("reglages"); });
@@ -277,23 +276,35 @@ function showProfileMenu() {
 }
 // Alertes regroupées derrière la cloche
 function alertsList() {
-  const L = [], add = (tab, label, n) => { if (n > 0 && subAllowed(tab)) L.push({ tab, label, n }); };
+  // Chaque alerte garde le détail de ce qu'elle signale (items) pour pouvoir le déplier dans la cloche
+  const L = [], add = (tab, label, items, open) => { if (items.length && (subAllowed(tab) || open)) L.push({ tab, label, n: items.length, items, open }); };
   try {
-    add("abos", "Abonnements à surveiller", Object.values(subs).filter(x => subStatus(x).st === "soon").length);
-    add("garanties", "Garanties bientôt expirées", garItems().filter(x => garStatus(x.warranty) === "soon").length);
-    add("frais", "Notes de frais à rembourser", allItems().filter(x => x.type === "depense" && x.ndf && x.ndfStatus !== "rembourse").length);
-    if (typeof SOC !== "undefined") add("dettes", "Réclamations de dettes reçues", SOC.in.filter(c => c.status === "pending").length);
+    if (typeof SOC !== "undefined") add("dettes", "Réclamations de dettes reçues", SOC.in.filter(c => c.status === "pending").map(c => ({ t: `@${c.from} te réclame ${socMoney(c)}`, s: [c.name, c.due ? "avant le " + frDate(c.due) : ""].filter(Boolean).join(" · ") })));
+    if (typeof DEALS !== "undefined") add("accueil", "Paiements à faire", DEALS.filter(d => d.you && d.you.pid && d.parts[d.you.pid] && !d.parts[d.you.pid].paid && d.status !== "cancelled" && (d.kind === "cagnotte" || d.stats.reached || d.status === "done"))
+      .map(d => { const p = d.parts[d.you.pid]; return { t: d.title, s: `${dealMoney(d.kind === "achat" ? p.qty * d.price : p.amount, d.cur)} à payer à ${d.ownerName || "l'organisateur"}`, deal: d.id }; }), true);
+    add("abos", "Abonnements à surveiller", Object.values(subs).filter(x => subStatus(x).st === "soon").map(x => ({ t: x.name, s: subStatus(x).why || "" })));
+    add("garanties", "Garanties bientôt expirées", garItems().filter(x => garStatus(x.warranty) === "soon").map(x => ({ t: x.note || x.warranty.name || "Achat", s: "Garantie jusqu'au " + frDate(x.warranty.end) })));
+    add("frais", "Notes de frais à rembourser", allItems().filter(x => x.type === "depense" && x.ndf && x.ndfStatus !== "rembourse").map(x => ({ t: x.note || "Note de frais", s: `${eur(x.amount)} · ${frDate(x.date)}` })));
     const t = totals(itemsOf(cur.y, cur.m));
-    add("mois", "Budgets dépassés ce mois-ci", settings.cats.filter(c => c.budget && (t.byCat[c.id] || 0) > c.budget).length);
+    add("mois", "Budgets dépassés ce mois-ci", settings.cats.filter(c => c.budget && (t.byCat[c.id] || 0) > c.budget).map(c => ({ t: c.name, s: `${eur(t.byCat[c.id])} dépensés sur ${eur(c.budget)}` })));
   } catch (e) {}
   return L;
 }
 function showAlerts() {
-  const L = alertsList();
-  const f = openForm(`<div class="f2"><h3>Alertes</h3>${L.length ? L.map((a, i) => `<button type="button" class="alert-row" data-al="${i}"><b>${esc(a.label)}</b><span class="n">${a.n}</span></button>`).join("")
-    : `<p class="hint">Rien à surveiller pour l'instant.</p>`}</div>`, () => true);
+  const L = alertsList(), act = typeof hubActivity === "function" ? hubActivity().slice(0, 6) : [];
+  const f = openForm(`<div class="f2"><h3>Alertes</h3>${L.length ? L.map((a, i) => `<div class="al-box${i === 0 ? " open" : ""}"><button type="button" class="alert-row" data-al="${i}"><b>${esc(a.label)}</b><span class="n">${a.n}</span><span class="al-chev" aria-hidden="true">⌄</span></button>
+      <div class="al-items">${a.items.slice(0, 12).map((x, j) => `<button type="button" class="al-it" data-go="${i}" data-j="${j}"><b>${esc(x.t)}</b>${x.s ? `<small>${esc(x.s)}</small>` : ""}</button>`).join("")}
+      ${a.items.length > 12 ? `<p class="hint">+ ${a.items.length - 12} autres</p>` : ""}<button type="button" class="linkbtn" data-go="${i}">Tout voir ›</button></div></div>`).join("")
+    : `<p class="hint">Rien à surveiller pour l'instant.</p>`}
+    ${act.length ? `<span class="lbl" style="margin-top:14px">Activité récente</span>${act.map((e, k) => `<button type="button" class="al-it" data-ev="${k}"><b>${esc(e.t)}</b><small>${esc(e.s)} · ${esc(agoText(e.at))}</small></button>`).join("")}` : ""}</div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
-  f.querySelectorAll("[data-al]").forEach(b => b.onclick = () => { const a = L[Number(b.dataset.al)]; closeForm(); if (a.tab === "mois") homeMoreOpen(true); switchTab(a.tab); });
+  f.querySelectorAll("[data-al]").forEach(b => b.onclick = () => b.parentElement.classList.toggle("open"));
+  f.querySelectorAll("[data-go]").forEach(b => b.onclick = () => {
+    const a = L[Number(b.dataset.go)], x = b.dataset.j != null ? a.items[Number(b.dataset.j)] : null; closeForm();
+    if (x && x.deal) return showDeal(x.deal);
+    if (a.tab === "mois") homeMoreOpen(true); switchTab(a.tab);
+  });
+  f.querySelectorAll("[data-ev]").forEach(b => b.onclick = () => { const e = act[Number(b.dataset.ev)]; closeForm(); if (e.did) showDeal(e.did); else { openGroup = e.gid; switchTab("partage"); } });
 }
 // Thème : automatique (selon le téléphone), clair ou sombre
 function applyTheme(v) {
@@ -337,6 +348,12 @@ function applyData(d) {
   }
   if (!(d && d.settings) && !settings.currency) settings.currency = regionCurrency();   // nouveau compte : devise de la région
   catLangSync(); catColorsSync(); applyCurrency();
+  // Premier lancement : version simple ; un compte qui a déjà des données garde la version complète qu'il connaissait
+  if (!settings.mode) {
+    let m = ""; try { m = localStorage.getItem("bourselle-mode") || ""; } catch (e) {}
+    settings.mode = m || (Object.keys(months || {}).length || Object.keys(groups || {}).length ? "complete" : "simple");
+  }
+  try { if (!localStorage.getItem("bourselle-mode")) localStorage.setItem("bourselle-mode", settings.mode); } catch (e) {}
 }
 // Ancienne palette des catégories par défaut → palette vert et or (seulement si la couleur n'a pas été changée)
 const OLD_CAT_COLORS = {"logement": "#1f4e79", "energie": "#2e86c1", "telecom": "#48c9b0", "assurances": "#16a085", "credits": "#7d3c98", "courses": "#e6b800", "transport": "#e67e22", "sante": "#e74c3c", "enfants": "#af7ac5", "loisirs": "#ec7063", "shopping": "#5d6d7e", "maison": "#a04000", "impots": "#34495e", "cadeaux": "#f1948a", "divers": "#9aa5ad"};
@@ -870,9 +887,12 @@ const SIMPLE_SUBS = ["partage", "dettes", "economies", "objectifs"];   // dans c
   const v = new URLSearchParams(location.search).get("version");
   if (v === "simple" || v === "complete") { try { localStorage.setItem("bourselle-mode", v); sessionStorage.setItem("bourselle-mode-url", v); } catch (e) {} history.replaceState(null, "", location.pathname + location.hash); }
 }
+// Le dernier choix fait sur cet appareil l'emporte (il est enregistré tout de suite, même si l'app est fermée aussitôt) ;
+// sinon celui du compte ; sinon, pour un premier lancement, la version simple.
 function isSimple() {
-  if (typeof settings !== "undefined" && settings && settings.mode) return settings.mode === "simple";
-  try { return localStorage.getItem("bourselle-mode") === "simple"; } catch (e) { return false; }
+  let m = ""; try { m = localStorage.getItem("bourselle-mode") || ""; } catch (e) {}
+  if (!m && typeof settings !== "undefined" && settings && settings.mode) m = settings.mode;
+  return (m || "simple") === "simple";
 }
 const visibleSubs = () => isSimple() ? SIMPLE_SUBS.map(k => SUBS.find(([x]) => x === k)).filter(Boolean) : SUBS;
 const subAllowed = t => !isSimple() || !isSub(t) || SIMPLE_SUBS.includes(t);
@@ -1571,6 +1591,7 @@ function renderDettes() {
     <div class="tile"><div class="k"><span class="sw" style="background:#3f8f68"></span>On me doit</div><div class="v num">${eur(owed, true)}</div></div>
     <div class="tile"><div class="k"><span class="sw" style="background:var(--accent)"></span>Mensualités</div><div class="v num">${eur(monthly, true)}</div></div></div>`;
   if (typeof socInboxHTML === "function") html += socInboxHTML();
+  if (typeof editBill === "function") html += `<button type="button" class="btn primary" id="billNew" style="width:100%">＋ Partager un paiement entre plusieurs personnes</button>`;
   const card = x => {
     const c = x.c, cls = c.done ? "done" : x.kind === "medoit" ? "owed" : "debt";
     const lab = c.done ? "Soldée" : DEBT_KINDS.find(k => k[0] === x.kind)[1];
@@ -1590,12 +1611,14 @@ function renderDettes() {
   else {
     html += section(open.filter(x => x.kind === "credit"), "Crédits et prêts", "var(--bad)");
     html += section(open.filter(x => x.kind === "dois"), "Je dois", "var(--bad)");
-    html += section(open.filter(x => x.kind === "medoit"), "On me doit", "#3f8f68");
-    html += section(list.filter(x => x.c.done), "Soldées", "var(--good)");
+    if (typeof billCardsHTML === "function" && list.some(x => x.bill)) html += `<div class="sec-h"><span class="sw" style="background:var(--gold)"></span>Paiements partagés</div><div class="gar-list">${billCardsHTML(list)}</div>`;
+    html += section(open.filter(x => x.kind === "medoit" && !x.bill), "On me doit", "#3f8f68");
+    html += section(list.filter(x => x.c.done && !x.bill), "Soldées", "var(--good)");
   }
   html += `<p class="hint" style="text-align:center;margin:4px 0 0">Pour un crédit, le reste dû est estimé à partir de la mensualité, du taux et des échéances passées. Le tableau d'amortissement de ta banque fait foi.</p>`;
   view.innerHTML = html;
   if (typeof socBindInbox === "function") socBindInbox();
+  { const b = document.getElementById("billNew"); if (b) b.onclick = () => editBill(); }
   view.querySelectorAll("[data-a]").forEach(b => b.onclick = () => {
     const x = list.find(i => i.id === b.dataset.id); if (!x) return;
     if (b.dataset.a === "edit") editDebt(x.id);

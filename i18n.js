@@ -634,6 +634,18 @@
     "Achat groupé créé : invite tes amis !": "Group buy created: invite your friends!", "Cagnotte créée : invite tes amis !": "Money pot created: invite your friends!",
     "Connecte-toi avec Google ou Microsoft pour créer un achat groupé ou une cagnotte": "Sign in with Google or Microsoft to create a group buy or a money pot",
     "Budget": "Budget", "Mois": "Month", "Année": "Year", "à l'instant": "just now", "hier": "yesterday",
+    // Paiement partagé, alertes, menu
+    "Partager un paiement": "Split a payment", "Un paiement à partager": "A payment to split", "Chacun reçoit sa part à accepter": "Everyone gets their share to accept",
+    "Paiement à partager": "Payment to split", "Tu as payé pour plusieurs personnes ? Chacune reçoit seulement sa part dans son app, et toi tu suis le total.": "Paid for several people? Each one only gets their own share in their app, and you track the total.",
+    "ex. Restaurant, billets de train, cadeau": "e.g. Restaurant, train tickets, gift", "À rembourser avant (facultatif)": "Pay back by (optional)", "Avec qui ?": "With whom?",
+    "Chercher un @tag ou un contact": "Search a @tag or a contact", "Personne pour l'instant.": "Nobody yet.", "Je fais partie du partage (j'ai aussi ma part)": "I'm part of the split (I have a share too)",
+    "Ajouter ma part à mes dépenses": "Add my share to my expenses", "Indique le montant total": "Enter the total amount", "Ajoute au moins une personne": "Add at least one person",
+    "Les pourcentages doivent faire 100 %": "Percentages must add up to 100%", "Chaque personne doit avoir une part": "Everyone needs a share", "Moi": "Me",
+    "Connecte-toi avec Google ou Microsoft pour partager un paiement": "Sign in with Google or Microsoft to split a payment", "Tape au moins 3 caractères pour chercher un tag.": "Type at least 3 characters to search for a tag.",
+    "＋ Partager un paiement entre plusieurs personnes": "＋ Split a payment between several people", "Paiements partagés": "Split payments", "Paiement partagé": "Split payment",
+    "En attente": "Pending", "Acceptée": "Accepted", "Refusée": "Declined", "Remboursée": "Paid back", "Annulée": "Cancelled", "Reçu": "Received", "Relancer": "Send again",
+    "À accepter": "To accept", "a partagé un paiement : ta part est de": "split a payment: your share is", "Paiements à faire": "Payments to make", "Tout voir ›": "See all ›",
+    "Version": "Version", "☀︎ Clair": "☀︎ Light", "☾ Sombre": "☾ Dark", "Simple": "Simple", "Complète": "Full",
   };
 
   // ---------- Textes avec des valeurs ({m} montant, {d} date, {n} nombre, {x} autre) ----------
@@ -887,6 +899,11 @@
     ["{x} participe · {n} place", "{x} joined · {n} spot"], ["{x} participe · {n} places", "{x} joined · {n} spots"], ["{x} participe · {m}", "{x} joined · {m}"],
     ["{x} · il y a {n} min", "{x} · {n} min ago"], ["{x} · il y a {n} h", "{x} · {n} h ago"], ["{x} · il y a {n} jours", "{x} · {n} days ago"], ["{x} · à l'instant", "{x} · just now"], ["{x} · hier", "{x} · yesterday"], ["{x} · {d}", "{x} · {d}"],
     ["Rentrées {m} · dépenses {m}", "Income {m} · spending {m}"], ["Prix par place ({x})", "Price per spot ({x})"], ["Objectif ({x}, facultatif)", "Target ({x}, optional)"], ["sur {m}", "of {m}"], ["{n} participants", "{n} participants"],
+    ["Tu demanderas {m} au total (ta part : {m}).", "You'll ask for {m} in total (your share: {m})."], ["Tu demanderas {m} au total.", "You'll ask for {m} in total."],
+    ["{m} reçus", "{m} received"], ["sur {m} demandés · total {m}", "of {m} requested · total {m}"], ["sur {m} demandés", "of {m} requested"], ["Créé le {d}", "Created on {d}"], ["Créé le {d} · à rembourser avant le {d}", "Created on {d} · to pay back by {d}"],
+    ["· total {m} · {n} personnes invitées", "· total {m} · {n} people invited"], ["· total {m}", "· total {m}"], ["Montant total ({x})", "Total amount ({x})"],
+    ["Part envoyée à @{x}", "Share sent to @{x}"], ["Parts envoyées à {n} personnes", "Shares sent to {n} people"], ["Relance envoyée à @{x}", "Reminder sent to @{x}"],
+    ["@{x} te réclame {m}", "@{x} is claiming {m}"], ["{m} à payer à {x}", "{m} to pay to {x}"], ["{m} dépensés sur {m}", "{m} spent of {m}"], ["Garantie jusqu'au {d}", "Warranty until {d}"], ["+ {n} autres", "+ {n} more"],
     ["Payer {x}", "Pay {x}"], ["Soit {m} par personne.", "That's {m} per person."],
     ["{x} (moi) → {x}", "{x} (me) → {x}"], ["{x} → {x} (moi)", "{x} → {x} (me)"],
     ["Enregistré : {x}", "Saved: {x}"],
