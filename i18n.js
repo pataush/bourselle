@@ -12,6 +12,10 @@
 
   // ---------- Textes fixes ----------
   const EXACT = {
+    "Supprimer": "Delete",
+    "Garde au moins une catégorie.": "Keep at least one category.",
+    "Les déplacer vers": "Move them to",
+    "Aucune opération n'utilise cette catégorie.": "No transaction uses this category.",
     "Charger la dernière version": "Load the latest version",
     "Hors ligne – enregistré sur l'appareil": "Offline – saved on this device",
     "Le Drive refuse l'enregistrement : reconnecte-toi et autorise l'accès au dossier « Bourselle »": "Drive refused to save: sign in again and allow access to the “Bourselle” folder",
@@ -403,6 +407,11 @@
   // ---------- Textes avec des valeurs ({m} montant, {d} date, {n} nombre, {x} autre) ----------
   const s = n => (Number(String(n).replace(/[^\d.]/g, "")) > 1 ? "s" : "");
   const PATTERNS = [
+    ["Supprimer « {x} » ?", "Delete “{x}”?"],
+    ["{n} élément utilise cette catégorie (dépenses, abonnements, opérations automatiques).", "{n} item uses this category (expenses, subscriptions, recurring)."],
+    ["{n} éléments utilisent cette catégorie (dépenses, abonnements, opérations automatiques).", "{n} items use this category (expenses, subscriptions, recurring)."],
+    ["Catégorie « {x} » supprimée", "Category “{x}” deleted"],
+    ["Supprimer la catégorie {x}", "Delete category {x}"],
     ["Version {n}", "Version {n}"],
     ["{n} bientôt expirée", "{n} expiring soon"],
     ["{n} bientôt expirées", "{n} expiring soon"],

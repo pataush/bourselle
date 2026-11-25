@@ -344,3 +344,7 @@ select.field { appearance: auto; }
 .trip-tot{font-size:20px;font-weight:700;padding:8px 0}
 @media (max-width:420px){.ndf-sum{grid-template-columns:1fr 1fr}.ndf-sum .tot{grid-column:1/-1}}
 .check{display:flex;gap:8px;align-items:center;font-size:14px}.check input{width:20px;height:20px;accent-color:#16324a}
+
+.set-row .cat-del { width: 36px; height: 36px; flex-shrink: 0; background: transparent; color: var(--muted, #7a8794); border: 1px solid var(--line); border-radius: 10px; font-size: .9rem; cursor: pointer; }
+.set-row .cat-del:hover { color: #c0392b; border-color: #c0392b; }
+.set-row.cat-row { grid-template-columns: 28px 1fr 78px 36px; }

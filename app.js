@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "28";
+const APP_VERSION = "29";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -199,6 +199,34 @@ function numStr(v) { return window.LANG === "en" ? String(v) : String(v).replace
 function fxRound(r) { return r >= 100 ? Math.round(r * 1000) / 1000 : r >= 1 ? Math.round(r * 10000) / 10000 : Math.round(r * 1e6) / 1e6; }
 function eur(v, round) { return (round ? fmt0 : fmt).format(v || 0); }
 function esc(s) { return String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+// Suppression d'une catégorie : les opérations, abonnements et opérations automatiques qui l'utilisent passent dans une autre.
+function catUses(id) {
+  let n = 0;
+  for (const d of Object.values(months)) for (const t of Object.values(d.items || {})) if (t.type === "depense" && t.cat === id) n++;
+  for (const x of Object.values(subs)) if (x.cat === id) n++;
+  for (const r of Object.values(recs)) if (r.type === "depense" && r.cat === id) n++;
+  return n;
+}
+function moveCat(from, to) {
+  for (const d of Object.values(months)) for (const t of Object.values(d.items || {})) if (t.type === "depense" && t.cat === from) t.cat = to;
+  for (const x of Object.values(subs)) if (x.cat === from) x.cat = to;
+  for (const r of Object.values(recs)) if (r.type === "depense" && r.cat === from) r.cat = to;
+}
+function defCat(id) { return settings.cats.some(c => c.id === id) ? id : (settings.cats[0] || { id }).id; }
+function deleteCat(i) {
+  const c = settings.cats[i]; if (!c) return;
+  if (settings.cats.length < 2) { toast("Garde au moins une catégorie."); return; }
+  const n = catUses(c.id), others = settings.cats.filter(x => x.id !== c.id);
+  const f = openForm(`<div class="f2"><h3>Supprimer « ${esc(c.name)} » ?</h3>
+    ${n ? `<p class="hint" style="margin-top:0">${n} élément${n > 1 ? "s utilisent" : " utilise"} cette catégorie (dépenses, abonnements, opérations automatiques).</p>
+      <label class="lbl" for="catTo">Les déplacer vers</label><select class="field" id="catTo">${others.map(o => `<option value="${esc(o.id)}">${esc(o.name)}</option>`).join("")}</select>`
+      : `<p class="hint" style="margin-top:0">Aucune opération n'utilise cette catégorie.</p>`}</div>`, () => {
+    if (n) { const to = document.getElementById("catTo").value; moveCat(c.id, to); saveMonth(); saveSubs(); saveRecs(); }
+    settings.cats = settings.cats.filter(x => x.id !== c.id);
+    saveSettings(); render(); toast(`Catégorie « ${c.name} » supprimée`);
+  });
+  const sb = f.querySelector("button[type=submit]"); sb.textContent = "Supprimer"; sb.classList.remove("primary"); sb.classList.add("danger");
+}
 function catById(id) { return settings.cats.find(c => c.id === id) || { id, name: id || "Sans catégorie", color: "#9aa5ad", budget: 0 }; }
 function itemsOf(y, m) { const d = months[ym(y, m)]; return d ? Object.entries(d.items || {}).map(([id, t]) => ({ ...t, id })) : []; }
 
@@ -561,9 +589,10 @@ function renderReglages() {
     <p class="hint">En changeant de devise, tu peux convertir tous tes montants au taux du jour. Les tontines peuvent avoir leur propre devise, convertie dans celle-ci.</p>
     <p class="hint">Une opération peut aussi être saisie dans une autre devise (bouton à côté du montant) : elle est convertie au taux du jour, que tu peux corriger. Taux fournis par <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener">Rates By Exchange Rate API</a>${(fxCache() || {}).day ? ` · mis à jour le ${esc(frDate(fxCache().day))}` : ""}.</p></div>
   <div class="card"><h2>Budget mensuel par catégorie<small>total ${esc(eur(totalBud, true))}</small></h2>
-    ${settings.cats.map((c, i) => `<div class="set-row"><input type="color" value="${esc(c.color)}" data-i="${i}" data-f="color" aria-label="Couleur ${esc(c.name)}">
+    ${settings.cats.map((c, i) => `<div class="set-row cat-row"><input type="color" value="${esc(c.color)}" data-i="${i}" data-f="color" aria-label="Couleur ${esc(c.name)}">
       <input class="field" value="${esc(c.name)}" data-i="${i}" data-f="name" aria-label="Nom de la catégorie">
-      <input class="field num" inputmode="decimal" value="${c.budget || ""}" placeholder="0 ${esc(curSym())}" data-i="${i}" data-f="budget" aria-label="Budget ${esc(c.name)}"></div>`).join("")}
+      <input class="field num" inputmode="decimal" value="${c.budget || ""}" placeholder="0 ${esc(curSym())}" data-i="${i}" data-f="budget" aria-label="Budget ${esc(c.name)}">
+      <button type="button" class="hbtn cat-del" data-delcat="${i}" aria-label="Supprimer la catégorie ${esc(c.name)}" title="Supprimer">✕</button></div>`).join("")}
     <div style="display:flex;gap:8px;margin-top:10px"><button class="btn" id="addCat">+ Ajouter une catégorie</button></div>
     <p class="hint">Les modifications sont enregistrées dès que tu quittes le champ.</p></div>`;
   html += importCardHTML();
@@ -593,6 +622,7 @@ function renderReglages() {
     else c.color = inp.value;
     saveSettings(); render();
   });
+  view.querySelectorAll("[data-delcat]").forEach(b => b.onclick = () => deleteCat(Number(b.dataset.delcat)));
   document.getElementById("addCat").onclick = () => {
     settings.cats.push({ id: "c" + Date.now().toString(36), name: "Nouvelle catégorie", budget: 0, color: "#8e9eab", fixe: false });
     saveSettings(); render();
@@ -749,7 +779,7 @@ function openSheet(tx) {
   const editing = !!tx;
   const base = cur.y === now.getFullYear() && cur.m === now.getMonth() + 1 ? todayISO() : `${ym(cur.y, cur.m)}-01`;
   form = editing ? { ...clone(tx), oldKey: tx.date.slice(0, 7) }
-    : { id: newId(), type: "depense", amount: "", cat: "courses", date: tab === "frais" ? todayISO() : base, note: "", fixe: false, ndf: tab === "frais", ndfStatus: "a_rembourser" };
+    : { id: newId(), type: "depense", amount: "", cat: defCat("courses"), date: tab === "frais" ? todayISO() : base, note: "", fixe: false, ndf: tab === "frais", ndfStatus: "a_rembourser" };
   form.files = form.files || []; form.uploaded = []; form.removed = []; form.busy = 0; form.repeat = ""; hideGarAsk();
   form.vat = form.vat ? clone(form.vat) : null; form.ndfType = form.ndfType || ""; form.ndfMotif = form.ndfMotif || ""; form.ndfClient = form.ndfClient || "";
   const w = form.warranty || null;
@@ -1308,7 +1338,7 @@ function renderAbos() {
   });
 }
 function editSub(id) {
-  const x = id ? clone(subs[id]) : { name: "", cat: "telecom", amount: "", freq: "mois", next: todayISO(), engEnd: "", preavis: "", status: "actif", note: "" };
+  const x = id ? clone(subs[id]) : { name: "", cat: defCat("telecom"), amount: "", freq: "mois", next: todayISO(), engEnd: "", preavis: "", status: "actif", note: "" };
   let freq = x.freq, cat = x.cat;
   openForm(`<div class="f2"><h3>${id ? "Modifier l'abonnement" : "Nouvel abonnement"}</h3>
     ${fld("sName", "Nom", `placeholder="ex. Netflix, Free Mobile, Basic-Fit" value="${esc(x.name)}"`)}
@@ -1494,7 +1524,7 @@ function bindRecsCard() {
   const a = document.getElementById("addRec"); if (a) a.onclick = () => editRec(null);
 }
 function editRec(id) {
-  const r = id ? clone(recs[id]) : { type: "depense", amount: "", cat: "logement", note: "", freq: "mois", next: todayISO(), until: "", active: true };
+  const r = id ? clone(recs[id]) : { type: "depense", amount: "", cat: defCat("logement"), note: "", freq: "mois", next: todayISO(), until: "", active: true };
   let type = r.type, cat = r.cat, freq = r.freq;
   const catOpts = () => type === "depense" ? settings.cats.map(c => [c.id, c.name]) : settings[type].map(s => [s, s]);
   openForm(`<div class="f2"><h3>${id ? "Modifier l'opération automatique" : "Nouvelle opération automatique"}</h3>
