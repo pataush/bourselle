@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "34";
+const APP_VERSION = "35";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -472,14 +472,14 @@ function renderMois() {
 
   let html = banner + tilesHTML(t) + bilanHTML() + forecastHTML(t);
   const todoAll = allItems().filter(x => x.type === "depense" && x.ndf && x.ndfStatus !== "rembourse");
-  if (todoAll.length) {
+  if (todoAll.length && !isSimple()) {
     const sum = todoAll.reduce((s, x) => s + Number(x.amount), 0);
     html += `<button class="card" id="goFrais" style="text-align:left;width:100%;cursor:pointer"><h2>Notes de frais à rembourser<small>${todoAll.length} en attente</small></h2>
       <div style="display:flex;justify-content:space-between;align-items:center"><span class="num" style="font-family:var(--display);font-size:1.3rem;font-weight:600">${esc(eur(sum))}</span><span class="hint">Voir le détail ›</span></div></button>`;
   }
 
   const soonG = garItems().filter(x => garStatus(x.warranty) === "soon");
-  if (soonG.length) {
+  if (soonG.length && !isSimple()) {
     html += `<button class="card" id="goGar" style="text-align:left;width:100%;cursor:pointer;border-left:6px solid var(--w-soon)"><h2>Garanties bientôt expirées<small>${soonG.length}</small></h2>
       <div class="hint">${soonG.slice(0, 3).map(x => `${esc(x.warranty.item)} : ${esc(leftTxt(daysUntil(x.warranty.end)))}`).join("<br>")}</div></button>`;
   }
@@ -488,7 +488,7 @@ function renderMois() {
     html += `<button class="card" id="goAbo" style="text-align:left;width:100%;cursor:pointer;border-left:6px solid var(--w-soon)"><h2>Abonnements à surveiller<small>${soonA.length}</small></h2>
       <div class="hint">${soonA.slice(0, 3).map(x => `${esc(x.name)} : ${esc(subStatus(x).why)}`).join("<br>")}</div></button>`;
   }
-  html += tontineMoisHTML();
+  if (!isSimple()) html += tontineMoisHTML();
   const prevM = cur.m === 1 ? { y: cur.y - 1, m: 12 } : { y: cur.y, m: cur.m - 1 };
   const prevFix = itemsOf(prevM.y, prevM.m).filter(x => x.fixe && x.type === "depense" && !x.ndf);
   const hasFix = list.some(x => x.fixe && x.type === "depense");
@@ -597,7 +597,11 @@ function renderReglages() {
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="linkGoogle"${CFG.googleClientId ? "" : " disabled"}>Se connecter avec Google</button><button class="btn primary" id="linkMicrosoft"${CFG.microsoftClientId ? "" : " disabled"}>Se connecter avec Microsoft</button></div>
     <div style="margin-top:8px"><button class="btn danger" id="logout" data-l="Quitter le mode essai">Quitter le mode essai</button></div></div>`
     : `<div style="display:flex;gap:8px;flex-wrap:wrap">${store && store.folderUrl() ? `<a class="btn" href="${esc(store.folderUrl())}" target="_blank" rel="noopener">Ouvrir mon dossier</a>` : ""}<button class="btn danger" id="logout" data-l="Se déconnecter">Se déconnecter</button></div></div>`}
-  ${typeof socContactsCardHTML === "function" ? socContactsCardHTML() : ""}
+  ${typeof socContactsCardHTML === "function" && !isSimple() ? socContactsCardHTML() : ""}
+  <div class="card"><h2>Version de l'app</h2>
+    <div class="seg2" id="modeSeg"><button type="button" data-m="simple" aria-pressed="${isSimple()}">Simple</button><button type="button" data-m="complete" aria-pressed="${!isSimple()}">Complète</button></div>
+    <p class="hint" style="margin:8px 0 0">${isSimple() ? "Simple : le budget du mois, l'année, les abonnements et les objectifs. Passe à la version complète pour les tontines, les dettes, le partage, les notes de frais, les garanties et le plan d'économies."
+      : "Complète : toutes les fonctions. La version simple garde l'essentiel (budget du mois, année, abonnements, objectifs) pour un usage plus léger."} Tes données ne changent pas.</p></div>
   <div class="card"><h2>Langue et devise</h2>
     <div class="two"><div><label class="lbl" for="setLang">Langue</label><select class="field" id="setLang"><option value="fr"${window.LANG !== "en" ? " selected" : ""}>Français</option><option value="en"${window.LANG === "en" ? " selected" : ""}>English</option></select></div>
       <div><label class="lbl" for="setCur">Devise</label><select class="field" id="setCur">${APP_CURRENCIES.map(([c, l]) => `<option value="${c}"${c === (settings.currency || "EUR") ? " selected" : ""}>${esc(c)} · ${esc(l)}</option>`).join("")}</select></div></div>
@@ -630,6 +634,7 @@ function renderReglages() {
     <p class="hint">Version ${APP_VERSION}</p><button class="btn" id="forceUpdate">Charger la dernière version</button></div>`;
   view.innerHTML = html;
   if (typeof socBindTagCard === "function") socBindTagCard();
+  document.querySelectorAll("#modeSeg [data-m]").forEach(b => b.onclick = () => { if ((b.dataset.m === "simple") !== isSimple()) setMode(b.dataset.m); });
   const fu = document.getElementById("forceUpdate");
   if (fu) fu.onclick = () => forceUpdate();
   view.querySelectorAll("[data-f]").forEach(inp => inp.onchange = () => {
@@ -746,7 +751,30 @@ function bumpSub(k) { try { const u = subUse(); u[k] = (u[k] || 0) + 1; localSto
 const SUBS = SUBS_DEF;   // ordre fixe : abonnements, tontines, objectifs, économies, partage, dettes, frais, garanties
 let lastSub = SUBS[0][0];
 function isSub(t) { return SUBS.some(([k]) => k === t); }
+// ---------- Deux versions : simple et complète ----------
+// Simple : le budget du mois, l'année, les abonnements et les objectifs. Complète : tout.
+// Le choix est gardé dans les réglages (donc sur tous les appareils du compte) ; un lien « ?version=simple » le propose aux nouveaux.
+const SIMPLE_SUBS = ["abos", "objectifs"];
+{
+  const v = new URLSearchParams(location.search).get("version");
+  if (v === "simple" || v === "complete") { try { localStorage.setItem("bourselle-mode", v); sessionStorage.setItem("bourselle-mode-url", v); } catch (e) {} history.replaceState(null, "", location.pathname + location.hash); }
+}
+function isSimple() {
+  if (typeof settings !== "undefined" && settings && settings.mode) return settings.mode === "simple";
+  try { return localStorage.getItem("bourselle-mode") === "simple"; } catch (e) { return false; }
+}
+const visibleSubs = () => isSimple() ? SUBS.filter(([k]) => SIMPLE_SUBS.includes(k)) : SUBS;
+const subAllowed = t => !isSimple() || !isSub(t) || SIMPLE_SUBS.includes(t);
+function setMode(m) {
+  settings.mode = m; try { localStorage.setItem("bourselle-mode", m); } catch (e) {}
+  if (!subAllowed(tab)) tab = "mois";
+  if (!subAllowed(lastSub)) lastSub = SIMPLE_SUBS[0];
+  saveSettings(); render(); toast(m === "simple" ? "Version simple activée" : "Version complète activée");
+}
 function render() {
+  if (!subAllowed(tab)) tab = "mois";
+  document.body.classList.toggle("mode-simple", isSimple());
+  { const sb = document.querySelector("header .nm .sub"); if (sb) sb.textContent = isSimple() ? "Version simple" : "Mon budget"; }
   const arrows = !["garanties", "abos", "dettes", "recherche", "objectifs", "economies", "partage", "tontines"].includes(tab);
   if (!document.getElementById("app").hidden) document.getElementById("fab").hidden = tab === "economies";
   document.getElementById("prev").style.visibility = arrows ? "visible" : "hidden";
@@ -762,13 +790,14 @@ function render() {
   sn.hidden = !isSub(tab);
   if (isSub(tab)) {
     const c = { frais: nFrais, garanties: nGar, abos: nAbo, dettes: 0, objectifs: 0, economies: 0, partage: 0, tontines: nTon };
-    sn.innerHTML = `<div class="seg" role="tablist">${SUBS.map(([k, l]) => `<button type="button" role="tab" aria-pressed="${k === tab}" data-sub="${k}">${l}${c[k] ? `<span class="cnt">${c[k]}</span>` : ""}</button>`).join("")}</div>`;
+    sn.innerHTML = `<div class="seg" role="tablist">${visibleSubs().map(([k, l]) => `<button type="button" role="tab" aria-pressed="${k === tab}" data-sub="${k}">${l}${c[k] ? `<span class="cnt">${c[k]}</span>` : ""}</button>`).join("")}</div>`;
     sn.querySelectorAll("[data-sub]").forEach(b => b.onclick = () => switchTab(b.dataset.sub));
     const act = sn.querySelector('[aria-pressed="true"]'); if (act) act.scrollIntoView({ inline: "center", block: "nearest" });
   }
 }
 function switchTab(t) {
   if (t === "suivis") t = lastSub;
+  if (!subAllowed(t)) t = SIMPLE_SUBS.includes(lastSub) ? lastSub : SIMPLE_SUBS[0];
   if (isSub(t)) { if (t !== tab) bumpSub(t); lastSub = t; }
   tab = t;
   document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === t || (b.dataset.tab === "suivis" && isSub(t)))));

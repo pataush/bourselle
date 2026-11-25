@@ -375,3 +375,5 @@ select.field { appearance: auto; }
 .gar.refused .st { background: var(--bad, #c0392b) !important; color: #fff !important; }
 .soc-refused { margin-top: 8px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--bad, #c0392b) 12%, transparent); color: var(--bad, #c0392b); }
 .soc-refused .acts { display: flex; gap: 8px; margin-top: 8px; }
+.mode-simple #ndfWrap, .mode-simple #garWrap { display: none !important; }
+#modeSeg button { padding: 10px; font-size: .9rem; }

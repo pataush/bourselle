@@ -12,6 +12,14 @@
 
   // ---------- Textes fixes ----------
   const EXACT = {
+    "Version de l'app": "App version",
+    "Simple": "Simple",
+    "Complète": "Full",
+    "Version simple": "Simple version",
+    "Version simple activée": "Simple version on",
+    "Version complète activée": "Full version on",
+    "Simple : le budget du mois, l'année, les abonnements et les objectifs. Passe à la version complète pour les tontines, les dettes, le partage, les notes de frais, les garanties et le plan d'économies. Tes données ne changent pas.": "Simple: this month's budget, the year, subscriptions and goals. Switch to the full version for savings circles, debts, sharing, expense claims, warranties and the savings plan. Your data doesn't change.",
+    "Complète : toutes les fonctions. La version simple garde l'essentiel (budget du mois, année, abonnements, objectifs) pour un usage plus léger. Tes données ne changent pas.": "Full: every feature. The simple version keeps the essentials (monthly budget, year, subscriptions, goals) for lighter use. Your data doesn't change.",
     "Dette refusée": "Debt declined",
     "Relancer": "Send again",
     "Refusée": "Declined",
