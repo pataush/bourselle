@@ -15,6 +15,7 @@ const OFFERS = [
 ].map(o => ({ ...o, ...((PLUS_CFG.prices || {})[o.id] || {}) }));
 const PLAN_NAME = { mensuel: "Plus mensuel", annuel: "Plus annuel", famille: "Famille", vie: "À vie", essai: "Essai" };
 const PLUS_WHY = {
+  claim: "Réclamer une dette à un autre utilisateur avec son tag est réservé à Bourselle Plus. Recevoir et accepter une réclamation reste gratuit.",
   scan: `Tu as utilisé tes ${FREE.scan} scans de tickets gratuits ce mois-ci.`,
   import: `Tu as utilisé ton import de relevé gratuit ce mois-ci.`,
   tontines: `La version gratuite permet de suivre ${FREE.tontines} tontine.`,
@@ -29,6 +30,7 @@ const PLUS_LIST = [
   ["Tontines et groupes partagés illimités", `gratuit : ${FREE.tontines} de chaque`],
   ["Notes de frais illimitées", `gratuit : ${FREE.ndf} tickets par mois, illimité le premier mois`],
   ["Rappels avancés", "garanties, prélèvements et tontines dans ton agenda, notifications"],
+  ["Réclamer une dette", "avec le tag de la personne : elle la reçoit dans son app et vous suivez les remboursements"],
   ["Exports comptables", "grand livre et synthèse mensuelle, prêts pour Excel"],
   ["Forfait famille", "un seul abonnement pour 5 comptes, chacun garde ses données"],
 ];

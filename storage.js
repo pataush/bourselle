@@ -160,6 +160,7 @@
         await ensureFolders();
       },
       tokenExpiresSoon: () => !token || Date.now() > expires - 5 * 60 * 1000,
+      async accessToken() { if (!token || Date.now() > expires) await requestToken(""); return token; },
       refresh: () => requestToken(""),
       user: () => ({ name: me ? me.name || me.email : "", email: me ? me.email : "" }),
       async load() {
@@ -289,6 +290,7 @@
 
     return {
       id: "microsoft", label: "OneDrive", canFiles: true,
+      accessToken: () => getToken(),
       // Au démarrage : récupère le retour de la page de connexion Microsoft, s'il y en a un.
       async resume() {
         const app = await getMsal();

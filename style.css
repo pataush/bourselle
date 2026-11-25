@@ -348,3 +348,9 @@ select.field { appearance: auto; }
 .set-row .cat-del { width: 36px; height: 36px; flex-shrink: 0; background: transparent; color: var(--muted, #7a8794); border: 1px solid var(--line); border-radius: 10px; font-size: .9rem; cursor: pointer; }
 .set-row .cat-del:hover { color: #c0392b; border-color: #c0392b; }
 .set-row.cat-row { grid-template-columns: 28px 1fr 78px 36px; }
+.soc-tag { font-size: 1.25rem; }
+.soc-claim { padding: 10px 0; border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 4px; }
+.soc-claim:last-child { border-bottom: 0; }
+.soc-claim .acts { display: flex; gap: 8px; margin-top: 6px; }
+.soc-in { border-left: 6px solid #2f6fb0; }
+.soc-st { font-size: .82rem; color: var(--muted, #6b7a88); margin-top: 6px; }

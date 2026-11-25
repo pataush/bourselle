@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "29";
+const APP_VERSION = "30";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -582,6 +582,7 @@ function renderReglages() {
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="linkGoogle"${CFG.googleClientId ? "" : " disabled"}>Se connecter avec Google</button><button class="btn primary" id="linkMicrosoft"${CFG.microsoftClientId ? "" : " disabled"}>Se connecter avec Microsoft</button></div>
     <div style="margin-top:8px"><button class="btn danger" id="logout" data-l="Quitter le mode essai">Quitter le mode essai</button></div></div>`
     : `<div style="display:flex;gap:8px;flex-wrap:wrap">${store && store.folderUrl() ? `<a class="btn" href="${esc(store.folderUrl())}" target="_blank" rel="noopener">Ouvrir mon dossier</a>` : ""}<button class="btn danger" id="logout" data-l="Se déconnecter">Se déconnecter</button></div></div>`}
+  ${typeof socTagCardHTML === "function" ? socTagCardHTML() : ""}
   <div class="card"><h2>Langue et devise</h2>
     <div class="two"><div><label class="lbl" for="setLang">Langue</label><select class="field" id="setLang"><option value="fr"${window.LANG !== "en" ? " selected" : ""}>Français</option><option value="en"${window.LANG === "en" ? " selected" : ""}>English</option></select></div>
       <div><label class="lbl" for="setCur">Devise</label><select class="field" id="setCur">${APP_CURRENCIES.map(([c, l]) => `<option value="${c}"${c === (settings.currency || "EUR") ? " selected" : ""}>${esc(c)} · ${esc(l)}</option>`).join("")}</select></div></div>
@@ -613,6 +614,7 @@ function renderReglages() {
     <div class="card"><h2>Installer sur ton téléphone</h2><p class="hint" style="margin:0">iPhone : dans Safari, bouton Partager puis « Sur l'écran d'accueil ». Android : dans Chrome, menu ⋮ puis « Ajouter à l'écran d'accueil ».</p>
     <p class="hint">Version ${APP_VERSION}</p><button class="btn" id="forceUpdate">Charger la dernière version</button></div>`;
   view.innerHTML = html;
+  if (typeof socBindTagCard === "function") socBindTagCard();
   const fu = document.getElementById("forceUpdate");
   if (fu) fu.onclick = () => forceUpdate();
   view.querySelectorAll("[data-f]").forEach(inp => inp.onchange = () => {
@@ -1395,13 +1397,14 @@ function renderDettes() {
     <div class="tile"><div class="k"><span class="sw" style="background:var(--bad)"></span>Je dois</div><div class="v num">${eur(iOwe, true)}</div></div>
     <div class="tile"><div class="k"><span class="sw" style="background:#2f6fb0"></span>On me doit</div><div class="v num">${eur(owed, true)}</div></div>
     <div class="tile"><div class="k"><span class="sw" style="background:var(--accent)"></span>Mensualités</div><div class="v num">${eur(monthly, true)}</div></div></div>`;
+  if (typeof socInboxHTML === "function") html += socInboxHTML();
   const card = x => {
     const c = x.c, cls = c.done ? "done" : x.kind === "medoit" ? "owed" : "debt";
     const lab = c.done ? "Soldée" : DEBT_KINDS.find(k => k[0] === x.kind)[1];
     const pays = (x.payments || []).slice().sort((a, b) => b.date.localeCompare(a.date));
     return `<div class="gar ${cls}"><div class="top"><span class="n">${esc(x.name)}</span><span class="st">${esc(lab)}</span></div>
       <div class="top"><span class="amt num">${c.done ? "Remboursée" : "Reste " + esc(eur(c.remaining))}</span><span class="hint num">sur ${esc(eur(x.amount))}</span></div>
-      <div class="bar"><i style="width:${c.pct}%"></i></div>
+      <div class="bar"><i style="width:${c.pct}%"></i></div>${typeof socDebtLine === "function" ? socDebtLine(x) : ""}
       <div class="s">${x.who ? esc(x.who) + " · " : ""}${Math.round(c.pct)} % remboursé${x.kind === "credit" && x.monthly ? `<br>Mensualité ${esc(eur(x.monthly))}${x.rate ? ` · taux ${esc(String(x.rate).replace(".", ","))} %` : ""}${c.end ? ` · dernière échéance le ${esc(frDate(c.end))}` : ""}${x.months ? ` · ${c.nPaid}/${esc(x.months)} échéances passées` : ""}` : ""}${x.due ? `<br>À rembourser avant le ${esc(frDate(x.due))}${!c.done && daysUntil(x.due) < 0 ? ` <b style="color:var(--bad)">(en retard)</b>` : ""}` : ""}${x.note ? "<br>" + esc(x.note) : ""}</div>
       ${pays.slice(0, 3).map(p => `<div class="pay"><span>${esc(frDate(p.date))}</span><span class="num">${x.kind === "medoit" ? "reçu" : "versé"} ${esc(eur(p.amount))}</span></div>`).join("")}${pays.length > 3 ? `<div class="pay"><span>+ ${pays.length - 3} autres remboursements</span><span></span></div>` : ""}
       <div class="acts">${!c.done ? `<button class="btn primary" data-a="pay" data-id="${esc(x.id)}">${x.kind === "medoit" ? "J'ai reçu un remboursement" : x.kind === "credit" ? "Remboursement anticipé" : "J'ai remboursé"}</button>` : ""}
@@ -1418,6 +1421,7 @@ function renderDettes() {
   }
   html += `<p class="hint" style="text-align:center;margin:4px 0 0">Pour un crédit, le reste dû est estimé à partir de la mensualité, du taux et des échéances passées. Le tableau d'amortissement de ta banque fait foi.</p>`;
   view.innerHTML = html;
+  if (typeof socBindInbox === "function") socBindInbox();
   view.querySelectorAll("[data-a]").forEach(b => b.onclick = () => {
     const x = list.find(i => i.id === b.dataset.id); if (!x) return;
     if (b.dataset.a === "edit") editDebt(x.id);
@@ -1438,6 +1442,8 @@ function editDebt(id) {
       <div class="two"><div>${fld("dStart", "1re échéance", `type="date" value="${esc(x.start || "")}"`)}</div>
       <div>${fld("dMonths", "Nombre de mensualités", `inputmode="numeric" value="${esc(x.months || "")}"`)}</div></div></div>
     <div id="dPerso">${fld("dDue", "À rembourser avant le (facultatif)", `type="date" value="${esc(x.due || "")}"`)}</div>
+    <div id="dSoc">${typeof socOn === "function" && socOn() ? (x.claim ? `<p class="hint">Réclamée à <b>@${esc(x.claimTo || "")}</b> dans Bourselle.</p>`
+      : `${fld("dTag", "Réclamer via Bourselle : tag de la personne (facultatif)", `placeholder="@paul-3f9k" autocapitalize="off" spellcheck="false" value="${esc(x.claimTo ? "@" + x.claimTo : "")}"`)}<p class="hint" style="margin:4px 0 0">La dette apparaîtra dans son app. Réservé à Bourselle Plus.</p>`) : ""}</div>
     ${fld("dNote", "Infos", `placeholder="N° de contrat, conditions…" value="${esc(x.note || "")}"`)}</div>`,
     () => {
       const name = val("dName"), amount = parseAmount(val("dAmount"));
@@ -1446,10 +1452,17 @@ function editDebt(id) {
       const o = { ...x, kind, name: name.slice(0, 60), who: val("dWho").slice(0, 60), amount, note: val("dNote").slice(0, 200), created: x.created || Date.now() };
       if (kind === "credit") { o.monthly = parseAmount(val("dMonthly")) || ""; o.rate = parseAmount(val("dRate")) || ""; o.start = val("dStart"); o.months = parseInt(val("dMonths"), 10) || ""; o.due = ""; }
       else { o.due = val("dDue"); o.monthly = ""; o.rate = ""; o.start = ""; o.months = ""; }
-      debts[id || newId()] = o; saveDebts(); render(); toast(id ? "Dette modifiée" : "Dette ajoutée");
+      const tagEl = document.getElementById("dTag"), tg = tagEl ? tagEl.value.trim().toLowerCase().replace(/^@/, "") : "";
+      if (kind === "medoit" && tg && !o.claim) {
+        if (!/^[a-z0-9][a-z0-9_-]{2,23}$/.test(tg)) { toast("Ce tag n'est pas valide"); return false; }
+        o.claimTo = tg;
+      }
+      const key = id || newId();
+      debts[key] = o; saveDebts(); render(); toast(id ? "Dette modifiée" : "Dette ajoutée");
+      if (o.claimTo && !o.claim && typeof socSendClaim === "function") setTimeout(() => socSendClaim(key), 50);
     },
-    id ? () => { delete debts[id]; saveDebts(); render(); toast("Dette supprimée"); } : null);
-  const sync = () => { f.querySelector("#dCredit").hidden = kind !== "credit"; f.querySelector("#dPerso").hidden = kind === "credit"; };
+    id ? () => { if (typeof socCancel === "function") socCancel(debts[id]); delete debts[id]; saveDebts(); render(); toast("Dette supprimée"); } : null);
+  const sync = () => { f.querySelector("#dCredit").hidden = kind !== "credit"; f.querySelector("#dPerso").hidden = kind === "credit"; f.querySelector("#dSoc").hidden = kind !== "medoit"; };
   chipsPick("dKind", DEBT_KINDS, kind, v => { kind = v; sync(); });
   sync();
 }
@@ -1462,8 +1475,8 @@ function addPayment(x) {
       const amount = parseAmount(val("pAmount")), date = val("pDate");
       if (!(amount > 0)) { toast("Indique le montant"); return false; }
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast("Choisis une date"); return false; }
-      const d = debts[x.id]; d.payments = (d.payments || []).concat([{ date, amount }]);
-      saveDebts();
+      const d = debts[x.id], pay = { date, amount, pid: Math.random().toString(36).slice(2, 10) }; d.payments = (d.payments || []).concat([pay]);
+      saveDebts(); if (typeof socPay === "function") socPay(x.id, pay);
       if (document.getElementById("pAlso").checked)
         addTx(out ? { type: "depense", amount, cat: "credits", date, note: x.name, fixe: false } : { type: "rentree", amount, cat: "Remboursement", date, note: x.name });
       render(); toast("Remboursement enregistré");
