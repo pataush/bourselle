@@ -12,6 +12,14 @@
 
   // ---------- Textes fixes ----------
   const EXACT = {
+    "Membres avec Bourselle (facultatif)": "Members with Bourselle (optional)",
+    "Chercher un @tag ou un contact": "Search a @tag or a contact",
+    "Quand tu paies une dépense du groupe, leur part leur est envoyée : elle arrive dans leurs dettes (Bourselle Plus).": "When you pay a group expense, their share is sent to them: it lands in their debts (Bourselle Plus).",
+    "Aucun pour l'instant.": "None yet.",
+    "Tape au moins 3 caractères pour chercher un tag.": "Type at least 3 characters to search a tag.",
+    "Pas encore envoyée à": "Not sent yet to",
+    "Envoyer": "Send",
+    "Envoyer les parts via Bourselle demande Bourselle Plus": "Sending shares through Bourselle requires Bourselle Plus",
     "Mon compte": "My account",
     "Mode démo, sur cet appareil": "Demo mode, on this device",
     "Mon tag": "My tag",
@@ -519,6 +527,9 @@
   // ---------- Textes avec des valeurs ({m} montant, {d} date, {n} nombre, {x} autre) ----------
   const s = n => (Number(String(n).replace(/[^\d.]/g, "")) > 1 ? "s" : "");
   const PATTERNS = [
+    ["Part envoyée à @{x}", "Share sent to @{x}"],
+    ["Parts envoyées à {n} membres", "Shares sent to {n} members"],
+    ["Partage « {x} »", "Shared “{x}”"],
     ["{n} contact", "{n} contact"],
     ["{n} contacts", "{n} contacts"],
     ["{n} à voir", "{n} to check"],

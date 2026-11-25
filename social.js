@@ -203,6 +203,7 @@ function socRelaunch(id) {
   socSendClaim(id);
 }
 function socBindRefused() {
+  document.querySelectorAll("[data-socsend]").forEach(b => b.onclick = () => { b.disabled = true; socSendClaim(b.dataset.socsend); });
   document.querySelectorAll("[data-socre]").forEach(b => b.onclick = () => { b.disabled = true; socRelaunch(b.dataset.socre); });
   document.querySelectorAll("[data-socrm]").forEach(b => b.onclick = () => {
     if (b.dataset.c !== "1") { b.dataset.c = "1"; b.textContent = "Confirmer ?"; setTimeout(() => { b.dataset.c = ""; b.textContent = "Supprimer"; }, 3000); return; }
@@ -229,6 +230,8 @@ function socBindInbox() {
 // Ligne d'état sous une dette liée à une réclamation
 const SOC_ST = { pending: "en attente de réponse", accepted: "acceptée", declined: "refusée", cancelled: "annulée", settled: "soldée des deux côtés" };
 function socDebtLine(x) {
+  if (!x.claim && x.claimTo && x.kind === "medoit" && socOn())
+    return `<div class="soc-st"><span>Pas encore envoyée à</span> <b>@${esc(x.claimTo)}</b> <button class="linkbtn" data-socsend="${esc(x.id)}">Envoyer</button></div>`;
   if (!x.claim) return "";
   const who = x.kind === "medoit" ? x.claimTo : (x.who || "").replace(/^@/, "");
   if (x.kind === "medoit" && x.claimStatus === "declined")
@@ -245,6 +248,22 @@ async function socSendClaim(id) {
     d.claim = r.id; d.claimStatus = r.status; saveDebts(); SOC.out.unshift(r); render();
     toast(`Réclamation envoyée à @${d.claimTo}`);
   } catch (e) { toast(e.status === 402 ? "Réclamer une dette est réservé à Bourselle Plus" : e.message); if (e.status === 402) showPlus("claim"); }
+}
+// Partage : quand je paie une dépense du groupe, la part des membres qui ont un tag leur est envoyée (elle arrive dans leurs dettes)
+function socSendShares(gid, label, amount, order, date) {
+  const g = groups[gid]; if (!g || !socOn()) return;
+  const per = Math.round(amount / order.length * 100) / 100;
+  const targets = g.members.filter(m => m.tag && m.id !== g.me && order.includes(m.id));
+  if (!targets.length) return;
+  if (!isPlus()) { toast("Envoyer les parts via Bourselle demande Bourselle Plus"); showPlus("claim"); return; }
+  for (const m of targets) {
+    const key = newId();
+    debts[key] = { kind: "medoit", name: `${g.name} : ${label}`.slice(0, 60), who: m.name, amount: per, due: "", note: `Partage « ${g.name} »`, payments: [], created: Date.now(),
+      claimTo: m.tag, group: gid, rate: "", monthly: "", start: "", months: "" };
+    socSendClaim(key);
+  }
+  saveDebts();
+  toast(targets.length === 1 ? `Part envoyée à @${targets[0].tag}` : `Parts envoyées à ${targets.length} membres`);
 }
 async function socPay(id, p) {
   const d = debts[id]; if (!d || !d.claim || !socOn()) return;

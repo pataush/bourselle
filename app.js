@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "39";
+const APP_VERSION = "40";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -2056,16 +2056,22 @@ function editGroup(id) {
   openForm(`<div class="f2"><h3>${id ? "Modifier le groupe" : "Nouveau groupe"}</h3>
     ${fld("grName", "Nom du groupe", `placeholder="ex. Maison, Vacances Bretagne, Coloc" value="${esc(g.name)}"`)}
     ${fld("grMe", "Ton prénom", `placeholder="ex. Marie" value="${esc(id ? (g.members.find(m => m.id === g.me) || {}).name || "" : "")}"`)}
-    ${fld("grOthers", "Les autres membres (séparés par des virgules)", `placeholder="ex. Paul, Léa, Hugo" value="${esc(id ? g.members.filter(m => m.id !== g.me).map(m => m.name).join(", ") : "")}"`)}</div>`,
+    ${fld("grOthers", "Les autres membres (séparés par des virgules)", `placeholder="ex. Paul, Léa, Hugo" value="${esc(id ? g.members.filter(m => m.id !== g.me && !m.tag).map(m => m.name).join(", ") : "")}"`)}
+    ${typeof socOn === "function" && socOn() ? `<span class="lbl">Membres avec Bourselle (facultatif)</span>
+      <div class="chips" id="grTags"></div>
+      <input class="field" id="grTagFind" placeholder="Chercher un @tag ou un contact" autocapitalize="off" spellcheck="false" autocomplete="off" style="margin-top:6px">
+      <div id="grTagRes"></div>
+      <p class="hint" style="margin:6px 0 0">Quand tu paies une dépense du groupe, leur part leur est envoyée : elle arrive dans leurs dettes (Bourselle Plus).</p>` : ""}</div>`,
     () => {
       const name = val("grName"), meName = val("grMe");
-      const others = val("grOthers").split(",").map(s => s.trim()).filter(Boolean);
+      const others = val("grOthers").split(",").map(s => s.trim()).filter(Boolean).filter(n => !tagged.some(t => t.name.toLowerCase() === n.toLowerCase()));
       if (!name) { toast("Donne un nom au groupe"); return false; }
-      if (!meName || !others.length) { toast("Indique ton prénom et au moins un autre membre"); return false; }
+      if (!meName || !(others.length + tagged.length)) { toast("Indique ton prénom et au moins un autre membre"); return false; }
       const old = g.members; const members = [];
       const reuse = n => (old.find(m => m.name.toLowerCase() === n.toLowerCase() && !members.includes(m)) || { id: "m" + Math.random().toString(36).slice(2, 8), name: n });
       const meM = g.me && old.find(m => m.id === g.me) ? { ...old.find(m => m.id === g.me), name: meName } : reuse(meName);
-      members.push(meM); for (const n of others) { const m = reuse(n); m.name = n; if (!members.some(x => x.id === m.id)) members.push(m); }
+      members.push(meM); for (const n of others) { const m = reuse(n); m.name = n; delete m.tag; if (!members.some(x => x.id === m.id)) members.push(m); }
+      for (const t of tagged) { const m = old.find(x => x.tag === t.tag) || reuse(t.name); m.name = t.name; m.tag = t.tag; if (!members.some(x => x.id === m.id)) members.push(m); }
       const used = new Set(Object.values(g.expenses || {}).flatMap(e => e.kind === "transfer" ? [e.from, e.to] : [e.paidBy, ...(e.split || [])]));
       const lost = old.filter(m => used.has(m.id) && !members.some(x => x.id === m.id));
       if (lost.length) { toast(`${lost.map(m => m.name).join(", ")} a des dépenses dans le groupe : garde ce nom.`); return false; }
@@ -2074,6 +2080,30 @@ function editGroup(id) {
       saveGroups(); openGroup = nid; render(); toast(id ? "Groupe modifié" : "Groupe créé");
     },
     id ? () => { delete groups[id]; openGroup = null; saveGroups(); render(); toast("Groupe supprimé"); } : null);
+  // Membres Bourselle : choisis parmi les contacts ou par recherche de tag
+  const tagged = g.members.filter(m => m.id !== g.me && m.tag).map(m => ({ tag: m.tag, name: m.name }));
+  const box = document.getElementById("grTags"), find = document.getElementById("grTagFind"), res = document.getElementById("grTagRes");
+  if (!box) return;
+  const drawTags = () => {
+    box.innerHTML = tagged.length ? tagged.map((t, i) => `<button type="button" class="chip" aria-pressed="true" data-rm="${i}">${esc(t.name)} <small>@${esc(t.tag)}</small> ✕</button>`).join("") : `<span class="hint">Aucun pour l'instant.</span>`;
+    box.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { tagged.splice(Number(b.dataset.rm), 1); drawTags(); });
+  };
+  const addT = (tag, nm) => { if (!tagged.some(t => t.tag === tag) && tag !== SOC.tag) tagged.push({ tag, name: (nm || "@" + tag).slice(0, 40) }); find.value = ""; res.innerHTML = ""; drawTags(); };
+  const list = items => res.innerHTML = items.length ? `<div class="soc-contacts">${items.map(u => `<div class="soc-contact"><div><b>@${esc(u.tag)}</b>${u.name ? ` <span class="hint">${esc(u.name)}</span>` : ""}</div><button type="button" class="btn" data-add="${esc(u.tag)}" data-n="${esc(u.name || "")}">Ajouter</button></div>`).join("")}</div>` : "";
+  const bindRes = () => res.querySelectorAll("[data-add]").forEach(b => b.onclick = () => addT(b.dataset.add, b.dataset.n));
+  let tmr = null;
+  const showContacts = q => { const c = (settings.contacts || []).filter(x => !q || x.tag.includes(q) || (x.name || "").toLowerCase().includes(q)).slice(0, 6); list(c); bindRes(); return c.length; };
+  find.onfocus = () => { if (!find.value) showContacts(""); };
+  find.oninput = () => {
+    clearTimeout(tmr); const q = find.value.trim().toLowerCase().replace(/^@/, "");
+    const n = showContacts(q);
+    if (q.length >= 3) tmr = setTimeout(async () => {
+      try { const j = await socApi("/search?q=" + encodeURIComponent(q)); const have = new Set((settings.contacts || []).filter(x => x.tag.includes(q) || (x.name || "").toLowerCase().includes(q)).map(x => x.tag));
+        const extra = (j.users || []).filter(u => !have.has(u.tag)); if (find.value.trim().toLowerCase().replace(/^@/, "") === q) { list((settings.contacts || []).filter(x => have.has(x.tag)).concat(extra).slice(0, 8)); bindRes(); } } catch (e) {}
+    }, 450);
+    else if (!n && q) res.innerHTML = `<p class="hint">Tape au moins 3 caractères pour chercher un tag.</p>`;
+  };
+  drawTags();
 }
 function editGroupExpense(gid, eid) {
   const g = groups[gid], e = eid ? clone(g.expenses[eid]) : { label: "", amount: "", date: todayISO(), paidBy: g.me, split: g.members.map(m => m.id) };
@@ -2095,6 +2125,7 @@ function editGroupExpense(gid, eid) {
       g.expenses = g.expenses || {};
       const order = g.members.map(m => m.id).filter(id => split.has(id));
       g.expenses[eid || newId()] = { ...e, label: label.slice(0, 60), amount, date, paidBy, split: order, created: e.created || Date.now() };
+      if (!eid && paidBy === g.me && typeof socSendShares === "function") setTimeout(() => socSendShares(gid, label.slice(0, 60), amount, order, date), 50);
       const mine = document.getElementById("geMine");
       if (mine && mine.checked && split.has(g.me)) addTx({ type: "depense", amount: Math.round(amount / split.size * 100) / 100, cat, date, note: `${g.name} : ${label}`.slice(0, 80), fixe: false });
       saveGroups(); render(); toast(eid ? "Dépense modifiée" : "Dépense ajoutée au groupe");
