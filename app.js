@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "33";
+const APP_VERSION = "34";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -1417,7 +1417,8 @@ function renderDettes() {
     const c = x.c, cls = c.done ? "done" : x.kind === "medoit" ? "owed" : "debt";
     const lab = c.done ? "Soldée" : DEBT_KINDS.find(k => k[0] === x.kind)[1];
     const pays = (x.payments || []).slice().sort((a, b) => b.date.localeCompare(a.date));
-    return `<div class="gar ${cls}"><div class="top"><span class="n">${esc(x.name)}</span><span class="st">${esc(lab)}</span></div>
+    const refused = x.kind === "medoit" && x.claimStatus === "declined";
+    return `<div class="gar ${cls}${refused ? " refused" : ""}"><div class="top"><span class="n">${esc(x.name)}</span><span class="st">${esc(refused ? "Refusée" : lab)}</span></div>
       <div class="top"><span class="amt num">${c.done ? "Remboursée" : "Reste " + esc(eur(c.remaining))}</span><span class="hint num">sur ${esc(eur(x.amount))}</span></div>
       <div class="bar"><i style="width:${c.pct}%"></i></div>${typeof socDebtLine === "function" ? socDebtLine(x) : ""}
       <div class="s">${x.who ? esc(x.who) + " · " : ""}${Math.round(c.pct)} % remboursé${x.kind === "credit" && x.monthly ? `<br>Mensualité ${esc(eur(x.monthly))}${x.rate ? ` · taux ${esc(String(x.rate).replace(".", ","))} %` : ""}${c.end ? ` · dernière échéance le ${esc(frDate(c.end))}` : ""}${x.months ? ` · ${c.nPaid}/${esc(x.months)} échéances passées` : ""}` : ""}${x.due ? `<br>À rembourser avant le ${esc(frDate(x.due))}${!c.done && daysUntil(x.due) < 0 ? ` <b style="color:var(--bad)">(en retard)</b>` : ""}` : ""}${x.note ? "<br>" + esc(x.note) : ""}</div>

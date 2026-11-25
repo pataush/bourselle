@@ -371,3 +371,7 @@ select.field { appearance: auto; }
 .soc-qr-img { display: flex; justify-content: center; margin: 6px 0; }
 .soc-qr-img svg { width: min(72vw, 300px); height: auto; border-radius: 12px; }
 .soc-qr-tag { font-size: 1.3rem; font-weight: 700; }
+.gar.refused { border-left-color: var(--bad, #c0392b) !important; background: color-mix(in srgb, var(--bad, #c0392b) 6%, var(--surface)); }
+.gar.refused .st { background: var(--bad, #c0392b) !important; color: #fff !important; }
+.soc-refused { margin-top: 8px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--bad, #c0392b) 12%, transparent); color: var(--bad, #c0392b); }
+.soc-refused .acts { display: flex; gap: 8px; margin-top: 8px; }

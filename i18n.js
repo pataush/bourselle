@@ -12,6 +12,11 @@
 
   // ---------- Textes fixes ----------
   const EXACT = {
+    "Dette refusée": "Debt declined",
+    "Relancer": "Send again",
+    "Refusée": "Declined",
+    "Confirmer ?": "Confirm?",
+    "par": "by",
     "QR code": "QR code",
     "Mon QR code Bourselle": "My Bourselle QR code",
     "Fais scanner ce code avec l'appareil photo d'un téléphone : la personne t'ajoute à ses contacts Bourselle.": "Have someone scan this code with their phone camera: they'll add you to their Bourselle contacts.",

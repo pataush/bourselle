@@ -195,7 +195,22 @@ function socInboxHTML() {
     <div class="hint">${esc(c.name || "Dette")}${c.note ? " · " + esc(c.note) : ""}${c.due ? ` · <span>avant le ${esc(frDate(c.due))}</span>` : ""}</div>
     <div class="acts"><button class="btn primary" data-soc="accept" data-cid="${esc(c.id)}">Accepter</button><button class="btn" data-soc="decline" data-cid="${esc(c.id)}">Refuser</button></div></div>`).join("")}</div>`;
 }
+// Relancer une réclamation refusée : une nouvelle réclamation part vers la même personne
+function socRelaunch(id) {
+  const d = debts[id]; if (!d || !d.claimTo) return;
+  if (!isPlus()) return showPlus("claim");
+  delete d.claim; d.claimStatus = ""; saveDebts();
+  socSendClaim(id);
+}
+function socBindRefused() {
+  document.querySelectorAll("[data-socre]").forEach(b => b.onclick = () => { b.disabled = true; socRelaunch(b.dataset.socre); });
+  document.querySelectorAll("[data-socrm]").forEach(b => b.onclick = () => {
+    if (b.dataset.c !== "1") { b.dataset.c = "1"; b.textContent = "Confirmer ?"; setTimeout(() => { b.dataset.c = ""; b.textContent = "Supprimer"; }, 3000); return; }
+    delete debts[b.dataset.socrm]; saveDebts(); render(); toast("Dette supprimée");
+  });
+}
 function socBindInbox() {
+  socBindRefused();
   document.querySelectorAll("[data-soc]").forEach(b => b.onclick = async () => {
     const c = SOC.in.find(x => x.id === b.dataset.cid); if (!c) return;
     b.disabled = true;
@@ -216,6 +231,9 @@ const SOC_ST = { pending: "en attente de réponse", accepted: "acceptée", decli
 function socDebtLine(x) {
   if (!x.claim) return "";
   const who = x.kind === "medoit" ? x.claimTo : (x.who || "").replace(/^@/, "");
+  if (x.kind === "medoit" && x.claimStatus === "declined")
+    return `<div class="soc-refused"><b>Dette refusée</b> <span>par</span> <b>@${esc(who || "")}</b>
+      <div class="acts"><button class="btn primary" data-socre="${esc(x.id)}">Relancer</button><button class="btn danger" data-socrm="${esc(x.id)}">Supprimer</button></div></div>`;
   return `<div class="soc-st"><span>${x.kind === "medoit" ? "Réclamée à" : "Réclamée par"}</span> <b>@${esc(who || "")}</b> · <span>${esc(SOC_ST[x.claimStatus] || "envoyée")}</span></div>`;
 }
 // Envoyer la réclamation d'une dette « On me doit »
