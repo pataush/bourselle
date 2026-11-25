@@ -12,6 +12,18 @@
 
   // ---------- Textes fixes ----------
   const EXACT = {
+    "QR code": "QR code",
+    "Mon QR code Bourselle": "My Bourselle QR code",
+    "Fais scanner ce code avec l'appareil photo d'un téléphone : la personne t'ajoute à ses contacts Bourselle.": "Have someone scan this code with their phone camera: they'll add you to their Bourselle contacts.",
+    "Partager le lien": "Share the link",
+    "Scanner un QR code": "Scan a QR code",
+    "Vise le QR code Bourselle de la personne.": "Point at the person's Bourselle QR code.",
+    "Caméra indisponible. Scanne le code avec l'appareil photo de ton téléphone.": "Camera unavailable. Scan the code with your phone's camera.",
+    "C'est ton propre tag": "That's your own tag",
+    "Ajouter un contact": "Add a contact",
+    "Tu pourras lui réclamer une dette directement dans l'app.": "You'll be able to claim a debt from them right in the app.",
+    "Tu peux aussi scanner le QR code d'un proche avec l'appareil photo de ton téléphone.": "You can also scan a friend's QR code with your phone's camera.",
+    "Fermer": "Close",
     "Voir les analyses du mois": "Show this month's analysis",
     "Masquer les analyses du mois": "Hide this month's analysis",
     "catégories, budget, comparaison": "categories, budget, comparison",
@@ -451,6 +463,9 @@
   // ---------- Textes avec des valeurs ({m} montant, {d} date, {n} nombre, {x} autre) ----------
   const s = n => (Number(String(n).replace(/[^\d.]/g, "")) > 1 ? "s" : "");
   const PATTERNS = [
+    ["@{x} est déjà dans tes contacts", "@{x} is already in your contacts"],
+    ["Aucun utilisateur @{x}", "No user @{x}"],
+    ["Ajoute-moi sur Bourselle : @{x}", "Add me on Bourselle: @{x}"],
     ["{n} budget dépassé · catégories, budget, comparaison", "{n} budget over · categories, budget, comparison"],
     ["{n} budgets dépassés · catégories, budget, comparaison", "{n} budgets over · categories, budget, comparison"],
     ["@{x} ajouté à tes contacts", "@{x} added to your contacts"],

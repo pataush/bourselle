@@ -367,3 +367,7 @@ select.field { appearance: auto; }
 .more-toggle i { grid-column: 2; grid-row: 1 / span 2; font-style: normal; font-size: 1.2rem; color: var(--muted, #6b7a88); }
 #moreBox { display: flex; flex-direction: column; gap: 14px; }
 #moreBox[hidden] { display: none; }
+.soc-qr { align-items: center; text-align: center; }
+.soc-qr-img { display: flex; justify-content: center; margin: 6px 0; }
+.soc-qr-img svg { width: min(72vw, 300px); height: auto; border-radius: 12px; }
+.soc-qr-tag { font-size: 1.3rem; font-weight: 700; }

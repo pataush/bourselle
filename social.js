@@ -38,6 +38,7 @@ async function socRefresh() {
     const j = await socApi("/claims");
     SOC.tag = j.tag || SOC.tag; SOC.in = j.in || []; SOC.out = j.out || []; SOC.loaded = true; SOC.err = "";
     const changed = socMerge();
+    if (!SOC.addChecked) { SOC.addChecked = true; socPendingAdd(); }
     const fresh = SOC.in.filter(c => c.status === "pending" && !socSeen.has(c.id));
     if (fresh.length) {
       toast(fresh.length === 1 ? `@${fresh[0].from} te réclame ${socMoney(fresh[0])}` : `${fresh.length} nouvelles réclamations de dettes`);
@@ -55,7 +56,71 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 function socTagInlineHTML() {
   if (!socOn()) return "";
   return `<div class="soc-tag-row"><span class="hint">Tag Bourselle</span> ${SOC.tag ? `<b class="num">@${esc(SOC.tag)}</b>` : `<span class="hint">${SOC.err ? esc(SOC.err) : "Chargement…"}</span>`}
-    ${SOC.tag ? `<span class="soc-tag-btns"><button class="linkbtn" id="socCopy">Copier</button>${navigator.share ? `<button class="linkbtn" id="socShare">Partager</button>` : ""}<button class="linkbtn" id="socEdit">Changer</button></span>` : ""}</div>`;
+    ${SOC.tag ? `<span class="soc-tag-btns"><button class="linkbtn" id="socCopy">Copier</button>${navigator.share ? `<button class="linkbtn" id="socShare">Partager</button>` : ""}<button class="linkbtn" id="socEdit">Changer</button><button class="linkbtn" id="socQr">QR code</button></span>` : ""}</div>`;
+}
+// QR code personnel : le scanner avec l'appareil photo ouvre Bourselle et propose d'ajouter ce tag aux contacts.
+const socAddUrl = tag => location.origin + location.pathname.replace(/[^/]*$/, "") + "?add=" + encodeURIComponent(tag);
+function socShowQr() {
+  if (!SOC.tag || typeof QR === "undefined") return;
+  const url = socAddUrl(SOC.tag);
+  const f = openForm(`<div class="f2 soc-qr"><h3>Mon QR code Bourselle</h3>
+    <div class="soc-qr-img">${QR.svg(url, { px: 7 })}</div>
+    <div class="soc-qr-tag num">@${esc(SOC.tag)}</div>
+    <p class="hint" style="text-align:center;margin:0">Fais scanner ce code avec l'appareil photo d'un téléphone : la personne t'ajoute à ses contacts Bourselle.</p>
+    ${navigator.share ? `<button type="button" class="btn" id="socQrShare" style="align-self:center">Partager le lien</button>` : ""}</div>`, () => true);
+  f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
+  const sh = f.querySelector("#socQrShare"); if (sh) sh.onclick = () => navigator.share({ title: "Bourselle", text: `Ajoute-moi sur Bourselle : @${SOC.tag}`, url }).catch(() => {});
+}
+// Scanner le QR code d'un proche (navigateurs qui savent lire les QR codes : Chrome sur Android, notamment)
+function socScanQr() {
+  const f = openForm(`<div class="f2"><h3>Scanner un QR code</h3><video id="socVid" playsinline muted style="width:100%;border-radius:14px;background:#000;aspect-ratio:1;object-fit:cover"></video>
+    <p class="hint" id="socScanMsg" style="margin:6px 0 0">Vise le QR code Bourselle de la personne.</p></div>`, () => true);
+  f.querySelector("button[type=submit]").hidden = true;
+  let stream = null, alive = true;
+  const stop = () => { alive = false; if (stream) stream.getTracks().forEach(t => t.stop()); };
+  f.querySelector("#f2Cancel").addEventListener("click", stop);
+  document.getElementById("s2bg")?.addEventListener("click", stop, { once: true });
+  (async () => {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+      const v = document.getElementById("socVid"); v.srcObject = stream; await v.play();
+      const det = new BarcodeDetector({ formats: ["qr_code"] });
+      while (alive) {
+        const codes = await det.detect(v).catch(() => []);
+        const tag = codes.map(c => socTagFromText(c.rawValue)).find(Boolean);
+        if (tag) { stop(); closeForm(); socOfferAdd(tag); return; }
+        await new Promise(r => setTimeout(r, 300));
+      }
+    } catch (e) { const m = document.getElementById("socScanMsg"); if (m) m.textContent = "Caméra indisponible. Scanne le code avec l'appareil photo de ton téléphone."; }
+  })();
+}
+function socTagFromText(t) {
+  try { const u = new URL(t); const a = u.searchParams.get("add"); if (a && /^[a-z0-9][a-z0-9_-]{2,23}$/.test(a)) return a; } catch (e) {}
+  const m = /^@?([a-z0-9][a-z0-9_-]{2,23})$/.exec(String(t || "").trim().toLowerCase()); return m ? m[1] : "";
+}
+// Proposer d'ajouter un tag (après un scan, ou en ouvrant un lien « ?add= »)
+async function socOfferAdd(tag) {
+  if (!socOn()) return;
+  if (tag === SOC.tag) { toast("C'est ton propre tag"); return; }
+  if (socContacts().some(c => c.tag === tag)) { toast(`@${tag} est déjà dans tes contacts`); return; }
+  let found = null;
+  try { const j = await socApi("/search?q=" + encodeURIComponent(tag)); found = (j.users || []).find(u => u.tag === tag); } catch (e) {}
+  if (!found) { toast(`Aucun utilisateur @${tag}`); return; }
+  const f = openForm(`<div class="f2"><h3>Ajouter un contact</h3><p style="margin:0"><b>@${esc(tag)}</b>${found.name ? ` <span class="hint">${esc(found.name)}</span>` : ""}</p>
+    <p class="hint">Tu pourras lui réclamer une dette directement dans l'app.</p></div>`, () => {
+    settings.contacts = socContacts().concat([{ tag, name: found.name || "", added: todayISO() }]);
+    saveSettings(); render(); toast(`@${tag} ajouté à tes contacts`);
+  });
+  f.querySelector("button[type=submit]").textContent = "Ajouter";
+}
+// Lien « ?add=tag » : on le garde jusqu'à la connexion
+{
+  const a = new URLSearchParams(location.search).get("add");
+  if (a) { try { sessionStorage.setItem("bourselle-add", a.toLowerCase()); } catch (e) {} history.replaceState(null, "", location.pathname); }
+}
+function socPendingAdd() {
+  let a = ""; try { a = sessionStorage.getItem("bourselle-add") || ""; sessionStorage.removeItem("bourselle-add"); } catch (e) {}
+  if (a) setTimeout(() => socOfferAdd(a), 300);
 }
 const socContacts = () => (settings.contacts || []).filter(c => c && c.tag);
 function socContactsDatalist() { return `<datalist id="socContactsList">${socContacts().map(c => `<option value="@${esc(c.tag)}">${esc(c.name || "")}</option>`).join("")}</datalist>`; }
@@ -66,6 +131,8 @@ function socContactsCardHTML() {
     <label class="lbl" for="socSearch">Rechercher un utilisateur par son tag</label>
     <input class="field" id="socSearch" placeholder="@paul…" autocapitalize="off" spellcheck="false" autocomplete="off">
     <div id="socResults"></div>
+    ${"BarcodeDetector" in window ? `<button class="btn" id="socScan" style="margin-top:8px">Scanner un QR code</button>`
+      : `<p class="hint" style="margin:8px 0 0">Tu peux aussi scanner le QR code d'un proche avec l'appareil photo de ton téléphone.</p>`}
     ${list.length ? `<div class="soc-contacts">${list.map(c => `<div class="soc-contact"><div><b>@${esc(c.tag)}</b>${c.name ? ` <span class="hint">${esc(c.name)}</span>` : ""}</div>
       <div class="acts"><button class="btn" data-socclaim="${esc(c.tag)}">Réclamer une dette</button><button class="hbtn cat-del" data-socdel="${esc(c.tag)}" aria-label="Retirer @${esc(c.tag)}" title="Retirer">✕</button></div></div>`).join("")}</div>`
       : `<p class="hint" style="margin:8px 0 0">Ajoute tes proches pour leur réclamer une dette en deux clics.</p>`}</div>`;
@@ -74,6 +141,8 @@ function socBindTagCard() {
   const msg = () => `Mon tag Bourselle : @${SOC.tag}\nhttps://pataush.github.io/bourselle/`;
   const cp = document.getElementById("socCopy"); if (cp) cp.onclick = () => { navigator.clipboard?.writeText("@" + SOC.tag).then(() => toast("Tag copié")).catch(() => toast("@" + SOC.tag)); };
   const sh = document.getElementById("socShare"); if (sh) sh.onclick = () => navigator.share({ text: msg() }).catch(() => {});
+  const qb = document.getElementById("socQr"); if (qb) qb.onclick = socShowQr;
+  const sc = document.getElementById("socScan"); if (sc) sc.onclick = socScanQr;
   const ed = document.getElementById("socEdit"); if (ed) ed.onclick = () => {
     openForm(`<div class="f2"><h3>Changer mon tag</h3>${fld("socNew", "Nouveau tag", `value="${esc(SOC.tag)}" autocapitalize="off" spellcheck="false"`)}
       <p class="hint">3 à 24 caractères : lettres minuscules, chiffres, - ou _. L'ancien tag est libéré.</p></div>`, () => {
