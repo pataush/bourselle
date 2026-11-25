@@ -510,3 +510,17 @@ nav.tabs button[aria-selected="true"] { background: var(--green); color: #fff; b
 .ge-badges { display: flex; gap: 6px; margin-top: 4px; } .ge-badge { font-size: .72rem; color: var(--muted); background: color-mix(in srgb, var(--muted) 12%, transparent); border-radius: 999px; padding: 2px 8px; }
 .ph-view { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,.88); display: grid; place-items: center; padding: 16px; cursor: zoom-out; }
 .ph-view img { max-width: 100%; max-height: 100%; border-radius: 8px; }
+
+/* Profil compact : rubriques et cartes repliables */
+.pf-sec { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 10px 4px -4px; }
+.pf-card { padding-top: 13px; padding-bottom: 13px; }
+.pf-card > h2 { margin: 0; cursor: pointer; justify-content: flex-start; align-items: center; user-select: none; }
+.pf-card > h2 > small, .pf-card > h2 > .linkbtn, .pf-card > h2 > .pf-chev { margin-left: auto; }
+.pf-card > h2 > small ~ .pf-chev, .pf-card > h2 > .linkbtn ~ .pf-chev { margin-left: 4px; }
+.pf-card > h2 > .pf-chev { color: var(--muted); transition: transform .2s; flex: none; }
+.pf-card.pf-open > h2 > .pf-chev { transform: rotate(180deg); }
+.pf-card > .pf-body { display: none; margin-top: 10px; }
+.pf-card.pf-open > .pf-body { display: block; }
+.pf-card:not(.pf-open) > h2 > .linkbtn { display: none; }
+.pf-card:not(.pf-open) > h2 > .linkbtn + .pf-chev { margin-left: auto; }
+.pf-card + .pf-card { margin-top: -5px; }

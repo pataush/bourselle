@@ -611,6 +611,9 @@
     "Sur iPhone, ajoute d'abord Bourselle à l'écran d'accueil (Partager › Sur l'écran d'accueil), puis ouvre-le depuis l'icône": "On iPhone, first add Bourselle to your home screen (Share › Add to Home Screen), then open it from the icon",
     "Ce navigateur ne permet pas les notifications": "This browser doesn't support notifications", "Notifications refusées : tu peux les autoriser dans les réglages du navigateur": "Notifications blocked: you can allow them in your browser settings",
     "Notifications activées": "Notifications on", "Notifications désactivées": "Notifications off", "Activation impossible": "Couldn't turn on", "Notifications indisponibles pour l'instant": "Notifications unavailable right now",
+    // Profil compact
+    "Argent et partage": "Money and sharing", "Budget": "Budget", "Application": "App", "Mes données": "My data", "Listes de choix": "Choice lists",
+    "Les choix proposés dans le formulaire. Sépare-les par des virgules.": "The choices offered in the form. Separate them with commas.",
   };
 
   // ---------- Textes avec des valeurs ({m} montant, {d} date, {n} nombre, {x} autre) ----------
