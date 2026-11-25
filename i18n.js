@@ -12,6 +12,16 @@
 
   // ---------- Textes fixes ----------
   const EXACT = {
+    "Bonjour !": "Hello!",
+    "Pour qui": "For whom",
+    "Répartition": "Split",
+    "Égales": "Equal",
+    "Montants": "Amounts",
+    "Parts": "Shares",
+    "Le compte est bon.": "It adds up.",
+    "Total : 100 %.": "Total: 100%.",
+    "Indique au moins une part": "Enter at least one share",
+    "part(s)": "share(s)",
     "Membres avec Bourselle (facultatif)": "Members with Bourselle (optional)",
     "Chercher un @tag ou un contact": "Search a @tag or a contact",
     "Quand tu paies une dépense du groupe, leur part leur est envoyée : elle arrive dans leurs dettes (Bourselle Plus).": "When you pay a group expense, their share is sent to them: it lands in their debts (Bourselle Plus).",
@@ -527,6 +537,13 @@
   // ---------- Textes avec des valeurs ({m} montant, {d} date, {n} nombre, {x} autre) ----------
   const s = n => (Number(String(n).replace(/[^\d.]/g, "")) > 1 ? "s" : "");
   const PATTERNS = [
+    ["Reste {m} à répartir.", "{m} left to split."],
+    ["{m} de trop.", "{m} too much."],
+    ["Total : {x} % (il manque {x} %).", "Total: {x}% ({x}% missing)."],
+    ["{x} part au total.", "{x} share in total."],
+    ["{x} parts au total.", "{x} shares in total."],
+    ["Les montants font {m} au lieu de {m}", "The amounts add up to {m} instead of {m}"],
+    ["Les pourcentages font {x} % au lieu de 100 %", "The percentages add up to {x}% instead of 100%"],
     ["Part envoyée à @{x}", "Share sent to @{x}"],
     ["Parts envoyées à {n} membres", "Shares sent to {n} members"],
     ["Partage « {x} »", "Shared “{x}”"],

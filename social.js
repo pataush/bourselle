@@ -250,15 +250,15 @@ async function socSendClaim(id) {
   } catch (e) { toast(e.status === 402 ? "Réclamer une dette est réservé à Bourselle Plus" : e.message); if (e.status === 402) showPlus("claim"); }
 }
 // Partage : quand je paie une dépense du groupe, la part des membres qui ont un tag leur est envoyée (elle arrive dans leurs dettes)
-function socSendShares(gid, label, amount, order, date) {
+function socSendShares(gid, label, amount, order, date, owed) {
   const g = groups[gid]; if (!g || !socOn()) return;
-  const per = Math.round(amount / order.length * 100) / 100;
-  const targets = g.members.filter(m => m.tag && m.id !== g.me && order.includes(m.id));
+  const shareOf = id => owed && owed[id] != null ? owed[id] : Math.round(amount / order.length * 100) / 100;
+  const targets = g.members.filter(m => m.tag && m.id !== g.me && order.includes(m.id) && shareOf(m.id) > 0);
   if (!targets.length) return;
   if (!isPlus()) { toast("Envoyer les parts via Bourselle demande Bourselle Plus"); showPlus("claim"); return; }
   for (const m of targets) {
     const key = newId();
-    debts[key] = { kind: "medoit", name: `${g.name} : ${label}`.slice(0, 60), who: m.name, amount: per, due: "", note: `Partage « ${g.name} »`, payments: [], created: Date.now(),
+    debts[key] = { kind: "medoit", name: `${g.name} : ${label}`.slice(0, 60), who: m.name, amount: shareOf(m.id), due: "", note: `Partage « ${g.name} »`, payments: [], created: Date.now(),
       claimTo: m.tag, group: gid, rate: "", monthly: "", start: "", months: "" };
     socSendClaim(key);
   }

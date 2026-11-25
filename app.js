@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "40";
+const APP_VERSION = "41";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -861,9 +861,10 @@ function render() {
   document.body.classList.toggle("mode-simple", isSimple());
   { const sb = document.querySelector("header .nm .sub"); if (sb) sb.textContent = isSimple() ? "Version simple" : ""; }
   {
-    const u = store && store.user ? store.user() : {}, first = String((u && u.name) || "").trim().split(/[\s@]/)[0];
-    const nm = first ? first.charAt(0).toUpperCase() + first.slice(1) : "Bourselle";
-    document.getElementById("helloName").textContent = nm; document.getElementById("avatar").textContent = nm.charAt(0).toUpperCase();
+    const u = store && store.user ? store.user() : {}, first = store && store.id === "local" ? "" : String((u && u.name) || "").trim().split(/[\s@]/)[0];
+    const nm = first ? first.charAt(0).toUpperCase() + first.slice(1) : "";
+    document.getElementById("helloName").textContent = nm; document.getElementById("avatar").textContent = (nm || "B").charAt(0).toUpperCase();
+    { const h = document.querySelector("header .nm .hello"); if (h) h.textContent = nm ? "Bonjour," : "Bonjour !"; }
     const n = alertsList().reduce((a, x) => a + x.n, 0); document.getElementById("bellDot").hidden = !n;
   }
   const arrows = !["garanties", "abos", "dettes", "recherche", "objectifs", "economies", "partage", "tontines"].includes(tab);
@@ -1965,6 +1966,26 @@ function bilanHTML() {
 
 // ---------- Dépenses partagées (groupes) ----------
 let openGroup = null;
+// Répartition d'une dépense de groupe : parts égales, montants, pourcentages ou nombre de parts.
+// owed : { membre: montant } calculé à l'enregistrement ; les anciennes dépenses (sans owed) restent à parts égales.
+const SPLIT_MODES = [["equal", "Égales"], ["amounts", "Montants"], ["percent", "%"], ["shares", "Parts"]];
+function computeOwed(amount, ids, mode, w) {
+  const r = x => Math.round(x * 100) / 100, out = {};
+  if (!ids.length) return out;
+  let raw;
+  if (mode === "amounts") raw = ids.map(id => Number(w[id]) || 0);
+  else if (mode === "percent") raw = ids.map(id => amount * (Number(w[id]) || 0) / 100);
+  else if (mode === "shares") { const tot = ids.reduce((a, id) => a + (Number(w[id]) || 0), 0) || 1; raw = ids.map(id => amount * (Number(w[id]) || 0) / tot); }
+  else raw = ids.map(() => amount / ids.length);
+  const vals = raw.map(r); const diff = r(amount - vals.reduce((a, b) => a + b, 0));
+  if (mode !== "amounts" && Math.abs(diff) > 0) { const k = vals.indexOf(Math.max(...vals)); vals[k] = r(vals[k] + diff); }   // les centimes d'arrondi vont à la plus grosse part
+  ids.forEach((id, i) => { out[id] = vals[i]; });
+  return out;
+}
+function expShares(e) {
+  if (e.owed && Object.keys(e.owed).length) return e.owed;
+  return computeOwed(Number(e.amount) || 0, e.split || [], "equal", {});
+}
 function groupBalances(g) {
   const bal = {}; for (const m of g.members) bal[m.id] = 0;
   for (const e of Object.values(g.expenses || {})) {
@@ -1972,7 +1993,8 @@ function groupBalances(g) {
     if (e.kind === "transfer") { bal[e.from] = (bal[e.from] || 0) + amt; bal[e.to] = (bal[e.to] || 0) - amt; continue; }
     const split = (e.split || []).filter(id => id in bal); if (!split.length) continue;
     bal[e.paidBy] = (bal[e.paidBy] || 0) + amt;
-    for (const id of split) bal[id] -= amt / split.length;
+    const sh = e.owed && Object.keys(e.owed).length ? e.owed : null;
+    for (const id of split) bal[id] -= sh ? (Number(sh[id]) || 0) : amt / split.length;
   }
   for (const k in bal) bal[k] = Math.round(bal[k] * 100) / 100;
   return bal;
@@ -2034,7 +2056,7 @@ function renderGroup(gid) {
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn" id="gShare">Copier le récap</button><button class="btn" id="gEdit">Modifier le groupe</button></div></div>
     <div class="card"><h2>Dépenses<small>${exps.length}</small></h2>${exps.length ? exps.map(e => e.kind === "transfer"
       ? `<div class="pay" style="padding:8px 0"><span>${esc(frDate(e.date))} · ${esc(mName(g, e.from))} a remboursé ${esc(mName(g, e.to))}</span><span class="num">${esc(eur(e.amount))} <button class="btn" data-del="${esc(e.id)}" style="padding:2px 8px;font-size:.72rem">✕</button></span></div>`
-      : `<button class="tx" data-exp="${esc(e.id)}"><span class="ic" style="background:#3f8f68">${esc((e.label || "?").slice(0, 2))}</span><span><div class="n">${esc(e.label)}</div><div class="s">${esc(frDate(e.date))} · payé par ${esc(mName(g, e.paidBy))} · pour ${e.split.length === g.members.length ? "tout le monde" : esc(e.split.map(id => mName(g, id)).join(", "))}</div></span><span class="a num out">${esc(eur(e.amount))}</span></button>`).join("")
+      : `<button class="tx" data-exp="${esc(e.id)}"><span class="ic" style="background:#3f8f68">${esc((e.label || "?").slice(0, 2))}</span><span><div class="n">${esc(e.label)}</div><div class="s">${esc(frDate(e.date))} · payé par ${esc(mName(g, e.paidBy))} · pour ${e.split.length === g.members.length && (!e.mode || e.mode === "equal") ? "tout le monde" : esc(e.split.map(id => e.mode && e.mode !== "equal" ? `${mName(g, id)} ${eur(expShares(e)[id] || 0)}` : mName(g, id)).join(", "))}</div></span><span class="a num out">${esc(eur(e.amount))}</span></button>`).join("")
       : `<div class="empty">Aucune dépense. Appuie sur + pour en ajouter une.</div>`}</div>`;
   view.innerHTML = html;
   document.getElementById("gBack").onclick = () => { openGroup = null; render(); };
@@ -2107,12 +2129,15 @@ function editGroup(id) {
 }
 function editGroupExpense(gid, eid) {
   const g = groups[gid], e = eid ? clone(g.expenses[eid]) : { label: "", amount: "", date: todayISO(), paidBy: g.me, split: g.members.map(m => m.id) };
-  let paidBy = e.paidBy, split = new Set(e.split), cat = "loisirs";
+  let paidBy = e.paidBy, split = new Set(e.split), cat = "loisirs", mode = e.mode || "equal";
+  const w = { ...(e.weights || {}) };
   openForm(`<div class="f2"><h3>${eid ? "Modifier la dépense" : "Dépense du groupe"} · ${esc(g.name)}</h3>
     ${fld("geLabel", "Quoi ?", `placeholder="ex. Courses, Location, Restaurant" value="${esc(e.label)}"`)}
     <div class="two"><div>${fld("geAmount", `Montant (${esc(curSym())})`, `inputmode="decimal" value="${e.amount === "" ? "" : esc(String(e.amount).replace(".", ","))}"`)}</div><div>${fld("geDate", "Date", `type="date" value="${esc(e.date)}"`)}</div></div>
     <span class="lbl">Payé par</span><div class="chips" id="gePaid"></div>
-    <span class="lbl">Pour qui (partagé à parts égales)</span><div class="chips" id="geSplit"></div>
+    <span class="lbl">Pour qui</span><div class="chips" id="geSplit"></div>
+    <span class="lbl">Répartition</span><div class="seg2" id="geMode" style="grid-template-columns:repeat(4,1fr)">${SPLIT_MODES.map(([k, l]) => `<button type="button" data-mode="${k}">${l}</button>`).join("")}</div>
+    <div id="geDetail" class="ge-detail"></div>
     <p class="hint" id="geShare" style="margin:6px 0 0"></p>
     ${eid ? "" : `<label class="toggle" for="geMine" style="margin-top:12px"><span>Ajouter ma part à mes dépenses</span><input type="checkbox" id="geMine" checked></label>
     <div id="geCatWrap"><span class="lbl">Catégorie de ma part</span><div class="chips" id="geCat"></div></div>`}</div>`,
@@ -2121,24 +2146,57 @@ function editGroupExpense(gid, eid) {
       if (!label) { toast("Indique ce qui a été payé"); return false; }
       if (!(amount > 0)) { toast("Indique le montant"); return false; }
       if (!split.size) { toast("Choisis au moins une personne"); return false; }
+      const ids0 = g.members.map(m => m.id).filter(id => split.has(id));
+      if (mode === "amounts") { const t = ids0.reduce((a, id) => a + (Number(w[id]) || 0), 0); if (Math.abs(t - amount) > 0.009) { toast(`Les montants font ${eur(t)} au lieu de ${eur(amount)}`); return false; } }
+      if (mode === "percent") { const t = ids0.reduce((a, id) => a + (Number(w[id]) || 0), 0); if (Math.abs(t - 100) > 0.01) { toast(`Les pourcentages font ${String(Math.round(t * 100) / 100).replace(".", ",")} % au lieu de 100 %`); return false; } }
+      if (mode === "shares" && !ids0.some(id => Number(w[id]) > 0)) { toast("Indique au moins une part"); return false; }
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) { toast("Choisis une date"); return false; }
       g.expenses = g.expenses || {};
       const order = g.members.map(m => m.id).filter(id => split.has(id));
-      g.expenses[eid || newId()] = { ...e, label: label.slice(0, 60), amount, date, paidBy, split: order, created: e.created || Date.now() };
-      if (!eid && paidBy === g.me && typeof socSendShares === "function") setTimeout(() => socSendShares(gid, label.slice(0, 60), amount, order, date), 50);
+      const owed = computeOwed(amount, order, mode, w), weights = {}; if (mode !== "equal") order.forEach(id => { weights[id] = Number(w[id]) || 0; });
+      g.expenses[eid || newId()] = { ...e, label: label.slice(0, 60), amount, date, paidBy, split: order, mode, weights: mode === "equal" ? undefined : weights, owed, created: e.created || Date.now() };
+      if (!eid && paidBy === g.me && typeof socSendShares === "function") setTimeout(() => socSendShares(gid, label.slice(0, 60), amount, order, date, owed), 50);
       const mine = document.getElementById("geMine");
-      if (mine && mine.checked && split.has(g.me)) addTx({ type: "depense", amount: Math.round(amount / split.size * 100) / 100, cat, date, note: `${g.name} : ${label}`.slice(0, 80), fixe: false });
+      if (mine && mine.checked && split.has(g.me)) addTx({ type: "depense", amount: owed[g.me] || 0, cat, date, note: `${g.name} : ${label}`.slice(0, 80), fixe: false });
       saveGroups(); render(); toast(eid ? "Dépense modifiée" : "Dépense ajoutée au groupe");
     },
     eid ? () => { delete g.expenses[eid]; saveGroups(); render(); toast("Dépense supprimée"); } : null);
-  const share = () => { const a = parseAmount(val("geAmount")); document.getElementById("geShare").textContent = a > 0 && split.size ? `Soit ${eur(a / split.size)} par personne.` : ""; };
+  const share = () => {
+    const a = parseAmount(val("geAmount")) || 0, ids = g.members.map(m => m.id).filter(id => split.has(id)), hint = document.getElementById("geShare");
+    if (!ids.length) { hint.textContent = ""; return; }
+    if (mode === "equal") { hint.textContent = a > 0 ? `Soit ${eur(a / ids.length)} par personne.` : ""; return; }
+    const t = ids.reduce((s2, id) => s2 + (Number(w[id]) || 0), 0);
+    if (mode === "amounts") { const rest = Math.round((a - t) * 100) / 100; hint.textContent = Math.abs(rest) < 0.01 ? "Le compte est bon." : rest > 0 ? `Reste ${eur(rest)} à répartir.` : `${eur(-rest)} de trop.`; }
+    else if (mode === "percent") { const rest = Math.round((100 - t) * 100) / 100; hint.textContent = Math.abs(rest) < 0.01 ? "Total : 100 %." : `Total : ${String(Math.round(t * 100) / 100).replace(".", ",")} % (il manque ${String(rest).replace(".", ",")} %).`; }
+    else hint.textContent = `${String(t).replace(".", ",")} part${t > 1 ? "s" : ""} au total.`;
+    const o = computeOwed(a, ids, mode, w);
+    document.querySelectorAll("#geDetail [data-owed]").forEach(el => { el.textContent = a > 0 ? eur(o[el.dataset.owed] || 0) : ""; });
+  };
+  const detail = () => {
+    const box = document.getElementById("geDetail"), ids = g.members.map(m => m.id).filter(id => split.has(id));
+    document.querySelectorAll("#geMode [data-mode]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.mode === mode)));
+    if (mode === "equal") { box.innerHTML = ""; share(); return; }
+    if (mode === "shares") ids.forEach(id => { if (w[id] == null || w[id] === "") w[id] = 1; });
+    const unit = mode === "amounts" ? curSym() : mode === "percent" ? "%" : "part(s)";
+    box.innerHTML = ids.map(id => `<label class="ge-row"><span>${esc(mName(g, id))}</span><input class="field num" inputmode="decimal" data-w="${esc(id)}" value="${w[id] == null || w[id] === "" ? "" : esc(String(w[id]).replace(".", ","))}" placeholder="0"><small>${esc(unit)}</small>${mode !== "amounts" ? `<b class="num" data-owed="${esc(id)}"></b>` : ""}</label>`).join("");
+    box.querySelectorAll("[data-w]").forEach(inp => inp.oninput = () => { w[inp.dataset.w] = parseNum(inp.value); share(); });
+    share();
+  };
+  document.querySelectorAll("#geMode [data-mode]").forEach(b => b.onclick = () => {
+    const prev = mode; mode = b.dataset.mode;
+    if (mode !== prev) { for (const k in w) delete w[k];
+      const a = parseAmount(val("geAmount")) || 0, ids = g.members.map(m => m.id).filter(id => split.has(id));
+      if (mode === "percent" && ids.length) ids.forEach((id, i) => { w[id] = Math.round(100 / ids.length * 100) / 100 + (i === 0 ? Math.round((100 - Math.round(100 / ids.length * 100) / 100 * ids.length) * 100) / 100 : 0); });
+      if (mode === "amounts" && a > 0) { const o = computeOwed(a, ids, "equal", {}); ids.forEach(id => { w[id] = o[id]; }); } }
+    detail();
+  });
   chipsPick("gePaid", g.members.map(m => [m.id, mName(g, m.id)]), paidBy, v => paidBy = v);
   const el = document.getElementById("geSplit");
   const draw = () => {
     el.innerHTML = g.members.map(m => `<button type="button" class="chip" aria-pressed="${split.has(m.id)}" data-v="${esc(m.id)}">${esc(mName(g, m.id))}</button>`).join("");
-    el.querySelectorAll(".chip").forEach(b => b.onclick = () => { split.has(b.dataset.v) ? split.delete(b.dataset.v) : split.add(b.dataset.v); draw(); share(); });
+    el.querySelectorAll(".chip").forEach(b => b.onclick = () => { split.has(b.dataset.v) ? split.delete(b.dataset.v) : split.add(b.dataset.v); draw(); detail(); });
   };
-  draw(); share();
+  draw(); detail();
   document.getElementById("geAmount").addEventListener("input", share);
   if (!eid) {
     chipsPick("geCat", settings.cats.map(c => [c.id, c.name]), cat, v => cat = v);
