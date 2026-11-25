@@ -173,7 +173,7 @@ async function hasPlus(env, me, code) {
 }
 const pub = (c, tagOf) => ({ id: c.id, from: c.fromTag, fromName: c.fromName, to: c.toTag, amount: c.amount, cur: c.cur, name: c.name, note: c.note,
   date: c.date, due: c.due, status: c.status, payments: c.payments || [], created: c.created, updated: c.updated });
-const grpPub = g => ({ id: g.id, name: g.name, owner: g.ownerTag, members: g.members, expenses: g.expenses, comments: g.comments || {}, rev: g.rev, updated: g.updated, deleted: !!g.deleted, link: g.link || "", cur: g.cur || "" });
+const grpPub = g => ({ id: g.id, name: g.name, owner: g.ownerTag, members: g.members, expenses: g.expenses, comments: g.comments || {}, reacts: g.reacts || {}, rev: g.rev, updated: g.updated, deleted: !!g.deleted, link: g.link || "", cur: g.cur || "" });
 // ---------- Me faire payer ----------
 // Coordonnées que l'utilisateur choisit de montrer à ceux qui lui doivent de l'argent (membres de ses groupes, lien de paiement).
 const payPub = p => p && (p.iban || p.paypal || p.link) ? { name: p.name || "", iban: p.iban || "", paypal: p.paypal || "", link: p.link || "" } : null;
@@ -208,10 +208,27 @@ function mergeComments(g, inc, mids, forceBy) {
     if (old) continue;
     const text = String(c.text || "").trim().slice(0, 500), by = String(forceBy || c.by || "").slice(0, 16);
     if (!text || !mids.has(by) || !/^[A-Za-z0-9_-]{1,32}$/.test(String(c.eid || ""))) continue;
-    g.comments[cid] = { eid: String(c.eid), by, text, at: Number(c.at) || Date.now() }; added.push(g.comments[cid]);
+    g.comments[cid] = { eid: String(c.eid), by, text, at: Number(c.at) || Date.now() };
+    if (/^[A-Za-z0-9_-]{1,32}$/.test(String(c.re || ""))) g.comments[cid].re = String(c.re);
+    added.push(g.comments[cid]);
   }
   const keys = Object.keys(g.comments); if (keys.length > 1500) for (const k of keys.slice(0, keys.length - 1500)) delete g.comments[k];
   return added;
+}
+// Réactions (un emoji par personne et par commentaire) : la plus récente l'emporte
+const EMOJIS = ["👍", "❤️", "😂", "😮", "🙏", "🎉"];
+function mergeReacts(g, inc, mids) {
+  const changed = [];
+  if (!inc || typeof inc !== "object") return changed;
+  g.reacts = g.reacts || {}; let n = 0;
+  for (const [k, r] of Object.entries(inc)) {
+    if (++n > 500 || !r || typeof r !== "object") continue;
+    const [cid, who] = k.split("|");
+    if (!/^[A-Za-z0-9_-]{1,32}$/.test(cid || "") || !mids.has(who) || (r.e && !EMOJIS.includes(r.e))) continue;
+    const old = g.reacts[k];
+    if (!old || (Number(r.at) || 0) > (Number(old.at) || 0)) { g.reacts[k] = { e: r.e || "", at: Number(r.at) || Date.now() }; if (r.e && (!old || old.e !== r.e)) changed.push({ cid, who, e: r.e }); }
+  }
+  return changed;
 }
 // Ticket photo d'une dépense : une image JPEG/PNG/WebP réduite par l'app (600 Ko au plus), gardée avec le groupe
 async function putPhoto(env, gid, data) {
@@ -230,11 +247,188 @@ async function pushTo(env, k, id) { const l = await listOf(env, k); if (!l.inclu
 const num = v => { const n = Number(String(v).replace(",", ".")); return Number.isFinite(n) ? Math.round(n * 100) / 100 : NaN; };
 const isoOk = s => /^\d{4}-\d{2}-\d{2}$/.test(s || "");
 
+// ---------- Achats groupés et cagnottes ----------
+// Un organisateur (compte Bourselle) crée un achat groupé (prix par place, places, minimum, date limite) ou une cagnotte (objectif).
+// Tout le monde peut participer par le lien, avec ou sans compte. Chacun paie l'organisateur directement, de banque à banque :
+// le serveur ne voit passer aucun argent, il tient seulement la liste des participations.
+const DEAL_RE = /^\/d\/([a-z0-9]{10,24})(?:\/(join|me|comment|react|owner|photo))?$/;
+const r2 = v => Math.round(v * 100) / 100;
+function dealStats(d) {
+  const parts = Object.values(d.parts || {});
+  const qty = parts.reduce((a, p) => a + (Number(p.qty) || 0), 0);
+  const sum = r2(parts.reduce((a, p) => a + (d.kind === "achat" ? (Number(p.qty) || 0) * d.price : Number(p.amount) || 0), 0));
+  const paid = r2(parts.filter(p => p.paid).reduce((a, p) => a + (d.kind === "achat" ? (Number(p.qty) || 0) * d.price : Number(p.amount) || 0), 0));
+  const reached = d.kind === "achat" ? qty >= (d.min || 1) : d.target > 0 && sum >= d.target;
+  const expired = !!d.deadline && d.deadline < iso(new Date()) && d.status === "open";
+  return { n: parts.length, qty, sum, paid, reached, expired, left: d.kind === "achat" && d.places ? Math.max(0, d.places - qty) : null };
+}
+// Ce que tout le monde voit (sans adresses e-mail ni clés)
+function dealPub(d, viewer) {
+  const parts = {};
+  for (const [pid, p] of Object.entries(d.parts || {})) parts[pid] = { name: p.name, qty: p.qty || 0, amount: p.amount || 0, at: p.at, paid: !!p.paid, ok: !!p.ok, member: !!p.email };
+  return { id: d.id, kind: d.kind, title: d.title, desc: d.desc, cur: d.cur, price: d.price, places: d.places, min: d.min, target: d.target, suggested: d.suggested,
+    deadline: d.deadline, photo: d.photo || "", status: d.status, owner: d.ownerTag, ownerName: d.ownerName, created: d.created, updated: d.updated,
+    parts, comments: d.comments || {}, reacts: d.reacts || {}, stats: dealStats(d), you: viewer || null };
+}
+function dealFields(b, d, isNew) {
+  const kind = isNew ? (b.kind === "cagnotte" ? "cagnotte" : "achat") : d.kind;
+  const title = String(b.title ?? d.title ?? "").trim().slice(0, 80);
+  if (!title) throw new HttpErr(400, "donne un titre");
+  const o = { kind, title, desc: String(b.desc ?? d.desc ?? "").trim().slice(0, 800), cur: String(b.cur || d.cur || "EUR").slice(0, 3).toUpperCase(),
+    deadline: isoOk(b.deadline) ? b.deadline : b.deadline === "" ? "" : d.deadline || "" };
+  if (kind === "achat") {
+    o.price = num(b.price ?? d.price); if (!(o.price > 0 && o.price < 1e7)) throw new HttpErr(400, "indique le prix par place");
+    o.places = Math.max(0, Math.min(10000, parseInt(b.places ?? d.places ?? 0, 10) || 0));
+    o.min = Math.max(1, Math.min(10000, parseInt(b.min ?? d.min ?? 1, 10) || 1));
+    if (o.places && o.min > o.places) throw new HttpErr(400, "le minimum dépasse le nombre de places");
+  } else {
+    o.target = Math.max(0, num(b.target ?? d.target ?? 0) || 0); o.suggested = Math.max(0, num(b.suggested ?? d.suggested ?? 0) || 0);
+  }
+  return o;
+}
+const dealEmails = (d, except) => [d.ownerEmail, ...Object.values(d.parts || {}).map(p => p.email)].filter(e => e && e !== except);
+const dealUrl = d => "./?d=" + d.id;
+const dealMsg = (d, fr, en) => lang => ({ title: d.title, body: lang === "en" ? en(lang) : fr(lang), url: dealUrl(d), tag: "d-" + d.id });
+async function optWho(req, env) { if (!/^Bearer /.test(req.headers.get("authorization") || "")) return null; try { return await whoIs(req, env); } catch (e) { return null; } }
+// Qui fait la demande : l'organisateur (compte), un participant connecté, ou un participant par lien (identifiant + clé)
+async function dealActor(d, me, b) {
+  if (me && me.email === d.ownerEmail) return { role: "owner", name: d.ownerName, email: me.email, pid: Object.keys(d.parts || {}).find(k => d.parts[k].email === me.email) || "" };
+  if (me) { const pid = Object.keys(d.parts || {}).find(k => d.parts[k].email === me.email); if (pid) return { role: "part", pid, name: d.parts[pid].name, email: me.email }; }
+  const p = b && b.pid && d.parts && d.parts[b.pid];
+  if (p && b.key && p.key === await sha(String(b.key))) return { role: "part", pid: b.pid, name: p.name, email: p.email || "" };
+  return { role: "guest", email: me ? me.email : "" };
+}
+async function dealApi(req, env, url, cors) {
+  const m = DEAL_RE.exec(url.pathname); if (!m) throw new HttpErr(404, "introuvable");
+  const d = await kvJ(env, "deal:" + m[1]); if (!d) throw new HttpErr(404, "ce lien n'est plus valable");
+  const me = await optWho(req, env), b = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+  const a = await dealActor(d, me, b);
+  const view = () => ({ role: a.role, pid: a.pid || "" });
+  if (!m[2] && req.method === "GET") return json({ deal: dealPub(d, view()), pay: await payOf(env, d.ownerEmail) }, 200, cors);
+  if (m[2] === "photo" && req.method === "GET") return json({ data: await getPhoto(env, "d" + d.id, String(url.searchParams.get("p") || d.photo || "")) }, 200, cors);
+  if (req.method !== "POST") throw new HttpErr(405, "méthode non permise");
+  const day = iso(new Date()), rl = "rld:" + d.id + ":" + day, n = Number(await env.CODES.get(rl) || 0);
+  if (n >= 300) throw new HttpErr(429, "trop d'actions aujourd'hui");
+  const before = dealStats(d);
+  const save = async () => {
+    d.updated = Date.now(); if (JSON.stringify(d).length > 300000) throw new HttpErr(413, "trop de données");
+    await env.CODES.put(rl, String(n + 1), { expirationTtl: 90000 }); await kvP(env, "deal:" + d.id, d);
+    const after = dealStats(d);
+    if (!before.reached && after.reached && d.status === "open") notify(env, dealEmails(d), dealMsg(d, l => `Objectif atteint ! ${after.n} participants · ${fmtMoney(after.sum, d.cur, l)}`, l => `Target reached! ${after.n} participants · ${fmtMoney(after.sum, d.cur, l)}`));
+  };
+  const out = async (extra) => json({ deal: dealPub(d, { role: a.role, pid: a.pid || "" }), pay: await payOf(env, d.ownerEmail), ...(extra || {}) }, 200, cors);
+  d.parts = d.parts || {};
+  if (m[2] === "join") {
+    if (d.status !== "open") throw new HttpErr(409, d.status === "cancelled" ? "cet achat a été annulé" : "les participations sont closes");
+    if (d.deadline && d.deadline < day) throw new HttpErr(409, "la date limite est passée");
+    const name = String(b.name || (a.role !== "guest" ? a.name : "") || (me && me.name) || "").trim().slice(0, 40);
+    if (!name) throw new HttpErr(400, "indique ton prénom");
+    let pid = a.pid, key = "";
+    const cur = pid ? d.parts[pid] : null;
+    const p = { ...(cur || { at: Date.now() }), name };
+    if (d.kind === "achat") {
+      const q = parseInt(b.qty, 10); if (!(q >= 1 && q <= 1000)) throw new HttpErr(400, "nombre de places invalide");
+      const others = dealStats(d).qty - (cur ? cur.qty || 0 : 0);
+      if (d.places && others + q > d.places) throw new HttpErr(409, d.places - others > 0 ? `il ne reste que ${d.places - others} place(s)` : "c'est complet");
+      p.qty = q;
+    } else { const v = num(b.amount); if (!(v > 0 && v < 1e7)) throw new HttpErr(400, "montant invalide"); p.amount = v; }
+    if (cur && cur.paid && (p.qty !== cur.qty || p.amount !== cur.amount)) { p.paid = false; p.ok = false; }
+    if (!pid) {
+      if (Object.keys(d.parts).length >= 500) throw new HttpErr(409, "trop de participants");
+      pid = "p" + rid(9); key = rid(20); p.key = await sha(key);
+      if (me) { p.email = me.email; await pushTo(env, "di:" + me.email, d.id); }
+    }
+    d.parts[pid] = p; await save();
+    if (!cur && a.role !== "owner") notify(env, [d.ownerEmail], dealMsg(d, l => `${name} participe${d.kind === "achat" ? ` · ${p.qty} place${p.qty > 1 ? "s" : ""}` : ` · ${fmtMoney(p.amount, d.cur, l)}`}`, l => `${name} joined${d.kind === "achat" ? ` · ${p.qty} spot${p.qty > 1 ? "s" : ""}` : ` · ${fmtMoney(p.amount, d.cur, l)}`}`));
+    a.pid = pid; a.role = a.role === "owner" ? "owner" : "part";
+    return out(key ? { key } : {});
+  }
+  if (m[2] === "me") {
+    if (!a.pid) throw new HttpErr(403, "tu ne participes pas");
+    const p = d.parts[a.pid];
+    if (b.action === "paid") {
+      if (d.kind === "achat" && !dealStats(d).reached && d.status !== "done") throw new HttpErr(409, "attends que l'objectif soit atteint pour payer");
+      p.paid = true; p.paidAt = Date.now(); await save();
+      if (a.role !== "owner") notify(env, [d.ownerEmail], dealMsg(d, l => `${p.name} a payé ${fmtMoney(d.kind === "achat" ? p.qty * d.price : p.amount, d.cur, l)} : vérifie et confirme la réception`, l => `${p.name} paid ${fmtMoney(d.kind === "achat" ? p.qty * d.price : p.amount, d.cur, l)}: check and confirm receipt`));
+    } else if (b.action === "leave") {
+      if (p.ok) throw new HttpErr(409, "ton paiement a déjà été confirmé : demande à l'organisateur");
+      delete d.parts[a.pid]; await save();
+      if (a.role !== "owner") notify(env, [d.ownerEmail], dealMsg(d, () => `${p.name} ne participe plus`, () => `${p.name} left`));
+      a.pid = ""; if (a.role === "part") a.role = "guest";
+    } else throw new HttpErr(400, "action inconnue");
+    return out();
+  }
+  if (m[2] === "comment") {
+    if (a.role === "guest") throw new HttpErr(403, "participe d'abord pour commenter");
+    const text = String(b.text || "").trim().slice(0, 500); if (!text) throw new HttpErr(400, "commentaire vide");
+    d.comments = d.comments || {}; const cid = "dc" + rid(10), by = a.role === "owner" ? "owner" : a.pid;
+    const re = d.comments[String(b.re || "")] ? String(b.re) : "";
+    d.comments[cid] = { by, name: a.role === "owner" ? d.ownerName || "Organisateur" : d.parts[a.pid].name, text, at: Date.now(), ...(re ? { re } : {}) };
+    const keys = Object.keys(d.comments); if (keys.length > 1000) delete d.comments[keys[0]];
+    await save();
+    const who = d.comments[cid].name, to = a.role === "owner" ? dealEmails(d, a.email) : [d.ownerEmail];
+    if (re) { const rc = d.comments[re]; const e = rc.by === "owner" ? d.ownerEmail : (d.parts[rc.by] || {}).email; if (e && e !== a.email) to.push(e); }
+    notify(env, to.filter(e => e !== a.email), dealMsg(d, () => `${who} : ${clip(text, 100)}`, () => `${who}: ${clip(text, 100)}`));
+    return out();
+  }
+  if (m[2] === "react") {
+    if (a.role === "guest") throw new HttpErr(403, "participe d'abord pour réagir");
+    const cid = String(b.cid || ""); if (!d.comments || !d.comments[cid]) throw new HttpErr(404, "commentaire introuvable");
+    if (b.e && !EMOJIS.includes(b.e)) throw new HttpErr(400, "réaction inconnue");
+    d.reacts = d.reacts || {}; const k = cid + "|" + (a.role === "owner" ? "owner" : a.pid);
+    d.reacts[k] = { e: b.e || "", at: Date.now() }; await save();
+    const c = d.comments[cid], e = c.by === "owner" ? d.ownerEmail : (d.parts[c.by] || {}).email, who = a.role === "owner" ? d.ownerName : d.parts[a.pid].name;
+    if (b.e && e && e !== a.email) notify(env, [e], dealMsg(d, () => `${who} a réagi ${b.e} à ton commentaire`, () => `${who} reacted ${b.e} to your comment`));
+    return out();
+  }
+  if (m[2] === "photo") {
+    if (a.role !== "owner") throw new HttpErr(403, "réservé à l'organisateur");
+    d.photo = await putPhoto(env, "d" + d.id, b.data); await save(); return out();
+  }
+  if (m[2] === "owner") {
+    if (a.role !== "owner") throw new HttpErr(403, "réservé à l'organisateur");
+    const act = b.action, p = b.pid ? d.parts[b.pid] : null;
+    if (act === "edit") Object.assign(d, dealFields(b, d, false));
+    else if (act === "confirm" || act === "unconfirm") { if (!p) throw new HttpErr(404, "participant introuvable"); p.ok = act === "confirm"; if (p.ok) p.paid = true; }
+    else if (act === "remove") { if (!p) throw new HttpErr(404, "participant introuvable"); delete d.parts[b.pid]; }
+    else if (act === "done" || act === "cancel" || act === "reopen") {
+      d.status = act === "done" ? "done" : act === "cancel" ? "cancelled" : "open";
+      const st = dealStats(d);
+      if (act === "done") notify(env, dealEmails(d, a.email), dealMsg(d, l => d.kind === "achat" ? `C'est validé : l'achat est confirmé (${st.qty} places). Pense à payer ta part si ce n'est pas fait.` : `La cagnotte est close : ${fmtMoney(st.sum, d.cur, l)} réunis. Merci !`, l => d.kind === "achat" ? `It's on: the purchase is confirmed (${st.qty} spots). Remember to pay your share if you haven't.` : `The pot is closed: ${fmtMoney(st.sum, d.cur, l)} raised. Thank you!`));
+      if (act === "cancel") notify(env, dealEmails(d, a.email), dealMsg(d, () => `Annulé par l'organisateur. Si tu as déjà payé, il doit te rembourser.`, () => `Cancelled by the organiser. If you've already paid, they'll refund you.`));
+    } else throw new HttpErr(400, "action inconnue");
+    if (p && act === "confirm" && p.email) notify(env, [p.email], dealMsg(d, () => `${d.ownerName || "L'organisateur"} a bien reçu ton paiement ✓`, () => `${d.ownerName || "The organiser"} received your payment ✓`));
+    await save(); return out();
+  }
+  throw new HttpErr(404, "introuvable");
+}
+// Routes avec compte : créer, lister ses achats et cagnottes
+async function dealsAuth(req, env, url, cors, me, body) {
+  if (url.pathname === "/deals" && req.method === "POST") {
+    const o = dealFields(body, {}, true), day = iso(new Date()), rl = "rldc:" + me.email + ":" + day, n = Number(await env.CODES.get(rl) || 0);
+    if (n >= 20) throw new HttpErr(429, "trop de créations aujourd'hui");
+    const d = { id: rid(14), ...o, status: "open", ownerEmail: me.email, ownerTag: await myTag(env, me), ownerName: String(body.ownerName || me.name || "").slice(0, 40), parts: {}, comments: {}, reacts: {}, created: Date.now(), updated: Date.now() };
+    await env.CODES.put(rl, String(n + 1), { expirationTtl: 90000 }); await kvP(env, "deal:" + d.id, d); await pushTo(env, "di:" + me.email, d.id);
+    return json({ deal: dealPub(d, { role: "owner", pid: "" }) }, 200, cors);
+  }
+  if (url.pathname === "/deals" && req.method === "GET") {
+    const ids = await listOf(env, "di:" + me.email), out = [];
+    for (const id of ids.slice(0, 60)) {
+      const d = await kvJ(env, "deal:" + id); if (!d) continue;
+      const pid = Object.keys(d.parts || {}).find(k => d.parts[k].email === me.email);
+      if (d.ownerEmail !== me.email && !pid) continue;
+      out.push(dealPub(d, { role: d.ownerEmail === me.email ? "owner" : "part", pid: pid || "" }));
+    }
+    return json({ deals: out }, 200, cors);
+  }
+  throw new HttpErr(404, "introuvable");
+}
+
 // ---------- Pages publiques (sans compte) : groupe partagé par lien, lien de paiement ----------
 const pubGroup = (g, pays) => ({ name: g.name, cur: g.cur || "EUR", owner: g.ownerTag || "", updated: g.updated,
   members: (g.members || []).map(m => ({ id: m.id, name: m.name, tag: m.tag || "" })), pays,
   expenses: Object.fromEntries(Object.entries(g.expenses || {}).filter(([, e]) => e && !e.deleted)),
-  comments: Object.fromEntries(Object.entries(g.comments || {}).filter(([, c]) => c && !c.deleted)) });
+  comments: Object.fromEntries(Object.entries(g.comments || {}).filter(([, c]) => c && !c.deleted)), reacts: g.reacts || {} });
 const guestName = (g, id) => ((g.members || []).find(x => x.id === id) || {}).name || "?";
 async function publicApi(req, env, url, cors) {
   if (url.pathname === "/p/key" && req.method === "GET") return json({ key: (await vapid(env)).pub }, 200, cors);
@@ -244,7 +438,8 @@ async function publicApi(req, env, url, cors) {
     if (!p) throw new HttpErr(404, "lien de paiement introuvable");
     return json({ pay: p }, 200, cors);
   }
-  const m = /^\/g\/([a-z0-9]{10,24})(\/add|\/comment|\/photo|\/attach|\/photo\/[a-z0-9]{6,16})?$/.exec(url.pathname);
+  if (/^\/d\//.test(url.pathname)) return dealApi(req, env, url, cors);
+  const m = /^\/g\/([a-z0-9]{10,24})(\/add|\/comment|\/react|\/photo|\/attach|\/photo\/[a-z0-9]{6,16})?$/.exec(url.pathname);
   if (!m) throw new HttpErr(404, "introuvable");
   const id = await env.CODES.get("lnk:" + m[1]); const g = id ? await kvJ(env, "grp:" + id) : null;
   if (!g || g.deleted || g.link !== m[1]) throw new HttpErr(404, "ce lien n'est plus valable");
@@ -260,10 +455,18 @@ async function publicApi(req, env, url, cors) {
       const eid = String(b.eid || ""), cid = "gc" + rid(10);
       if (!g.expenses || !g.expenses[eid] || g.expenses[eid].deleted) throw new HttpErr(404, "dépense introuvable");
       if (!ids.has(String(b.by || ""))) throw new HttpErr(400, "choisis ton nom");
-      mergeComments(g, { [cid]: { eid, by: b.by, text: b.text, at: Date.now() } }, ids);
+      mergeComments(g, { [cid]: { eid, by: b.by, text: b.text, at: Date.now(), re: b.re } }, ids);
       if (!g.comments[cid]) throw new HttpErr(400, "commentaire vide");
       await save(); notify(env, grpEmails(g), groupEvents(g, guestName(g, b.by), [{ t: "comment", e: g.expenses[eid], text: g.comments[cid].text }]));
       return json({ id: cid, comment: g.comments[cid] }, 200, cors);
+    }
+    if (m[2] === "/react") {
+      const cid = String(b.cid || ""), by = String(b.by || "");
+      if (!g.comments || !g.comments[cid] || g.comments[cid].deleted) throw new HttpErr(404, "commentaire introuvable");
+      if (!ids.has(by)) throw new HttpErr(400, "choisis ton nom");
+      if (b.e && !EMOJIS.includes(b.e)) throw new HttpErr(400, "réaction inconnue");
+      mergeReacts(g, { [cid + "|" + by]: { e: b.e || "", at: Date.now() } }, ids);
+      await save(); return json({ reacts: g.reacts }, 200, cors);
     }
     if (m[2] === "/attach") {
       const x = g.expenses && g.expenses[String(b.eid || "")];
@@ -298,6 +501,7 @@ async function social(req, env, url, cors) {
   const me = await whoIs(req, env);
   const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
   const path = url.pathname;
+  if (path === "/deals") return dealsAuth(req, env, url, cors, me, body);
   if (path === "/me" && req.method === "GET") return json({ tag: await myTag(env, me) }, 200, cors);
   if (path === "/me/tag" && req.method === "POST") {
     const tag = String(body.tag || "").trim().toLowerCase().replace(/^@/, "");
@@ -429,6 +633,7 @@ async function social(req, env, url, cors) {
       }
     }
     const newComs = mergeComments(g, b.comments, new Set((g.members || []).map(x => x.id)));
+    mergeReacts(g, b.reacts, new Set((g.members || []).map(x => x.id)));
     if (cur) for (const c of newComs) changes.push({ t: "comment", e: g.expenses[c.eid], text: c.text });
     const myTagNow = await myTag(env, me), actor = ((g.members || []).find(x => (g.ownerEmail === me.email && x.id === g.ownerMid) || (x.tag && x.tag === myTagNow)) || {}).name || me.name || "@" + myTagNow;
     if (changes.length) notify(env, grpEmails(g, me.email), groupEvents(g, actor, changes));
@@ -565,11 +770,11 @@ const WORKER = {
       if (req.method === "POST" && url.pathname === "/webhook/stripe") return await stripe(req, env);
       if (req.method === "POST" && url.pathname === "/webhook/lemon") return await lemon(req, env);
       if (req.method === "POST" && url.pathname === "/resend") return await resend(req, env, cors);
-      if (/^\/(g|p)\//.test(url.pathname)) {
+      if (/^\/(g|p|d)\//.test(url.pathname)) {
         try { return await publicApi(req, env, url, cors); }
         catch (e) { if (e instanceof HttpErr) return json({ error: e.message }, e.status, cors); throw e; }
       }
-      if (/^\/(me|tag|claims|search|groups)(\/|$)/.test(url.pathname)) {
+      if (/^\/(me|tag|claims|search|groups|deals)(\/|$)/.test(url.pathname)) {
         try { return await social(req, env, url, cors); }
         catch (e) { if (e instanceof HttpErr) return json({ error: e.message }, e.status, cors); throw e; }
       }

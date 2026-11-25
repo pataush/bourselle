@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "48";
+const APP_VERSION = "49";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -60,7 +60,7 @@ const MOIS_C = ["Jan","Fév","Mar","Avr","Mai","Juin","Juil","Août","Sep","Oct"
 // ---------- État ----------
 let settings = clone(DEFAULT_SETTINGS);
 let months = {};          // "2026-11" -> { items: { id: tx } }
-let tab = "mois";
+let tab = "accueil";
 const now = new Date();
 let cur = { y: now.getFullYear(), m: now.getMonth() + 1 };
 let store = null;         // adaptateur de stockage (voir storage.js)
@@ -541,6 +541,8 @@ function tilesHTML(t) {
   </div>`;
 }
 
+const budSeg = () => `<div class="seg2 bud-seg"><button type="button" data-bv="mois" aria-pressed="${tab === "mois"}">Mois</button><button type="button" data-bv="annee" aria-pressed="${tab === "annee"}">Année</button></div>`;
+const budSegBind = () => view.querySelectorAll("[data-bv]").forEach(b => b.onclick = () => { if (b.dataset.bv !== tab) switchTab(b.dataset.bv); });
 function renderMois() {
   const list = itemsOf(cur.y, cur.m).sort((a, b) => b.date.localeCompare(a.date) || (b.created || 0) - (a.created || 0));
   const t = totals(list);
@@ -557,7 +559,7 @@ function renderMois() {
   const budCats = settings.cats.filter(c => (c.budget || 0) > 0 || t.byCat[c.id]);
   const fixPct = t.depense ? t.fixe / t.depense * 100 : 0;
 
-  let html = banner + tilesHTML(t) + (typeof accCardHTML === "function" ? accCardHTML(true) : "") + (typeof patriHomeHTML === "function" ? patriHomeHTML() : "") + bilanHTML() + forecastHTML(t);
+  let html = banner + budSeg() + tilesHTML(t) + (typeof accCardHTML === "function" ? accCardHTML(true) : "") + (typeof patriHomeHTML === "function" ? patriHomeHTML() : "") + bilanHTML() + forecastHTML(t);
   const todoAll = allItems().filter(x => x.type === "depense" && x.ndf && x.ndfStatus !== "rembourse");
   if (todoAll.length && !isSimple()) {
     const sum = todoAll.reduce((s, x) => s + Number(x.amount), 0);
@@ -611,7 +613,7 @@ function renderMois() {
   const OPS_N = 6, showAll = window.__opsAll || list.length <= OPS_N + 2;
   html += `<div class="card"><h2>${showAll ? "Opérations" : "Dernières opérations"}<button class="linkbtn" id="impBtn">Importer un relevé</button></h2>${list.length ? txListHTML(showAll ? list : list.slice(0, OPS_N)) : `<div class="empty">Rien d'enregistré pour ${MOIS[cur.m - 1]}.</div>`}
     ${list.length > OPS_N + 2 ? `<button class="ops-more" id="opsMore">${showAll ? "Voir moins" : `Voir tout (${list.length})`}</button>` : ""}</div>`;
-  view.innerHTML = html;
+  view.innerHTML = html; budSegBind();
   const om = document.getElementById("opsMore"); if (om) om.onclick = () => { window.__opsAll = !window.__opsAll; render(); };
   if (typeof accBindCard === "function") accBindCard();
   if (typeof patriBindHome === "function") patriBindHome();
@@ -665,7 +667,7 @@ function renderAnnee() {
   const t = totals(all);
   setHeader(String(cur.y), "Résultat de l'année (rentrées − dépenses)", t.result);
   const parts = catParts(t.byCat);
-  let html = banner + tilesHTML(t);
+  let html = banner + budSeg() + tilesHTML(t);
   html += `<div class="card"><h2>Résultat mois par mois</h2>${resultBars(per.map(p => p.result))}
     <div class="legend-inline"><span><span class="sw" style="background:var(--good)"></span>Positif</span><span><span class="sw" style="background:var(--bad)"></span>Négatif</span></div></div>`;
   html += `<div class="card"><h2>Rentrées et dépenses</h2>${pairBars(per.map(p => p.rentree), per.map(p => p.depense))}
@@ -675,7 +677,7 @@ function renderAnnee() {
     ${per.map((p, i) => `<tr data-m="${i + 1}"><td>${MOIS_C[i]}</td><td>${eur(p.rentree, true)}</td><td>${eur(p.depense, true)}</td><td>${eur(p.epargne + p.invest, true)}</td><td class="${p.result > 0 ? "good" : p.result < 0 ? "bad" : ""}">${eur(p.result, true)}</td></tr>`).join("")}
     <tr class="tot"><td>Total</td><td>${eur(t.rentree, true)}</td><td>${eur(t.depense, true)}</td><td>${eur(t.epargne + t.invest, true)}</td><td class="${t.result > 0 ? "good" : t.result < 0 ? "bad" : ""}">${eur(t.result, true)}</td></tr></tbody></table></div>
     <p class="hint" style="margin:8px 0 0">Touche un mois pour l'ouvrir.</p></div>`;
-  view.innerHTML = html;
+  view.innerHTML = html; budSegBind();
   view.querySelectorAll("tr[data-m]").forEach(r => r.onclick = () => { cur.m = Number(r.dataset.m); switchTab("mois"); });
 }
 
@@ -891,11 +893,11 @@ function render() {
     { const h = document.querySelector("header .nm .hello"); if (h) h.textContent = nm ? "Bonjour," : "Bonjour !"; }
     const n = alertsList().reduce((a, x) => a + x.n, 0); document.getElementById("bellDot").hidden = !n;
   }
-  const arrows = !["garanties", "abos", "dettes", "recherche", "objectifs", "economies", "partage", "tontines", "patrimoine"].includes(tab);
-  if (!document.getElementById("app").hidden) document.getElementById("fab").hidden = tab === "economies";
+  const arrows = !["accueil", "garanties", "abos", "dettes", "recherche", "objectifs", "economies", "partage", "tontines", "patrimoine"].includes(tab);
+  if (!document.getElementById("app").hidden) document.getElementById("fab").hidden = tab === "economies" || (tab === "accueil" && !!openDeal);
   document.getElementById("prev").style.visibility = arrows ? "visible" : "hidden";
   document.getElementById("next").style.visibility = arrows ? "visible" : "hidden";
-  if (tab === "mois") renderMois(); else if (tab === "annee") renderAnnee(); else if (tab === "frais") renderFrais();
+  if (tab === "accueil") renderAccueil(); else if (tab === "mois") renderMois(); else if (tab === "annee") renderAnnee(); else if (tab === "frais") renderFrais();
   else if (tab === "garanties") renderGaranties(); else if (tab === "abos") renderAbos(); else if (tab === "dettes") renderDettes(); else if (tab === "recherche") renderRecherche(); else if (tab === "objectifs") renderObjectifs(); else if (tab === "economies" && typeof renderEconomies === "function") renderEconomies(); else if (tab === "partage") renderPartage(); else if (tab === "tontines") renderTontines(); else if (tab === "patrimoine") renderPatrimoine(); else renderReglages();
   const nGar = garItems().filter(x => garStatus(x.warranty) === "soon").length;
   const nAbo = Object.values(subs).filter(x => subStatus(x).st === "soon").length;
@@ -908,7 +910,10 @@ function render() {
     const c = { patrimoine: 0, frais: nFrais, garanties: nGar, abos: nAbo, dettes: 0, objectifs: 0, economies: 0, partage: 0, tontines: nTon };
     sn.innerHTML = `<div class="seg" role="tablist">${visibleSubs().map(([k, l]) => `<button type="button" role="tab" aria-pressed="${k === tab}" data-sub="${k}">${l}${c[k] ? `<span class="cnt">${c[k]}</span>` : ""}</button>`).join("")}</div>`;
     sn.querySelectorAll("[data-sub]").forEach(b => b.onclick = () => switchTab(b.dataset.sub));
-    const act = sn.querySelector('[aria-pressed="true"]'); if (act) act.scrollIntoView({ inline: "center", block: "nearest" });
+    // On centre l'onglet actif en faisant défiler seulement la rangée d'onglets : scrollIntoView ferait aussi bouger la page
+    // (sur iPhone, la barre du bas remontait).
+    const act = sn.querySelector('[aria-pressed="true"]'), seg = sn.querySelector(".seg");
+    if (act && seg) seg.scrollLeft = Math.max(0, act.offsetLeft - seg.offsetLeft - (seg.clientWidth - act.offsetWidth) / 2);
   }
 }
 function switchTab(t) {
@@ -916,10 +921,11 @@ function switchTab(t) {
   if (!subAllowed(t)) t = SIMPLE_SUBS.includes(lastSub) ? lastSub : SIMPLE_SUBS[0];
   if (isSub(t)) { if (t !== tab) bumpSub(t); lastSub = t; }
   tab = t;
-  document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === t || (b.dataset.tab === "suivis" && isSub(t)))));
+  if (t !== "accueil" && typeof openDeal !== "undefined") { openDeal = null; dealState = null; }
+  document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === t || (b.dataset.tab === "suivis" && isSub(t)) || (b.dataset.tab === "mois" && t === "annee"))));
   render(); window.scrollTo(0, 0);
 }
-document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => { if (b.dataset.tab === "accueil" && typeof openDeal !== "undefined") { openDeal = null; dealState = null; } switchTab(b.dataset.tab); });
 function step(d) {
   if (tab === "annee" || tab === "frais") cur.y += d;
   else { cur.m += d; if (cur.m < 1) { cur.m = 12; cur.y--; } if (cur.m > 12) { cur.m = 1; cur.y++; } }
@@ -1238,7 +1244,7 @@ async function uploadPicked(picked) {
     f0.busy--; if (form === f0) drawFiles();
   }
 }
-document.getElementById("fab").onclick = () => tab === "abos" ? editSub(null) : tab === "dettes" ? editDebt(null) : tab === "patrimoine" ? editAsset(null) : tab === "objectifs" ? editGoal(null) : tab === "partage" ? (openGroup ? editGroupExpense(openGroup, null) : editGroup(null)) : tab === "tontines" ? editTontine(null) : openSheet(null);
+document.getElementById("fab").onclick = () => tab === "accueil" ? showAddMenu() : tab === "abos" ? editSub(null) : tab === "dettes" ? editDebt(null) : tab === "patrimoine" ? editAsset(null) : tab === "objectifs" ? editGoal(null) : tab === "partage" ? (openGroup ? editGroupExpense(openGroup, null) : editGroup(null)) : tab === "tontines" ? editTontine(null) : openSheet(null);
 document.getElementById("sheetBg").onclick = () => closeSheet(false);
 document.getElementById("fCancel").onclick = () => closeSheet(false);
 document.getElementById("fDelete").onclick = () => {
@@ -2245,17 +2251,15 @@ function editGroupExpense(gid, eid) {
   // Commentaires (chaque membre peut commenter ; ils arrivent chez les autres membres et sur le lien d'invitation)
   const drawCom = () => {
     const box = document.getElementById("geCom"); if (!box) return;
-    const list = Object.entries(g.comments || {}).filter(([, c]) => c && !c.deleted && c.eid === eid).sort((a, b) => a[1].at - b[1].at);
-    box.innerHTML = (list.length ? list.map(([cid, c]) => `<div class="ge-c"><div><b>${esc(mName(g, c.by))}</b> <small>${esc(frDate(new Date(c.at).toISOString().slice(0, 10)))}</small></div><p>${esc(c.text)}</p>${c.by === g.me ? `<button type="button" class="linkbtn" data-cdel="${esc(cid)}">Supprimer</button>` : ""}</div>`).join("") : `<p class="hint" style="margin:0">Aucun commentaire.</p>`)
-      + `<div class="ge-cnew"><input class="field" id="geComIn" maxlength="500" placeholder="Écrire un commentaire…"><button type="button" class="btn primary" id="geComSend">Envoyer</button></div>`;
-    const send = () => {
-      const t = document.getElementById("geComIn").value.trim(); if (!t) return;
-      g.comments = g.comments || {}; g.comments[newId()] = { eid, by: g.me, text: t.slice(0, 500), at: Date.now() };
-      saveGroups(); drawCom();
-    };
-    document.getElementById("geComSend").onclick = send;
-    document.getElementById("geComIn").onkeydown = ev => { if (ev.key === "Enter") { ev.preventDefault(); send(); } };
-    box.querySelectorAll("[data-cdel]").forEach(b => b.onclick = () => { g.comments[b.dataset.cdel] = { deleted: true, at: Date.now() }; saveGroups(); drawCom(); });
+    const t = dealT(window.LANG === "en" ? "en" : "fr");
+    const items = Object.entries(g.comments || {}).filter(([, c]) => c && !c.deleted && c.eid === eid).sort((a, b) => a[1].at - b[1].at)
+      .map(([id, c]) => ({ id, name: (g.members.find(m => m.id === c.by) || { name: "?" }).name, text: c.text, at: c.at, re: c.re, mine: c.by === g.me }));
+    box.innerHTML = COMUI.html(items, g.reacts || {}, g.me, t, at => frDate(new Date(at).toISOString().slice(0, 10)), { canDelete: true });
+    COMUI.bind(box, items, g.reacts || {}, g.me, {
+      onSend: (text, re) => { g.comments = g.comments || {}; g.comments[newId()] = { eid, by: g.me, text: text.slice(0, 500), at: Date.now(), ...(re ? { re } : {}) }; saveGroups(); drawCom(); },
+      onReact: (cid, e) => { g.reacts = g.reacts || {}; g.reacts[cid + "|" + g.me] = { e, at: Date.now() }; saveGroups(); drawCom(); },
+      onDelete: cid => { g.comments[cid] = { deleted: true, at: Date.now() }; saveGroups(); drawCom(); },
+    }, t);
   };
   drawCom();
   const share = () => {
@@ -3022,6 +3026,7 @@ async function boot() {
   }
   showLogin("");   // Google demande un clic pour ouvrir sa fenêtre de connexion
 }
-boot();
+// Démarrage une fois tous les scripts chargés (l'accueil vient de deals.js, chargé après ce fichier)
+if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot); else boot();
 // Langue changée dans Réglages ou sur l'écran de connexion : on redessine sans recharger (la session reste ouverte).
 window.addEventListener("bourselle-lang", () => { try { catLangSync(); if (typeof applyCurrency === "function") applyCurrency(); if (typeof store !== "undefined" && store) render(); } catch (e) {} });

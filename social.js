@@ -41,7 +41,7 @@ async function socRefresh() {
     try { await socPullGroups(); await socPushGroups(); } catch (e) {}
     socLoadPay();
     if (!SOC.addChecked) { SOC.addChecked = true; socPendingAdd(); }
-    socOpenPending(); pushResync();
+    socOpenPending(); pushResync(); if (typeof dealsRefresh === "function") dealsRefresh();
     const fresh = SOC.in.filter(c => c.status === "pending" && !socSeen.has(c.id));
     if (fresh.length) {
       toast(fresh.length === 1 ? `@${fresh[0].from} te réclame ${socMoney(fresh[0])}` : `${fresh.length} nouvelles réclamations de dettes`);
@@ -277,7 +277,7 @@ function socSendShares(gid, label, amount, order, date, owed) {
 // ---------- Groupes partagés ----------
 // Un groupe qui a des membres avec un tag est envoyé au serveur : ces membres le retrouvent dans leur onglet Partage
 // et peuvent y ajouter des dépenses. Seul le créateur change le nom et les membres.
-const socSig = g => JSON.stringify([g.name, g.members, g.expenses, g.comments || {}]);
+const socSig = g => JSON.stringify([g.name, g.members, g.expenses, g.comments || {}, g.reacts || {}]);
 const socIsShared = g => !!g && (g.shared || (g.members || []).some(m => m.tag));
 const socIOwn = g => !g.owner || g.owner === SOC.tag;
 let socGTimer = null;
@@ -290,7 +290,9 @@ function socMergeGroup(id, r) {
   for (const [eid, e] of Object.entries(r.expenses || {})) { const o = exp[eid]; if (!o || (Number(e.updated) || 0) >= (Number(o.updated) || 0)) exp[eid] = e; }
   const com = { ...(local ? local.comments || {} : {}) };
   for (const [cid, c] of Object.entries(r.comments || {})) if (!com[cid] || (c.deleted && !com[cid].deleted)) com[cid] = c;
-  const next = { ...(local || {}), name: r.name, members: r.members, me, expenses: exp, comments: com, shared: true, owner: r.owner, rev: r.rev, link: r.link || "", pays: r.pays || {}, created: (local && local.created) || r.updated || Date.now() };
+  const rx = { ...(local ? local.reacts || {} : {}) };
+  for (const [k, x] of Object.entries(r.reacts || {})) if (!rx[k] || (Number(x.at) || 0) > (Number(rx[k].at) || 0)) rx[k] = x;
+  const next = { ...(local || {}), name: r.name, members: r.members, me, expenses: exp, comments: com, reacts: rx, shared: true, owner: r.owner, rev: r.rev, link: r.link || "", pays: r.pays || {}, created: (local && local.created) || r.updated || Date.now() };
   const changed = JSON.stringify(local || null) !== JSON.stringify(next);
   if (local) { for (const k of Object.keys(local)) delete local[k]; Object.assign(local, next); } else groups[id] = next;   // même objet : un formulaire ouvert garde la bonne référence
   return changed;
@@ -303,7 +305,7 @@ async function socPushGroups() {
     const sig = socSig(g);
     if (g._sent === sig) continue;
     try {
-      const r = await socApi("/groups/" + id, { method: "POST", body: JSON.stringify({ group: { name: g.name, me: g.me, cur: baseCurrency(), members: (g.members || []).map(m => ({ id: m.id, name: m.name, tag: m.tag || "" })), expenses: g.expenses || {}, comments: g.comments || {} } }) });
+      const r = await socApi("/groups/" + id, { method: "POST", body: JSON.stringify({ group: { name: g.name, me: g.me, cur: baseCurrency(), members: (g.members || []).map(m => ({ id: m.id, name: m.name, tag: m.tag || "" })), expenses: g.expenses || {}, comments: g.comments || {}, reacts: g.reacts || {} } }) });
       if (r.deleted) { delete groups[id]; changed = true; continue; }
       changed = socMergeGroup(id, r) || changed;
       groups[id]._sent = socSig(groups[id]);
@@ -395,7 +397,7 @@ async function socGroupLink(gid, off) {
   if (!socIOwn(g)) { if (g.link) return shareText(`Rejoins le groupe « ${g.name} » sur Bourselle :`, groupLinkUrl(g.link)); toast(`Demande le lien à @${g.owner}`); return; }
   try {
     g.shared = true;
-    const r = await socApi("/groups/" + gid, { method: "POST", body: JSON.stringify({ link: !off, group: { name: g.name, me: g.me, cur: baseCurrency(), members: (g.members || []).map(m => ({ id: m.id, name: m.name, tag: m.tag || "" })), expenses: g.expenses || {} } }) });
+    const r = await socApi("/groups/" + gid, { method: "POST", body: JSON.stringify({ link: !off, group: { name: g.name, me: g.me, cur: baseCurrency(), members: (g.members || []).map(m => ({ id: m.id, name: m.name, tag: m.tag || "" })), expenses: g.expenses || {}, comments: g.comments || {}, reacts: g.reacts || {} } }) });
     socMergeGroup(gid, r); groups[gid]._sent = socSig(groups[gid]);
     saveGroups(); render();
     if (off) { toast("Lien d'invitation désactivé"); return; }
@@ -410,7 +412,7 @@ async function socPhotoUpload(gid, data) {
   if (!socOn()) throw new Error("Connecte-toi avec Google ou Microsoft pour joindre un ticket");
   if (!g._sent) {   // le groupe doit exister sur le serveur pour y ranger la photo
     g.shared = true;
-    const r = await socApi("/groups/" + gid, { method: "POST", body: JSON.stringify({ group: { name: g.name, me: g.me, cur: baseCurrency(), members: (g.members || []).map(m => ({ id: m.id, name: m.name, tag: m.tag || "" })), expenses: g.expenses || {}, comments: g.comments || {} } }) });
+    const r = await socApi("/groups/" + gid, { method: "POST", body: JSON.stringify({ group: { name: g.name, me: g.me, cur: baseCurrency(), members: (g.members || []).map(m => ({ id: m.id, name: m.name, tag: m.tag || "" })), expenses: g.expenses || {}, comments: g.comments || {}, reacts: g.reacts || {} } }) });
     socMergeGroup(gid, r); groups[gid]._sent = socSig(groups[gid]);
   }
   const j = await socApi("/groups/" + gid + "/photo", { method: "POST", body: JSON.stringify({ data }) });
@@ -476,13 +478,14 @@ function pushBind() { const b = document.getElementById("pushTgl"); if (b) b.onc
 // Ouvrir ce que la notification montre : un groupe (?g=…) ou les dettes (?tab=dettes)
 function openFromUrl(u) {
   let p; try { p = new URL(u, location.href).searchParams; } catch (e) { return; }
-  const g = p.get("g"), t = p.get("tab");
+  const g = p.get("g"), t = p.get("tab"), dl = p.get("d");
+  if (dl && typeof showDeal === "function") { showDeal(dl); return; }
   if (g) { if (groups[g]) { openGroup = g; switchTab("partage"); window.scrollTo(0, 0); } else SOC.openLater = g; }
   else if (t === "dettes") switchTab("dettes");
 }
 {
   const q = new URLSearchParams(location.search);
-  if (q.get("g") || q.get("tab")) { try { sessionStorage.setItem("bourselle-open", location.search); } catch (e) {} history.replaceState(null, "", location.pathname + location.hash); }
+  if (q.get("g") || q.get("tab") || q.get("d")) { try { sessionStorage.setItem("bourselle-open", location.search); } catch (e) {} history.replaceState(null, "", location.pathname + location.hash); }
 }
 function socOpenPending() {
   let s = ""; try { s = sessionStorage.getItem("bourselle-open") || ""; sessionStorage.removeItem("bourselle-open"); } catch (e) {}
@@ -491,6 +494,6 @@ function socOpenPending() {
 }
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", ev => {
   const d = ev.data || {};
-  if (d.type === "bourselle-push") { socRefresh(); if (document.visibilityState === "visible" && d.data && d.data.body) toast(d.data.body.split("\n")[0]); }
+  if (d.type === "bourselle-push") { socRefresh(); if (typeof openDeal !== "undefined" && openDeal && tab === "accueil") showDeal(openDeal); if (document.visibilityState === "visible" && d.data && d.data.body) toast(d.data.body.split("\n")[0]); }
   if (d.type === "bourselle-open") { socRefresh(); openFromUrl(d.url); }
 });

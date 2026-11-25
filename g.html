@@ -36,7 +36,7 @@
   .gp-exp { width: 100%; text-align: left; background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; }
   .ge-badges { display: flex; gap: 6px; margin-top: 4px; } .ge-badge { font-size: .72rem; color: var(--muted); background: rgba(120,130,125,.14); border-radius: 999px; padding: 2px 8px; }
   .gp-photo img { width: 100%; max-height: 360px; object-fit: contain; border-radius: 12px; background: #fff; border: 1px solid var(--line); cursor: zoom-in; }
-  .ge-c { background: rgba(31,107,75,.07); border-radius: 12px; padding: 8px 10px; font-size: .88rem; margin-bottom: 8px; }
+  .ge-c-old { background: rgba(31,107,75,.07); border-radius: 12px; padding: 8px 10px; font-size: .88rem; margin-bottom: 8px; }
   .ge-c small { color: var(--muted); } .ge-c p { margin: 3px 0 0; white-space: pre-wrap; word-break: break-word; }
   .ge-cnew { display: flex; gap: 8px; } .ge-cnew input { flex: 1; min-width: 0; }
   .ph-view { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,.88); display: grid; place-items: center; padding: 16px; }
@@ -52,6 +52,7 @@
 <script src="config.js"></script>
 <script src="qr.js"></script>
 <script src="pay.js"></script>
+<script src="deal-ui.js"></script>
 <script>
 (() => {
   const EN = !/^fr\b/i.test(navigator.language || "fr");
@@ -70,7 +71,7 @@
     "Scanne ce QR code avec l'appli de ta banque : le virement est déjà rempli.": "Scan this QR code with your banking app: the transfer is pre-filled.",
     "Payer {x}": "Pay {x}", "{x} n'a pas encore indiqué comment le payer : règle-le comme d'habitude, puis appuie sur « J'ai payé ».": "{x} hasn't added payment details yet: pay them as usual, then tap “I've paid”.",
     "Une fois le paiement fait, appuie sur « J'ai payé » pour prévenir le groupe.": "Once you've paid, tap “I've paid” to let the group know.",
-    "Lien de paiement introuvable.": "Payment link not found.", "Ticket": "Receipt", "Ajouter le ticket": "Add the receipt", "Envoi du ticket…": "Uploading the receipt…", "Ticket ajouté": "Receipt added",
+    "Lien de paiement introuvable.": "Payment link not found.", "Lien copié": "Link copied", "Ticket": "Receipt", "Ajouter le ticket": "Add the receipt", "Envoi du ticket…": "Uploading the receipt…", "Ticket ajouté": "Receipt added",
     "Commentaires": "Comments", "Aucun commentaire.": "No comments yet.", "Écrire un commentaire…": "Write a comment…", "Envoyer": "Send", "‹ Retour": "‹ Back", "ticket": "receipt",
     "Image illisible": "Unreadable image", "Image trop lourde": "Image too large", "Photo du ticket (facultatif)": "Receipt photo (optional)", "Chargement…": "Loading…", "Pour payer {x}": "To pay {x}", "Envoyé par {x}": "Sent by {x}",
   };
@@ -176,8 +177,7 @@
     main.innerHTML = top + `<button class="btn" id="xBack" style="align-self:flex-start">${esc(t("‹ Retour"))}</button>
       <div class="card"><h2>${esc(e.label)}</h2><div class="gp-row"><div><small>${esc(fdate(e.date))} · ${esc(t("payé par"))} ${esc(nm(e.paidBy))} · ${esc(t("pour"))} ${(e.split || []).length === G.members.length ? esc(t("tout le monde")) : esc((e.split || []).map(nm).join(", "))}</small></div><b>${esc(money(Number(e.amount)))}</b></div></div>
       <div class="card"><h2>${esc(t("Ticket"))}</h2><div id="xPh" class="gp-photo">${e.photo ? `<p class="hint">${esc(t("Chargement…"))}</p>` : `<label class="btn" style="display:inline-block;cursor:pointer">📷 ${esc(t("Ajouter le ticket"))}<input type="file" accept="image/*" id="xPhIn" hidden></label>`}</div></div>
-      <div class="card"><h2>${esc(t("Commentaires"))}</h2>${comsOf(eid).map(([, c]) => `<div class="ge-c"><div><b>${esc(nm(c.by))}</b> <small>${esc(fd(c.at))}</small></div><p>${esc(c.text)}</p></div>`).join("") || `<p class="hint" style="margin:0 0 8px">${esc(t("Aucun commentaire."))}</p>`}
-        <div class="ge-cnew"><input type="text" id="xCom" maxlength="500" placeholder="${esc(t("Écrire un commentaire…"))}"><button class="btn primary" id="xSend">${esc(t("Envoyer"))}</button></div></div>` + cta;
+      <div class="card"><h2>${esc(t("Commentaires"))}</h2><div id="xCom"></div></div>` + cta;
     $("xBack").onclick = () => { view = "main"; draw(); };
     if (e.photo) getPhoto(e.photo).then(d => { const b = $("xPh"); if (!b) return; b.innerHTML = `<img alt="">`; b.firstChild.src = d; b.firstChild.onclick = () => showPhoto(d); }).catch(() => { const b = $("xPh"); if (b) b.innerHTML = ""; });
     const inp = $("xPhIn"); if (inp) inp.onchange = async () => {
@@ -186,12 +186,13 @@
       catch (err) { toast(err.message); }
       drawExp(eid);
     };
-    const send = async () => {
-      const text = $("xCom").value.trim(); if (!text) return; $("xSend").disabled = true;
-      try { const r = await api("/g/" + tok + "/comment", { eid, by: me, text }); G.comments = G.comments || {}; G.comments[r.id] = r.comment; drawExp(eid); }
-      catch (err) { $("xSend").disabled = false; toast(err.message); }
-    };
-    $("xSend").onclick = send; $("xCom").onkeydown = ev => { if (ev.key === "Enter") { ev.preventDefault(); send(); } };
+    const tt = dealT(EN ? "en" : "fr", D);
+    const items = comsOf(eid).map(([id, c]) => ({ id, name: nm(c.by).replace(` (${t("moi")})`, ""), text: c.text, at: c.at, re: c.re, mine: c.by === me }));
+    $("xCom").innerHTML = COMUI.html(items, G.reacts || {}, me, tt, fd);
+    COMUI.bind($("xCom"), items, G.reacts || {}, me, {
+      onSend: async (text, re) => { try { const r = await api("/g/" + tok + "/comment", { eid, by: me, text, re }); G.comments = G.comments || {}; G.comments[r.id] = r.comment; drawExp(eid); } catch (err) { toast(err.message); } },
+      onReact: async (cid, e) => { try { const r = await api("/g/" + tok + "/react", { cid, by: me, e }); G.reacts = r.reacts; drawExp(eid); } catch (err) { toast(err.message); } },
+    }, tt);
   }
   function drawPay(s) {
     const p = (G.pays || {})[s.to], who = nm(s.to);
@@ -231,8 +232,37 @@
       catch (e) { $("aSave").disabled = false; toast(e.message); }
     };
   }
+  // ---------- Achat groupé ou cagnotte : #d=identifiant ----------
+  async function dealPage(id) {
+    const SK = "bourselle-d-" + id, tt = dealT(EN ? "en" : "fr", D);
+    let me = {}; try { me = JSON.parse(localStorage.getItem(SK) || "{}") || {}; } catch (e) {}
+    const S = {};
+    const fdateD = d => fdate(d);
+    const ctx = {
+      t: tt, money: (v, cur) => new Intl.NumberFormat(EN ? "en-GB" : "fr-FR", { style: "currency", currency: cur || "EUR" }).format(v), fdate: fdateD, toast: m => toast(m),
+      url: location.href.split("#")[0] + "#d=" + id,
+      share: async (text, url) => { if (navigator.share) { try { await navigator.share({ text, url }); return; } catch (e) { if (e && e.name === "AbortError") return; } } try { await navigator.clipboard.writeText(text + "\n" + url); toast("Lien copié"); } catch (e) { toast(url); } },
+      call: async (sub, body) => { const r = await api("/d/" + id + "/" + sub, { ...body, pid: me.pid || "", key: me.key || "" }); return r; },
+      getPhoto: pid => api("/d/" + id + "/photo?p=" + pid).then(j => j.data),
+      onUpdate: r => {
+        if (r.key) { me = { pid: r.deal.you.pid, key: r.key, name: (r.deal.parts[r.deal.you.pid] || {}).name || "" }; }
+        if (r.deal.you && !r.deal.you.pid && me.pid && !r.deal.parts[me.pid]) me = { name: me.name };
+        try { localStorage.setItem(SK, JSON.stringify(me)); } catch (e) {}
+        show(r);
+      },
+    };
+    const show = r => {
+      S.deal = r.deal; S.pay = r.pay;
+      if (me.pid && S.deal.parts[me.pid]) S.deal.you = { role: "part", pid: me.pid };
+      ctx.needName = !(S.deal.you && S.deal.you.pid); ctx.defaultName = me.name || "";
+      document.title = S.deal.title + " · Bourselle";
+      main.innerHTML = top + `<div id="dealRoot"></div>` + cta;
+      DEALUI.render($("dealRoot"), S, ctx);
+    };
+    try { show(await api("/d/" + id)); } catch (e) { fail(e.status === 404 ? "Ce lien n'est plus valable." : "Connexion impossible. Réessaie dans un instant."); }
+  }
   $("gpLoad").textContent = t("Chargement…");
-  if (hash.get("p")) payPage(); else if (tok) load(); else fail("Ce lien n'est plus valable.");
+  if (hash.get("p")) payPage(); else if (hash.get("d")) dealPage(hash.get("d")); else if (tok) load(); else fail("Ce lien n'est plus valable.");
   window.addEventListener("hashchange", () => location.reload());
 })();
 </script>
