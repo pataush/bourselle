@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "35";
+const APP_VERSION = "36";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -484,7 +484,7 @@ function renderMois() {
       <div class="hint">${soonG.slice(0, 3).map(x => `${esc(x.warranty.item)} : ${esc(leftTxt(daysUntil(x.warranty.end)))}`).join("<br>")}</div></button>`;
   }
   const soonA = Object.values(subs).filter(x => subStatus(x).st === "soon");
-  if (soonA.length) {
+  if (soonA.length && !isSimple()) {
     html += `<button class="card" id="goAbo" style="text-align:left;width:100%;cursor:pointer;border-left:6px solid var(--w-soon)"><h2>Abonnements à surveiller<small>${soonA.length}</small></h2>
       <div class="hint">${soonA.slice(0, 3).map(x => `${esc(x.name)} : ${esc(subStatus(x).why)}`).join("<br>")}</div></button>`;
   }
@@ -597,11 +597,11 @@ function renderReglages() {
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="linkGoogle"${CFG.googleClientId ? "" : " disabled"}>Se connecter avec Google</button><button class="btn primary" id="linkMicrosoft"${CFG.microsoftClientId ? "" : " disabled"}>Se connecter avec Microsoft</button></div>
     <div style="margin-top:8px"><button class="btn danger" id="logout" data-l="Quitter le mode essai">Quitter le mode essai</button></div></div>`
     : `<div style="display:flex;gap:8px;flex-wrap:wrap">${store && store.folderUrl() ? `<a class="btn" href="${esc(store.folderUrl())}" target="_blank" rel="noopener">Ouvrir mon dossier</a>` : ""}<button class="btn danger" id="logout" data-l="Se déconnecter">Se déconnecter</button></div></div>`}
-  ${typeof socContactsCardHTML === "function" && !isSimple() ? socContactsCardHTML() : ""}
+  ${typeof socContactsCardHTML === "function" ? socContactsCardHTML() : ""}
   <div class="card"><h2>Version de l'app</h2>
     <div class="seg2" id="modeSeg"><button type="button" data-m="simple" aria-pressed="${isSimple()}">Simple</button><button type="button" data-m="complete" aria-pressed="${!isSimple()}">Complète</button></div>
-    <p class="hint" style="margin:8px 0 0">${isSimple() ? "Simple : le budget du mois, l'année, les abonnements et les objectifs. Passe à la version complète pour les tontines, les dettes, le partage, les notes de frais, les garanties et le plan d'économies."
-      : "Complète : toutes les fonctions. La version simple garde l'essentiel (budget du mois, année, abonnements, objectifs) pour un usage plus léger."} Tes données ne changent pas.</p></div>
+    <p class="hint" style="margin:8px 0 0">${isSimple() ? "Simple : le budget du mois, l'année, le partage des frais, je dois / on me doit, le plan d'économies et les objectifs. Passe à la version complète pour les abonnements, les tontines, les notes de frais et les garanties."
+      : "Complète : toutes les fonctions. La version simple garde l'essentiel (budget du mois, année, partage des frais, dettes, économies, objectifs) pour un usage plus léger."} Tes données ne changent pas.</p></div>
   <div class="card"><h2>Langue et devise</h2>
     <div class="two"><div><label class="lbl" for="setLang">Langue</label><select class="field" id="setLang"><option value="fr"${window.LANG !== "en" ? " selected" : ""}>Français</option><option value="en"${window.LANG === "en" ? " selected" : ""}>English</option></select></div>
       <div><label class="lbl" for="setCur">Devise</label><select class="field" id="setCur">${APP_CURRENCIES.map(([c, l]) => `<option value="${c}"${c === (settings.currency || "EUR") ? " selected" : ""}>${esc(c)} · ${esc(l)}</option>`).join("")}</select></div></div>
@@ -752,9 +752,10 @@ const SUBS = SUBS_DEF;   // ordre fixe : abonnements, tontines, objectifs, écon
 let lastSub = SUBS[0][0];
 function isSub(t) { return SUBS.some(([k]) => k === t); }
 // ---------- Deux versions : simple et complète ----------
-// Simple : le budget du mois, l'année, les abonnements et les objectifs. Complète : tout.
+// Simple : le budget du mois, l'année, puis dans Suivis le partage des frais, les dettes (je dois / on me doit),
+// le plan d'économies et les objectifs. Complète : tout.
 // Le choix est gardé dans les réglages (donc sur tous les appareils du compte) ; un lien « ?version=simple » le propose aux nouveaux.
-const SIMPLE_SUBS = ["abos", "objectifs"];
+const SIMPLE_SUBS = ["partage", "dettes", "economies", "objectifs"];   // dans cet ordre
 {
   const v = new URLSearchParams(location.search).get("version");
   if (v === "simple" || v === "complete") { try { localStorage.setItem("bourselle-mode", v); sessionStorage.setItem("bourselle-mode-url", v); } catch (e) {} history.replaceState(null, "", location.pathname + location.hash); }
@@ -763,7 +764,7 @@ function isSimple() {
   if (typeof settings !== "undefined" && settings && settings.mode) return settings.mode === "simple";
   try { return localStorage.getItem("bourselle-mode") === "simple"; } catch (e) { return false; }
 }
-const visibleSubs = () => isSimple() ? SUBS.filter(([k]) => SIMPLE_SUBS.includes(k)) : SUBS;
+const visibleSubs = () => isSimple() ? SIMPLE_SUBS.map(k => SUBS.find(([x]) => x === k)).filter(Boolean) : SUBS;
 const subAllowed = t => !isSimple() || !isSub(t) || SIMPLE_SUBS.includes(t);
 function setMode(m) {
   settings.mode = m; try { localStorage.setItem("bourselle-mode", m); } catch (e) {}

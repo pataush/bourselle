@@ -54,7 +54,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 
 // ---------- Réglages : mon tag (dans « Mon compte ») et mes contacts ----------
 function socTagInlineHTML() {
-  if (!socOn() || (typeof isSimple === "function" && isSimple())) return "";
+  if (!socOn()) return "";
   return `<div class="soc-tag-row"><span class="hint">Tag Bourselle</span> ${SOC.tag ? `<b class="num">@${esc(SOC.tag)}</b>` : `<span class="hint">${SOC.err ? esc(SOC.err) : "Chargement…"}</span>`}
     ${SOC.tag ? `<span class="soc-tag-btns"><button class="linkbtn" id="socCopy">Copier</button>${navigator.share ? `<button class="linkbtn" id="socShare">Partager</button>` : ""}<button class="linkbtn" id="socEdit">Changer</button><button class="linkbtn" id="socQr">QR code</button></span>` : ""}</div>`;
 }

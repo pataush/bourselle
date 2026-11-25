@@ -12,6 +12,8 @@
 
   // ---------- Textes fixes ----------
   const EXACT = {
+    "Simple : le budget du mois, l'année, le partage des frais, je dois / on me doit, le plan d'économies et les objectifs. Passe à la version complète pour les abonnements, les tontines, les notes de frais et les garanties. Tes données ne changent pas.": "Simple: this month's budget, the year, shared costs, I owe / owed to me, the savings plan and goals. Switch to the full version for subscriptions, savings circles, expense claims and warranties. Your data doesn't change.",
+    "Complète : toutes les fonctions. La version simple garde l'essentiel (budget du mois, année, partage des frais, dettes, économies, objectifs) pour un usage plus léger. Tes données ne changent pas.": "Full: every feature. The simple version keeps the essentials (monthly budget, year, shared costs, debts, savings plan, goals) for lighter use. Your data doesn't change.",
     "Version de l'app": "App version",
     "Simple": "Simple",
     "Complète": "Full",
