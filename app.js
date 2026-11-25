@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "31";
+const APP_VERSION = "32";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -226,6 +226,10 @@ function deleteCat(i) {
     saveSettings(); render(); toast(`Catégorie « ${c.name} » supprimée`);
   });
   const sb = f.querySelector("button[type=submit]"); sb.textContent = "Supprimer"; sb.classList.remove("primary"); sb.classList.add("danger");
+}
+function homeMoreOpen(v) {
+  if (v === undefined) { try { return localStorage.getItem("bourselle-home-more") === "1"; } catch (e) { return false; } }
+  try { localStorage.setItem("bourselle-home-more", v ? "1" : "0"); } catch (e) {} return v;
 }
 function catById(id) { return settings.cats.find(c => c.id === id) || { id, name: id || "Sans catégorie", color: "#9aa5ad", budget: 0 }; }
 function itemsOf(y, m) { const d = months[ym(y, m)]; return d ? Object.entries(d.items || {}).map(([id, t]) => ({ ...t, id })) : []; }
@@ -494,6 +498,8 @@ function renderMois() {
       <button class="btn primary block" id="copyFix">Reprendre les charges fixes</button></div>`;
   }
 
+  // Analyses du mois : repliées par défaut, un bouton les déroule (choix mémorisé sur l'appareil)
+  const moreFrom = html.length;
   html += `<div class="card"><h2>Dépenses par catégorie<small>${list.filter(x => x.type === "depense").length} dépenses</small></h2>
     ${parts.length ? `<div class="donut-wrap">${donut(parts)}${legendHTML(parts)}</div>` : `<div class="empty">Aucune dépense ce mois-ci. Appuie sur + pour en ajouter une.</div>`}</div>`;
 
@@ -507,9 +513,17 @@ function renderMois() {
     return `<div class="row ${over ? "over" : ""}"><div class="t"><span>${esc(c.name)}</span><span class="num">${esc(eur(sp, true))} / ${b ? esc(eur(b, true)) : "pas de budget"}</span></div>
       <div class="bar"><i style="width:${pct}%;background:${over ? "var(--bad)" : c.color}"></i></div></div>`;
   }).join("") || `<div class="empty">Fixe tes budgets dans « Budget & réglages ».</div>`}</div></div>`;
+  {
+    const more = html.slice(moreFrom), open = homeMoreOpen();
+    const over = budCats.filter(c => c.budget && (t.byCat[c.id] || 0) > c.budget).length;
+    html = html.slice(0, moreFrom) + `<button class="more-toggle" id="moreToggle" aria-expanded="${open}"><span>${open ? "Masquer les analyses du mois" : "Voir les analyses du mois"}</span>
+      <small>${over ? `${over} budget${over > 1 ? "s" : ""} dépassé${over > 1 ? "s" : ""} · ` : ""}catégories, budget, comparaison</small><i aria-hidden="true">${open ? "▴" : "▾"}</i></button>
+      <div id="moreBox"${open ? "" : " hidden"}>${more}</div>`;
+  }
 
   html += `<div class="card"><h2>Opérations<button class="linkbtn" id="impBtn">Importer un relevé</button></h2>${list.length ? txListHTML(list) : `<div class="empty">Rien d'enregistré pour ${MOIS[cur.m - 1]}.</div>`}</div>`;
   view.innerHTML = html;
+  const mt = document.getElementById("moreToggle"); if (mt) mt.onclick = () => { homeMoreOpen(!homeMoreOpen()); render(); };
   const ib = document.getElementById("impBtn"); if (ib) ib.onclick = startImport;
   const gf = document.getElementById("goFrais"); if (gf) gf.onclick = () => switchTab("frais");
   const gg = document.getElementById("goGar"); if (gg) gg.onclick = () => switchTab("garanties");
@@ -577,12 +591,13 @@ function renderReglages() {
   const u = store ? store.user() : { name: "", email: "" };
   let html = banner + `<div class="card"><h2>Mon compte<small>${esc(store ? store.label : "")}</small></h2>
     <div style="font-weight:600">${esc(u.name || "")}</div><div class="hint">${esc(u.email || "")}</div>
+    ${typeof socTagInlineHTML === "function" ? socTagInlineHTML() : ""}
     <p class="hint">${store && store.id !== "local" ? `Tes données et tes factures sont dans le dossier « Bourselle » de ton ${esc(store.label)}. Personne d'autre n'y a accès.` : "Mode démo : les données restent dans ce navigateur et peuvent être perdues. Connecte-toi pour les mettre dans ton Drive."}</p>
     ${store && store.id === "local" ? `<p class="hint" style="margin:0 0 8px"><b>Associe un compte</b> pour retrouver Bourselle sur tous tes appareils : tes données d'essai seront transférées dans ton cloud.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="linkGoogle"${CFG.googleClientId ? "" : " disabled"}>Se connecter avec Google</button><button class="btn primary" id="linkMicrosoft"${CFG.microsoftClientId ? "" : " disabled"}>Se connecter avec Microsoft</button></div>
     <div style="margin-top:8px"><button class="btn danger" id="logout" data-l="Quitter le mode essai">Quitter le mode essai</button></div></div>`
     : `<div style="display:flex;gap:8px;flex-wrap:wrap">${store && store.folderUrl() ? `<a class="btn" href="${esc(store.folderUrl())}" target="_blank" rel="noopener">Ouvrir mon dossier</a>` : ""}<button class="btn danger" id="logout" data-l="Se déconnecter">Se déconnecter</button></div></div>`}
-  ${typeof socTagCardHTML === "function" ? socTagCardHTML() : ""}
+  ${typeof socContactsCardHTML === "function" ? socContactsCardHTML() : ""}
   <div class="card"><h2>Langue et devise</h2>
     <div class="two"><div><label class="lbl" for="setLang">Langue</label><select class="field" id="setLang"><option value="fr"${window.LANG !== "en" ? " selected" : ""}>Français</option><option value="en"${window.LANG === "en" ? " selected" : ""}>English</option></select></div>
       <div><label class="lbl" for="setCur">Devise</label><select class="field" id="setCur">${APP_CURRENCIES.map(([c, l]) => `<option value="${c}"${c === (settings.currency || "EUR") ? " selected" : ""}>${esc(c)} · ${esc(l)}</option>`).join("")}</select></div></div>
@@ -1429,8 +1444,8 @@ function renderDettes() {
     else addPayment(x);
   });
 }
-function editDebt(id) {
-  const x = id ? clone(debts[id]) : { kind: "credit", name: "", who: "", amount: "", rate: "", monthly: "", start: "", months: "", due: "", note: "", payments: [] };
+function editDebt(id, preset) {
+  const x = id ? clone(debts[id]) : { kind: "credit", name: "", who: "", amount: "", rate: "", monthly: "", start: "", months: "", due: "", note: "", payments: [], ...(preset || {}) };
   let kind = x.kind;
   const f = openForm(`<div class="f2"><h3>${id ? "Modifier la dette" : "Nouvelle dette"}</h3>
     <span class="lbl">Type</span><div class="chips" id="dKind"></div>
@@ -1443,7 +1458,7 @@ function editDebt(id) {
       <div>${fld("dMonths", "Nombre de mensualités", `inputmode="numeric" value="${esc(x.months || "")}"`)}</div></div></div>
     <div id="dPerso">${fld("dDue", "À rembourser avant le (facultatif)", `type="date" value="${esc(x.due || "")}"`)}</div>
     <div id="dSoc">${typeof socOn === "function" && socOn() ? (x.claim ? `<p class="hint">Réclamée à <b>@${esc(x.claimTo || "")}</b> dans Bourselle.</p>`
-      : `${fld("dTag", "Réclamer via Bourselle : tag de la personne (facultatif)", `placeholder="@paul-3f9k" autocapitalize="off" spellcheck="false" value="${esc(x.claimTo ? "@" + x.claimTo : "")}"`)}<p class="hint" style="margin:4px 0 0">La dette apparaîtra dans son app. Réservé à Bourselle Plus.</p>`) : ""}</div>
+      : `${fld("dTag", "Réclamer via Bourselle : tag de la personne (facultatif)", `placeholder="@paul-3f9k" autocapitalize="off" spellcheck="false" list="socContactsList" value="${esc(x.claimTo ? "@" + x.claimTo : "")}"`)}${typeof socContactsDatalist === "function" ? socContactsDatalist() : ""}<p class="hint" style="margin:4px 0 0">La dette apparaîtra dans son app. Réservé à Bourselle Plus.</p>`) : ""}</div>
     ${fld("dNote", "Infos", `placeholder="N° de contrat, conditions…" value="${esc(x.note || "")}"`)}</div>`,
     () => {
       const name = val("dName"), amount = parseAmount(val("dAmount"));
@@ -2691,6 +2706,11 @@ async function boot() {
     } catch (e) {}
   }
   if (last === "local") return connect("local", true);
+  // Session Google encore valable dans cet onglet (après un rechargement) : on reprend sans clic.
+  if (last === "google" && CFG.googleClientId) {
+    let ok = false; try { ok = !!JSON.parse(sessionStorage.getItem("bourselle-google-session") || "null"); } catch (e) {}
+    if (ok) { showLogin(""); await connect("google", "resume"); if (store) return; }
+  }
   showLogin("");   // Google demande un clic pour ouvrir sa fenêtre de connexion
 }
 boot();

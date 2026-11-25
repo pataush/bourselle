@@ -12,6 +12,19 @@
 
   // ---------- Textes fixes ----------
   const EXACT = {
+    "Voir les analyses du mois": "Show this month's analysis",
+    "Masquer les analyses du mois": "Hide this month's analysis",
+    "catégories, budget, comparaison": "categories, budget, comparison",
+    "Tag Bourselle": "Bourselle tag",
+    "Mes contacts Bourselle": "My Bourselle contacts",
+    "Rechercher un utilisateur par son tag": "Search for a user by tag",
+    "Tape au moins 3 caractères.": "Type at least 3 characters.",
+    "Recherche…": "Searching…",
+    "Aucun utilisateur trouvé.": "No user found.",
+    "Déjà ajouté": "Already added",
+    "Ajouter": "Add",
+    "Ajoute tes proches pour leur réclamer une dette en deux clics.": "Add friends and family to claim a debt in two taps.",
+    "Retirer": "Remove",
     "Mon tag Bourselle": "My Bourselle tag",
     "Donne ton tag à tes proches : ils pourront te réclamer une dette, ou toi la leur, directement dans l'app.": "Share your tag with friends and family: they can claim a debt from you, or you from them, right in the app.",
     "Copier": "Copy",
@@ -438,6 +451,10 @@
   // ---------- Textes avec des valeurs ({m} montant, {d} date, {n} nombre, {x} autre) ----------
   const s = n => (Number(String(n).replace(/[^\d.]/g, "")) > 1 ? "s" : "");
   const PATTERNS = [
+    ["{n} budget dépassé · catégories, budget, comparaison", "{n} budget over · categories, budget, comparison"],
+    ["{n} budgets dépassés · catégories, budget, comparaison", "{n} budgets over · categories, budget, comparison"],
+    ["@{x} ajouté à tes contacts", "@{x} added to your contacts"],
+    ["Retirer @{x}", "Remove @{x}"],
     ["Réclamation envoyée à @{x}", "Claim sent to @{x}"],
     ["Dette envers @{x} ajoutée", "Debt to @{x} added"],
     ["Ton tag : @{x}", "Your tag: @{x}"],

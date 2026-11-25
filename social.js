@@ -51,26 +51,69 @@ setInterval(() => { if (document.visibilityState === "visible") socRefresh(); },
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") socRefresh(); });
 { const _applyData = applyData; applyData = function (d) { _applyData(d); SOC.in = []; SOC.out = []; SOC.tag = ""; SOC.loaded = false; setTimeout(socRefresh, 800); }; }
 
-// ---------- Réglages : mon tag ----------
-function socTagCardHTML() {
+// ---------- Réglages : mon tag (dans « Mon compte ») et mes contacts ----------
+function socTagInlineHTML() {
   if (!socOn()) return "";
-  return `<div class="card"><h2>Mon tag Bourselle</h2>
-    <p class="hint" style="margin-top:0">Donne ton tag à tes proches : ils pourront te réclamer une dette, ou toi la leur, directement dans l'app.</p>
-    <div class="soc-tag">${SOC.tag ? `<b class="num">@${esc(SOC.tag)}</b>` : `<span class="hint">${SOC.err ? esc(SOC.err) : "Chargement…"}</span>`}</div>
-    ${SOC.tag ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn" id="socCopy">Copier</button>${navigator.share ? `<button class="btn" id="socShare">Partager</button>` : ""}<button class="btn" id="socEdit">Changer</button></div>` : ""}</div>`;
+  return `<div class="soc-tag-row"><span class="hint">Tag Bourselle</span> ${SOC.tag ? `<b class="num">@${esc(SOC.tag)}</b>` : `<span class="hint">${SOC.err ? esc(SOC.err) : "Chargement…"}</span>`}
+    ${SOC.tag ? `<span class="soc-tag-btns"><button class="linkbtn" id="socCopy">Copier</button>${navigator.share ? `<button class="linkbtn" id="socShare">Partager</button>` : ""}<button class="linkbtn" id="socEdit">Changer</button></span>` : ""}</div>`;
+}
+const socContacts = () => (settings.contacts || []).filter(c => c && c.tag);
+function socContactsDatalist() { return `<datalist id="socContactsList">${socContacts().map(c => `<option value="@${esc(c.tag)}">${esc(c.name || "")}</option>`).join("")}</datalist>`; }
+function socContactsCardHTML() {
+  if (!socOn()) return "";
+  const list = socContacts();
+  return `<div class="card"><h2>Mes contacts Bourselle${list.length ? `<small>${list.length}</small>` : ""}</h2>
+    <label class="lbl" for="socSearch">Rechercher un utilisateur par son tag</label>
+    <input class="field" id="socSearch" placeholder="@paul…" autocapitalize="off" spellcheck="false" autocomplete="off">
+    <div id="socResults"></div>
+    ${list.length ? `<div class="soc-contacts">${list.map(c => `<div class="soc-contact"><div><b>@${esc(c.tag)}</b>${c.name ? ` <span class="hint">${esc(c.name)}</span>` : ""}</div>
+      <div class="acts"><button class="btn" data-socclaim="${esc(c.tag)}">Réclamer une dette</button><button class="hbtn cat-del" data-socdel="${esc(c.tag)}" aria-label="Retirer @${esc(c.tag)}" title="Retirer">✕</button></div></div>`).join("")}</div>`
+      : `<p class="hint" style="margin:8px 0 0">Ajoute tes proches pour leur réclamer une dette en deux clics.</p>`}</div>`;
 }
 function socBindTagCard() {
   const msg = () => `Mon tag Bourselle : @${SOC.tag}\nhttps://pataush.github.io/bourselle/`;
   const cp = document.getElementById("socCopy"); if (cp) cp.onclick = () => { navigator.clipboard?.writeText("@" + SOC.tag).then(() => toast("Tag copié")).catch(() => toast("@" + SOC.tag)); };
   const sh = document.getElementById("socShare"); if (sh) sh.onclick = () => navigator.share({ text: msg() }).catch(() => {});
   const ed = document.getElementById("socEdit"); if (ed) ed.onclick = () => {
-    const f = openForm(`<div class="f2"><h3>Changer mon tag</h3>${fld("socNew", "Nouveau tag", `value="${esc(SOC.tag)}" autocapitalize="off" spellcheck="false"`)}
+    openForm(`<div class="f2"><h3>Changer mon tag</h3>${fld("socNew", "Nouveau tag", `value="${esc(SOC.tag)}" autocapitalize="off" spellcheck="false"`)}
       <p class="hint">3 à 24 caractères : lettres minuscules, chiffres, - ou _. L'ancien tag est libéré.</p></div>`, () => {
       const t = val("socNew").trim().toLowerCase().replace(/^@/, "");
       socApi("/me/tag", { method: "POST", body: JSON.stringify({ tag: t }) }).then(j => { SOC.tag = j.tag; closeForm(); render(); toast(`Ton tag : @${j.tag}`); }).catch(e => toast(e.message));
       return false;
     });
   };
+  // Recherche (attend une courte pause dans la frappe, 3 caractères minimum)
+  const inp = document.getElementById("socSearch"), out = document.getElementById("socResults");
+  let tm = null, last = "";
+  if (inp) inp.oninput = () => {
+    clearTimeout(tm);
+    const q = inp.value.trim().toLowerCase().replace(/^@/, "");
+    if (q.length < 3) { out.innerHTML = q ? `<p class="hint">Tape au moins 3 caractères.</p>` : ""; return; }
+    tm = setTimeout(async () => {
+      if (q === last) return; last = q;
+      out.innerHTML = `<p class="hint">Recherche…</p>`;
+      try {
+        const j = await socApi("/search?q=" + encodeURIComponent(q));
+        if (inp.value.trim().toLowerCase().replace(/^@/, "") !== q) return;
+        const have = new Set(socContacts().map(c => c.tag));
+        out.innerHTML = j.users.length ? `<div class="soc-contacts">${j.users.map(u => `<div class="soc-contact"><div><b>@${esc(u.tag)}</b>${u.name ? ` <span class="hint">${esc(u.name)}</span>` : ""}</div>
+          ${have.has(u.tag) ? `<span class="hint">Déjà ajouté</span>` : `<button class="btn primary" data-socadd="${esc(u.tag)}" data-name="${esc(u.name || "")}">Ajouter</button>`}</div>`).join("")}</div>`
+          : `<p class="hint">Aucun utilisateur trouvé.</p>`;
+        out.querySelectorAll("[data-socadd]").forEach(b => b.onclick = () => {
+          settings.contacts = socContacts().concat([{ tag: b.dataset.socadd, name: b.dataset.name || "", added: todayISO() }]);
+          saveSettings(); render(); toast(`@${b.dataset.socadd} ajouté à tes contacts`);
+        });
+      } catch (e) { out.innerHTML = `<p class="hint">${esc(e.message)}</p>`; }
+    }, 450);
+  };
+  document.querySelectorAll("[data-socdel]").forEach(b => b.onclick = () => {
+    settings.contacts = socContacts().filter(c => c.tag !== b.dataset.socdel); saveSettings(); render();
+  });
+  document.querySelectorAll("[data-socclaim]").forEach(b => b.onclick = () => {
+    if (!isPlus()) return showPlus("claim");
+    const c = socContacts().find(x => x.tag === b.dataset.socclaim) || {};
+    editDebt(null, { kind: "medoit", claimTo: c.tag, who: c.name || "@" + c.tag });
+  });
 }
 
 // ---------- Dettes : réclamations reçues ----------

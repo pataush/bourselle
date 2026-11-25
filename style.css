@@ -354,3 +354,16 @@ select.field { appearance: auto; }
 .soc-claim .acts { display: flex; gap: 8px; margin-top: 6px; }
 .soc-in { border-left: 6px solid #2f6fb0; }
 .soc-st { font-size: .82rem; color: var(--muted, #6b7a88); margin-top: 6px; }
+.soc-tag-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+.soc-tag-row b { font-size: 1.05rem; }
+.soc-tag-btns { display: inline-flex; gap: 10px; }
+.soc-contacts { display: flex; flex-direction: column; margin-top: 8px; }
+.soc-contact { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.soc-contact:last-child { border-bottom: 0; }
+.soc-contact .acts { display: flex; gap: 6px; align-items: center; }
+.more-toggle { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 10px; width: 100%; text-align: left; background: var(--surface); border: 1px dashed var(--line); border-radius: 18px; padding: 14px 16px; color: var(--ink); font: inherit; cursor: pointer; }
+.more-toggle span { font-weight: 700; }
+.more-toggle small { grid-column: 1; color: var(--muted, #6b7a88); font-size: .8rem; }
+.more-toggle i { grid-column: 2; grid-row: 1 / span 2; font-style: normal; font-size: 1.2rem; color: var(--muted, #6b7a88); }
+#moreBox { display: flex; flex-direction: column; gap: 14px; }
+#moreBox[hidden] { display: none; }

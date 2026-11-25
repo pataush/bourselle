@@ -91,6 +91,9 @@
     const API = "https://www.googleapis.com/drive/v3";
     const UPLOAD = "https://www.googleapis.com/upload/drive/v3";
     let token = null, expires = 0, me = null;
+    // Le jeton (valable 1 h) est gardé le temps de la session de l'onglet : recharger l'app
+    // (par exemple « Charger la dernière version ») ne demande pas de se reconnecter.
+    const SESSION_KEY = "bourselle-google-session";
     let folderId = null, filesFolderId = null, dataFileId = null;
 
     function requestToken(prompt) {
@@ -103,7 +106,9 @@
             if (r.error) return reject(new StoreError("auth", r.error_description || r.error));
             if (!google.accounts.oauth2.hasGrantedAllScopes(r, "https://www.googleapis.com/auth/drive.file"))
               return reject(new StoreError("scope", "Autorise l'accès au dossier « Bourselle » de ton Drive pour continuer."));
-            token = r.access_token; expires = Date.now() + (Number(r.expires_in) - 120) * 1000; resolve();
+            token = r.access_token; expires = Date.now() + (Number(r.expires_in) - 120) * 1000;
+            try { sessionStorage.setItem(SESSION_KEY, JSON.stringify({ token, expires })); } catch (e) {}
+            resolve();
           },
           error_callback: e => reject(new StoreError(e && e.type === "popup_closed" ? "cancelled" : "auth", "Connexion annulée ou bloquée")),
         });
@@ -115,7 +120,7 @@
       let res;
       try { res = await fetch(url, { ...opts, headers: { ...(opts.headers || {}), Authorization: "Bearer " + token } }); }
       catch (e) { throw new StoreError("offline", "Pas de connexion internet"); }
-      if (res.status === 401) { token = null; }
+      if (res.status === 401) { token = null; try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {} }
       return check(res);
     }
     const q = s => encodeURIComponent(s);
@@ -153,8 +158,14 @@
     return {
       id: "google", label: "Google Drive", canFiles: true,
       async signIn(interactive) {
-        await waitFor(() => window.google && google.accounts && google.accounts.oauth2);
-        await requestToken(interactive === "choose" ? "select_account" : interactive === "consent" ? "consent" : "");
+        if (interactive === "resume") {
+          let s0 = null; try { s0 = JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null"); } catch (e) {}
+          if (!s0 || !s0.token || !(s0.expires > Date.now() + 60000)) throw new StoreError("auth", "Session expirée");
+          token = s0.token; expires = s0.expires;
+        } else {
+          await waitFor(() => window.google && google.accounts && google.accounts.oauth2);
+          await requestToken(interactive === "choose" ? "select_account" : interactive === "consent" ? "consent" : "");
+        }
         me = await (await api("https://www.googleapis.com/oauth2/v3/userinfo")).json();
         if (me.email) localStorage.setItem("mb-google-hint", me.email);
         await ensureFolders();
@@ -227,7 +238,7 @@
       async folderLink(path) { return `https://drive.google.com/drive/folders/${await folderPath(path)}`; },
       signOut() {
         if (token && window.google && google.accounts) google.accounts.oauth2.revoke(token, () => {});
-        token = null; localStorage.removeItem("mb-google-hint");
+        token = null; localStorage.removeItem("mb-google-hint"); try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
       },
     };
   }
