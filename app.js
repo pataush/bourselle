@@ -6,6 +6,14 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
+const APP_VERSION = "28";
+// Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
+async function forceUpdate() {
+  try { saveNow(); keepPending(); } catch (e) {}
+  try { const r = await navigator.serviceWorker?.getRegistration(); if (r) await r.update(); } catch (e) {}
+  try { for (const k of await caches.keys()) await caches.delete(k); } catch (e) {}
+  setTimeout(() => location.reload(), 400);
+}
 const DEFAULT_SETTINGS = {
   cats: [
     { id: "logement", name: "Logement", budget: 900, color: "#1f4e79", fixe: true },
@@ -573,8 +581,11 @@ function renderReglages() {
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="dlAll">Sauvegarde complète (JSON)</button>
     <label class="btn" for="importFile" style="cursor:pointer">Importer un fichier</label><input type="file" id="importFile" accept=".json,application/json" hidden></div>
     <p class="hint">Importer ajoute les données du fichier (par exemple l'export de l'ancienne version) à celles que tu as déjà, sans rien effacer.</p></div>
-    <div class="card"><h2>Installer sur ton téléphone</h2><p class="hint" style="margin:0">iPhone : dans Safari, bouton Partager puis « Sur l'écran d'accueil ». Android : dans Chrome, menu ⋮ puis « Ajouter à l'écran d'accueil ».</p></div>`;
+    <div class="card"><h2>Installer sur ton téléphone</h2><p class="hint" style="margin:0">iPhone : dans Safari, bouton Partager puis « Sur l'écran d'accueil ». Android : dans Chrome, menu ⋮ puis « Ajouter à l'écran d'accueil ».</p>
+    <p class="hint">Version ${APP_VERSION}</p><button class="btn" id="forceUpdate">Charger la dernière version</button></div>`;
   view.innerHTML = html;
+  const fu = document.getElementById("forceUpdate");
+  if (fu) fu.onclick = () => forceUpdate();
   view.querySelectorAll("[data-f]").forEach(inp => inp.onchange = () => {
     const c = settings.cats[Number(inp.dataset.i)], f = inp.dataset.f;
     if (f === "budget") c.budget = parseAmount(inp.value) || 0;

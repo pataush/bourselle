@@ -12,6 +12,7 @@
 
   // ---------- Textes fixes ----------
   const EXACT = {
+    "Charger la dernière version": "Load the latest version",
     "Hors ligne – enregistré sur l'appareil": "Offline – saved on this device",
     "Le Drive refuse l'enregistrement : reconnecte-toi et autorise l'accès au dossier « Bourselle »": "Drive refused to save: sign in again and allow access to the “Bourselle” folder",
     "Pas de connexion internet": "No internet connection",
@@ -402,6 +403,7 @@
   // ---------- Textes avec des valeurs ({m} montant, {d} date, {n} nombre, {x} autre) ----------
   const s = n => (Number(String(n).replace(/[^\d.]/g, "")) > 1 ? "s" : "");
   const PATTERNS = [
+    ["Version {n}", "Version {n}"],
     ["{n} bientôt expirée", "{n} expiring soon"],
     ["{n} bientôt expirées", "{n} expiring soon"],
     [", valable jusqu'au {d}. Merci pour ton soutien !", ", valid until {d}. Thank you for your support!"],
