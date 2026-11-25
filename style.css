@@ -459,3 +459,14 @@ nav.tabs button[aria-selected="true"] { background: var(--green); color: #fff; b
 /* Alertes (cloche) */
 .alert-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; text-align: left; background: var(--bg); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin-bottom: 8px; color: var(--ink); }
 .alert-row b { font-size: .95rem; } .alert-row .n { min-width: 24px; height: 24px; border-radius: 12px; background: var(--gold); color: #241a03; font-weight: 700; font-size: .8rem; display: grid; place-items: center; padding: 0 6px; }
+.brand h1 .avatar { cursor: pointer; }
+.pm-head { display: flex; align-items: center; gap: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+.pm-head .avatar { width: 56px; height: 56px; font-size: 1.4rem; }
+.pm-head b { font-size: 1.1rem; }
+.pm-tag { display: flex; align-items: center; gap: 8px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.pm-list { display: flex; flex-direction: column; margin-top: 6px; }
+.pm-row { display: grid; grid-template-columns: 36px 1fr auto; align-items: center; gap: 10px; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--line); padding: 10px 2px; color: var(--ink); }
+.pm-row:last-child { border-bottom: 0; }
+.pm-ic { width: 36px; height: 36px; border-radius: 12px; display: grid; place-items: center; background: var(--bg); color: var(--green); font-size: 1.05rem; }
+.pm-t { display: flex; flex-direction: column; } .pm-t small { color: var(--muted); font-size: .78rem; }
+.pm-chev { color: var(--muted); font-size: 1.3rem; }

@@ -12,6 +12,23 @@
 
   // ---------- Textes fixes ----------
   const EXACT = {
+    "Mon compte": "My account",
+    "Mode démo, sur cet appareil": "Demo mode, on this device",
+    "Mon tag": "My tag",
+    "Mon QR code": "My QR code",
+    "Pour qu'on t'ajoute en contact": "So people can add you",
+    "Mes contacts": "My contacts",
+    "Rien à signaler": "Nothing to report",
+    "Découvrir l'offre": "See the offer",
+    "Activé": "Active",
+    "Passer à la version complète": "Switch to the full version",
+    "Passer à la version simple": "Switch to the simple version",
+    "Version complète": "Full version",
+    "Langue : anglais": "Language: English",
+    "Langue : français": "Language: French",
+    "Tous les réglages": "All settings",
+    "Budget, catégories, devise, exports": "Budget, categories, currency, exports",
+    "Mon profil et raccourcis": "My profile and shortcuts",
     "Simple : le budget du mois, l'année, le partage des frais, je dois / on me doit, le plan d'économies et les objectifs. Passe à la version complète pour les abonnements, les notes de frais et les garanties. Tes données ne changent pas.": "Simple: this month's budget, the year, shared costs, I owe / owed to me, the savings plan and goals. Switch to the full version for subscriptions, expense claims and warranties. Your data doesn't change.",
     "Groupes partagés illimités": "Unlimited shared groups",
     "garanties et prélèvements dans ton agenda, notifications": "warranties and payments in your calendar, notifications",
@@ -502,6 +519,13 @@
   // ---------- Textes avec des valeurs ({m} montant, {d} date, {n} nombre, {x} autre) ----------
   const s = n => (Number(String(n).replace(/[^\d.]/g, "")) > 1 ? "s" : "");
   const PATTERNS = [
+    ["{n} contact", "{n} contact"],
+    ["{n} contacts", "{n} contacts"],
+    ["{n} à voir", "{n} to check"],
+    ["Automatique → toucher pour clair", "Automatic → tap for light"],
+    ["Clair → toucher pour sombre", "Light → tap for dark"],
+    ["Sombre → toucher pour automatique", "Dark → tap for automatic"],
+    ["{x} · Bourselle Plus", "{x} · Bourselle Plus"],
     ["gratuit : {n}", "free: {n}"],
     ["Voir tout ({n})", "See all ({n})"],
     ["{m} vs {x}", "{m} vs {x}"],

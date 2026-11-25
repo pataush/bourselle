@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "38";
+const APP_VERSION = "39";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -230,6 +230,44 @@ function deleteCat(i) {
 function homeMoreOpen(v) {
   if (v === undefined) { try { return localStorage.getItem("bourselle-home-more") === "1"; } catch (e) { return false; } }
   try { localStorage.setItem("bourselle-home-more", v ? "1" : "0"); } catch (e) {} return v;
+}
+// Menu du profil (touche la pastille en haut à gauche) : infos, tag, raccourcis
+function showProfileMenu() {
+  if (!store) return;
+  const u = store.user ? store.user() : {}, local = store.id === "local", soc = typeof socOn === "function" && socOn();
+  const theme = applyTheme.cur || "auto", nextTheme = { auto: "light", light: "dark", dark: "auto" }[theme];
+  const TH = { auto: "Automatique", light: "Clair", dark: "Sombre" };
+  const nAl = alertsList().reduce((a, x) => a + x.n, 0);
+  const row = (id, icon, label, sub) => `<button type="button" class="pm-row" id="${id}"><span class="pm-ic" aria-hidden="true">${icon}</span><span class="pm-t"><b>${esc(label)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</span><span class="pm-chev" aria-hidden="true">›</span></button>`;
+  const f = openForm(`<div class="f2 pm">
+    <div class="pm-head"><span class="avatar">${esc((document.getElementById("avatar").textContent || "B"))}</span>
+      <div><b>${esc(u.name || "Mon compte")}</b><div class="hint">${esc(u.email || (local ? "Mode démo, sur cet appareil" : ""))}</div><div class="hint">${esc(store.label || "")}${typeof isPlus === "function" && isPlus() ? " · Bourselle Plus" : ""}</div></div></div>
+    ${soc && SOC.tag ? `<div class="pm-tag"><span class="hint">Mon tag</span> <b class="num">@${esc(SOC.tag)}</b><span style="flex:1"></span><button type="button" class="linkbtn" id="pmCopy">Copier</button></div>` : ""}
+    <div class="pm-list">
+      ${soc && SOC.tag ? row("pmQr", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v7h-7"/></svg>', "Mon QR code", "Pour qu'on t'ajoute en contact") : ""}
+      ${soc ? row("pmContacts", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.6.9 2.6 2.6 3 5.2"/></svg>', "Mes contacts", `${(settings.contacts || []).length} contact${(settings.contacts || []).length > 1 ? "s" : ""}`) : ""}
+      ${row("pmAlerts", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>', "Alertes", nAl ? `${nAl} à voir` : "Rien à signaler")}
+      ${typeof showPlus === "function" ? row("pmPlus", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg>', "Bourselle Plus", typeof isPlus === "function" && isPlus() ? "Activé" : "Découvrir l'offre") : ""}
+      ${row("pmTheme", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg>', "Apparence", `${TH[theme]} → toucher pour ${TH[nextTheme].toLowerCase()}`)}
+      ${row("pmMode", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h14l-3-3M20 16H6l3 3"/></svg>', isSimple() ? "Passer à la version complète" : "Passer à la version simple", isSimple() ? "Version simple" : "Version complète")}
+      ${row("pmLang", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9s1.3-6.3 3.8-9z"/></svg>', window.LANG === "en" ? "Français" : "English", window.LANG === "en" ? "Langue : anglais" : "Langue : français")}
+      ${!local && store.folderUrl && store.folderUrl() ? row("pmFolder", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>', "Ouvrir mon dossier", store.label) : ""}
+      ${row("pmSettings", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>', "Tous les réglages", "Budget, catégories, devise, exports")}
+      ${row("pmUpdate", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg>', "Charger la dernière version", "Version " + APP_VERSION)}
+    </div></div>`, () => true);
+  f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
+  const on = (id, fn) => { const b = f.querySelector("#" + id); if (b) b.onclick = fn; };
+  on("pmCopy", () => { navigator.clipboard?.writeText("@" + SOC.tag).then(() => toast("Tag copié")).catch(() => toast("@" + SOC.tag)); });
+  on("pmQr", () => { closeForm(); socShowQr(); });
+  on("pmContacts", () => { closeForm(); switchTab("reglages"); setTimeout(() => document.getElementById("socSearch")?.scrollIntoView({ block: "center" }), 80); });
+  on("pmAlerts", () => { closeForm(); showAlerts(); });
+  on("pmPlus", () => { closeForm(); showPlus(); });
+  on("pmTheme", () => { try { localStorage.setItem("bourselle-theme", nextTheme); } catch (e) {} applyTheme.cur = applyTheme(nextTheme); closeForm(); render(); showProfileMenu(); });
+  on("pmMode", () => { closeForm(); setMode(isSimple() ? "complete" : "simple"); });
+  on("pmLang", () => { closeForm(); if (typeof setLang === "function") setLang(window.LANG === "en" ? "fr" : "en"); });
+  on("pmFolder", () => { window.open(store.folderUrl(), "_blank", "noopener"); });
+  on("pmSettings", () => { closeForm(); switchTab("reglages"); });
+  on("pmUpdate", () => { closeForm(); forceUpdate(); });
 }
 // Alertes regroupées derrière la cloche
 function alertsList() {
@@ -864,6 +902,7 @@ function step(d) {
 }
 document.getElementById("searchBtn").onclick = () => switchTab("recherche");
 document.getElementById("bellBtn").onclick = () => showAlerts();
+{ const av = document.getElementById("avatar"); av.onclick = () => showProfileMenu(); av.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showProfileMenu(); } }; }
 document.getElementById("prev").onclick = () => step(-1);
 document.getElementById("next").onclick = () => step(1);
 
