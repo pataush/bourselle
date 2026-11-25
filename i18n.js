@@ -12,6 +12,11 @@
 
   // ---------- Textes fixes ----------
   const EXACT = {
+    "Simple : le budget du mois, l'année, le partage des frais, je dois / on me doit, le plan d'économies et les objectifs. Passe à la version complète pour les abonnements, les notes de frais et les garanties. Tes données ne changent pas.": "Simple: this month's budget, the year, shared costs, I owe / owed to me, the savings plan and goals. Switch to the full version for subscriptions, expense claims and warranties. Your data doesn't change.",
+    "Groupes partagés illimités": "Unlimited shared groups",
+    "garanties et prélèvements dans ton agenda, notifications": "warranties and payments in your calendar, notifications",
+    "Me prévenir ce nombre de jours avant chaque prélèvement :": "Remind me this many days before each payment:",
+    "Rien à ajouter pour l'instant : ajoute des garanties ou des abonnements.": "Nothing to add yet: add warranties or subscriptions.",
     "Accueil": "Home",
     "Analyse": "Insights",
     "Opérations": "Transactions",
@@ -497,6 +502,7 @@
   // ---------- Textes avec des valeurs ({m} montant, {d} date, {n} nombre, {x} autre) ----------
   const s = n => (Number(String(n).replace(/[^\d.]/g, "")) > 1 ? "s" : "");
   const PATTERNS = [
+    ["gratuit : {n}", "free: {n}"],
     ["Voir tout ({n})", "See all ({n})"],
     ["{m} vs {x}", "{m} vs {x}"],
     ["@{x} est déjà dans tes contacts", "@{x} is already in your contacts"],

@@ -27,9 +27,9 @@ const PLUS_WHY = {
 const PLUS_LIST = [
   ["Scan de tickets illimité", `gratuit : ${FREE.scan} par mois`],
   ["Import des relevés bancaires illimité", `gratuit : ${FREE.import} par mois`],
-  ["Tontines et groupes partagés illimités", `gratuit : ${FREE.tontines} de chaque`],
+  ["Groupes partagés illimités", `gratuit : ${FREE.groups}`],
   ["Notes de frais illimitées", `gratuit : ${FREE.ndf} tickets par mois, illimité le premier mois`],
-  ["Rappels avancés", "garanties, prélèvements et tontines dans ton agenda, notifications"],
+  ["Rappels avancés", "garanties et prélèvements dans ton agenda, notifications"],
   ["Réclamer une dette", "avec le tag de la personne : elle la reçoit dans son app et vous suivez les remboursements"],
   ["Exports comptables", "grand livre et synthèse mensuelle, prêts pour Excel"],
   ["Forfait famille", "un seul abonnement pour 5 comptes, chacun garde ses données"],
@@ -229,7 +229,7 @@ function reminderEvents() {
       if (daysUntil(lim) >= 0) ev.push({ uid: "eng-" + id, date: lim, title: `${s.name} : dernier jour pour résilier`, desc: `Fin d'engagement le ${frDate(s.engEnd)}`, alarms: [7, 1] });
     }
   }
-  for (const [id, t] of Object.entries(tontines)) {
+  for (const [id, t] of []) {   // tontines : application à part
     if (t.closed) continue;
     for (const r of tonRounds(t)) if (daysUntil(r.date) >= 0)
       ev.push({ uid: `ton-${id}-${r.k}`, date: r.date, title: `Tontine ${t.name} : cotisation ${typeof tm === "function" ? tm(t, dueOf(t, t.me)) : eur(t.amount)}${(r.m || [r.who]).includes(t.me) ? " · c'est ton tour de recevoir" : ""}`, desc: "", alarms: [remindDays()] });
@@ -312,16 +312,15 @@ function plusCardHTML() {
        <div class="plus-usage">
          <div><span>Scans de tickets</span><b class="num">${usedThisMonth("scan")} / ${FREE.scan}</b></div>
          <div><span>Imports de relevés</span><b class="num">${usedThisMonth("import")} / ${FREE.import}</b></div>
-         <div><span>Tontines</span><b class="num">${Object.keys(tontines).length} / ${FREE.tontines}</b></div>
          <div><span>Groupes partagés</span><b class="num">${Object.keys(groups).length} / ${FREE.groups}</b></div>
          <div><span>Notes de frais ce mois-ci</span><b class="num">${ndfInTrial() ? "essai" : `${ndfCount(todayISO().slice(0, 7))} / ${FREE.ndf}`}</b></div></div>`;
   return `<div class="card plus-card"><h2>Bourselle Plus<small>${st.ok ? "activé" : "en option"}</small></h2>${status}
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn ${st.ok ? "" : "primary"}" id="plusOpen">${st.ok ? "Mon offre" : "Découvrir Plus"}</button></div>
     <h3 class="plus-h">Rappels avancés${lock}</h3>
-    <label class="hint" for="remindDays">Me prévenir ce nombre de jours avant chaque prélèvement et chaque cotisation de tontine :</label>
+    <label class="hint" for="remindDays">Me prévenir ce nombre de jours avant chaque prélèvement :</label>
     <input class="field num" id="remindDays" inputmode="numeric" value="${remindDays()}" style="margin-top:6px;max-width:120px">
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn" id="icsBtn">Ajouter à mon agenda</button><button class="btn" id="notifBtn">${settings.notif && "Notification" in window && Notification.permission === "granted" ? "Notifications activées ✓" : "Activer les notifications"}</button></div>
-    <p class="hint">L'agenda (Google Agenda, Outlook, iPhone) reçoit les fins de garantie, les prélèvements, les dates limites de résiliation et les tours de tontine, avec une alerte. Les notifications s'affichent quand tu ouvres Bourselle.</p>
+    <p class="hint">L'agenda (Google Agenda, Outlook, iPhone) reçoit les fins de garantie, les prélèvements et les dates limites de résiliation, avec une alerte. Les notifications s'affichent quand tu ouvres Bourselle.</p>
     <h3 class="plus-h">Exports comptables${lock}</h3>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><select class="field" id="cYear" style="max-width:110px" aria-label="Année">${years.map(y => `<option${y === String(cur.y) ? " selected" : ""}>${y}</option>`).join("")}</select>
       <button class="btn" id="ledgerBtn">Grand livre</button><button class="btn" id="syntheseBtn">Synthèse mensuelle</button></div>
@@ -334,7 +333,7 @@ function bindPlusCard() {
   $("icsBtn").onclick = () => {
     if (!isPlus()) return showPlus("rappels");
     const n = reminderEvents().length;
-    if (!n) { toast("Rien à ajouter pour l'instant : ajoute des garanties, des abonnements ou une tontine."); return; }
+    if (!n) { toast("Rien à ajouter pour l'instant : ajoute des garanties ou des abonnements."); return; }
     saveFile("bourselle-rappels.ics", new Blob([buildICS()], { type: "text/calendar;charset=utf-8" }));
     toast(`${n} rappel${n > 1 ? "s" : ""} prêt${n > 1 ? "s" : ""} : ouvre le fichier pour les ajouter à ton agenda.`);
   };

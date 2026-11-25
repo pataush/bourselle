@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "37";
+const APP_VERSION = "38";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -238,7 +238,6 @@ function alertsList() {
     add("abos", "Abonnements à surveiller", Object.values(subs).filter(x => subStatus(x).st === "soon").length);
     add("garanties", "Garanties bientôt expirées", garItems().filter(x => garStatus(x.warranty) === "soon").length);
     add("frais", "Notes de frais à rembourser", allItems().filter(x => x.type === "depense" && x.ndf && x.ndfStatus !== "rembourse").length);
-    if (typeof tontineAlerts === "function") add("tontines", "Tontines : cotisations à suivre", tontineAlerts());
     if (typeof SOC !== "undefined") add("dettes", "Réclamations de dettes reçues", SOC.in.filter(c => c.status === "pending").length);
     const t = totals(itemsOf(cur.y, cur.m));
     add("mois", "Budgets dépassés ce mois-ci", settings.cats.filter(c => c.budget && (t.byCat[c.id] || 0) > c.budget).length);
@@ -528,7 +527,7 @@ function renderMois() {
     html += `<button class="card" id="goAbo" style="text-align:left;width:100%;cursor:pointer;border-left:6px solid var(--w-soon)"><h2>Abonnements à surveiller<small>${soonA.length}</small></h2>
       <div class="hint">${soonA.slice(0, 3).map(x => `${esc(x.name)} : ${esc(subStatus(x).why)}`).join("<br>")}</div></button>`;
   }
-  if (!isSimple()) html += tontineMoisHTML();
+  // Les tontines deviennent une application à part : elles ne sont plus affichées dans Bourselle.
   const prevM = cur.m === 1 ? { y: cur.y - 1, m: 12 } : { y: cur.y, m: cur.m - 1 };
   const prevFix = itemsOf(prevM.y, prevM.m).filter(x => x.fixe && x.type === "depense" && !x.ndf);
   const hasFix = list.some(x => x.fixe && x.type === "depense");
@@ -646,13 +645,13 @@ function renderReglages() {
     <p class="hint" style="margin:8px 0 0">Automatique suit le réglage de ton téléphone.</p></div>
   <div class="card"><h2>Version de l'app</h2>
     <div class="seg2" id="modeSeg"><button type="button" data-m="simple" aria-pressed="${isSimple()}">Simple</button><button type="button" data-m="complete" aria-pressed="${!isSimple()}">Complète</button></div>
-    <p class="hint" style="margin:8px 0 0">${isSimple() ? "Simple : le budget du mois, l'année, le partage des frais, je dois / on me doit, le plan d'économies et les objectifs. Passe à la version complète pour les abonnements, les tontines, les notes de frais et les garanties."
+    <p class="hint" style="margin:8px 0 0">${isSimple() ? "Simple : le budget du mois, l'année, le partage des frais, je dois / on me doit, le plan d'économies et les objectifs. Passe à la version complète pour les abonnements, les notes de frais et les garanties."
       : "Complète : toutes les fonctions. La version simple garde l'essentiel (budget du mois, année, partage des frais, dettes, économies, objectifs) pour un usage plus léger."} Tes données ne changent pas.</p></div>
   <div class="card"><h2>Langue et devise</h2>
     <div class="two"><div><label class="lbl" for="setLang">Langue</label><select class="field" id="setLang"><option value="fr"${window.LANG !== "en" ? " selected" : ""}>Français</option><option value="en"${window.LANG === "en" ? " selected" : ""}>English</option></select></div>
       <div><label class="lbl" for="setCur">Devise</label><select class="field" id="setCur">${APP_CURRENCIES.map(([c, l]) => `<option value="${c}"${c === (settings.currency || "EUR") ? " selected" : ""}>${esc(c)} · ${esc(l)}</option>`).join("")}</select></div></div>
     ${(() => { const rc = regionCurrency(), lb = (APP_CURRENCIES.find(x => x[0] === rc) || [, rc])[1]; return rc !== baseCurrency() ? `<div class="banner" style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-top:10px"><span><span>Devise de ta région :</span> <b>${esc(rc)} · ${esc(lb)}</b></span><button class="btn" type="button" id="useRegionCur" data-c="${esc(rc)}">Utiliser cette devise</button></div>` : ""; })()}
-    <p class="hint">En changeant de devise, tu peux convertir tous tes montants au taux du jour. Les tontines peuvent avoir leur propre devise, convertie dans celle-ci.</p>
+    <p class="hint">En changeant de devise, tu peux convertir tous tes montants au taux du jour.</p>
     <p class="hint">Une opération peut aussi être saisie dans une autre devise (bouton à côté du montant) : elle est convertie au taux du jour, que tu peux corriger. Taux fournis par <a href="https://www.exchangerate-api.com" target="_blank" rel="noopener">Rates By Exchange Rate API</a>${(fxCache() || {}).day ? ` · mis à jour le ${esc(frDate(fxCache().day))}` : ""}.</p></div>
   <div class="card"><h2>Budget mensuel par catégorie<small>total ${esc(eur(totalBud, true))}</small></h2>
     ${settings.cats.map((c, i) => `<div class="set-row cat-row"><input type="color" value="${esc(c.color)}" data-i="${i}" data-f="color" aria-label="Couleur ${esc(c.name)}">
@@ -791,7 +790,7 @@ const view = document.getElementById("view");
 // Ordre des suivis : d'abord un ordre par défaut (du plus courant au plus rare), puis il s'adapte à
 // ce que chaque personne ouvre le plus souvent sur son appareil. Recalculé à l'ouverture de l'app
 // seulement, pour que les onglets ne bougent pas pendant qu'on s'en sert.
-const SUBS_DEF = [["abos", "Abonnements"], ["tontines", "Tontines"], ["objectifs", "Objectifs"], ["economies", "Économies"], ["partage", "Partage"], ["dettes", "Dettes"], ["frais", "Frais"], ["garanties", "Garanties"]];
+const SUBS_DEF = [["abos", "Abonnements"], ["objectifs", "Objectifs"], ["economies", "Économies"], ["partage", "Partage"], ["dettes", "Dettes"], ["frais", "Frais"], ["garanties", "Garanties"]];
 const SUB_KEY = "bourselle-suivis";
 function subUse() { try { return JSON.parse(localStorage.getItem(SUB_KEY) || "{}") || {}; } catch (e) { return {}; } }
 function bumpSub(k) { try { const u = subUse(); u[k] = (u[k] || 0) + 1; localStorage.setItem(SUB_KEY, JSON.stringify(u)); } catch (e) {} }
@@ -820,7 +819,7 @@ function setMode(m) {
   saveSettings(); render(); toast(m === "simple" ? "Version simple activée" : "Version complète activée");
 }
 function render() {
-  if (!subAllowed(tab)) tab = "mois";
+  if (!subAllowed(tab) || tab === "tontines") tab = "mois";
   document.body.classList.toggle("mode-simple", isSimple());
   { const sb = document.querySelector("header .nm .sub"); if (sb) sb.textContent = isSimple() ? "Version simple" : ""; }
   {
@@ -838,7 +837,7 @@ function render() {
   const nGar = garItems().filter(x => garStatus(x.warranty) === "soon").length;
   const nAbo = Object.values(subs).filter(x => subStatus(x).st === "soon").length;
   const nFrais = allItems().filter(x => x.type === "depense" && x.ndf && x.ndfStatus !== "rembourse").length;
-  const nTon = tontineAlerts();
+  const nTon = 0;
   const cnt = document.getElementById("garCnt"); cnt.hidden = !(nGar + nAbo + nTon); cnt.textContent = nGar + nAbo + nTon;
   const sn = document.getElementById("subnav");
   sn.hidden = !isSub(tab);
@@ -1604,7 +1603,7 @@ function applyRecurring() {
       r.next = advance(r.next, r.freq); changed = true;
     }
   }
-  added += applyTontines();
+  // (tontines : application à part, plus d'opérations automatiques ici)
   if (changed) saveRecs();
   if (added) toast(`${added} opération${added > 1 ? "s" : ""} automatique${added > 1 ? "s" : ""} ajoutée${added > 1 ? "s" : ""}`);
   return added;
@@ -1703,7 +1702,7 @@ function upcomingThisMonth() {
     const b = groupBalances(g)[g.me] || 0;
     if (b < -0.004) up.push({ date: "", name: `Partage « ${g.name} »`, amount: -b, type: "depense", src: "À rembourser" });
   }
-  up.push(...tontineUpcoming(today, key, eom));
+  // (tontines : application à part)
   return up.sort((a, b) => (a.date || "9").localeCompare(b.date || "9"));
 }
 function forecastExtras() {
