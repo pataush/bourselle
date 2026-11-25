@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "42";
+const APP_VERSION = "43";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -72,6 +72,7 @@ let goals = {};           // objectifs d'épargne
 let groups = {};          // dépenses partagées
 let tontines = {};        // tontines
 let trips = {};           // déplacements (indemnités kilométriques) des notes de frais
+let accounts = {};        // comptes (courant, épargne, espèces…) et leur solde de départ (voir accounts.js)
 
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
 function ym(y, m) { return `${y}-${String(m).padStart(2, "0")}`; }
@@ -321,9 +322,9 @@ function setSync(state, txt) {
   document.getElementById("syncTxt").textContent = txt;
 }
 let version = null, saveTimer = null, saving = false, dirty = false, lastError = null;
-function snapshot() { return { app: "bourselle", version: 1, savedAt: new Date().toISOString(), months, settings, subs, debts, recs, goals, groups, tontines, trips }; }
+function snapshot() { return { app: "bourselle", version: 1, savedAt: new Date().toISOString(), months, settings, subs, debts, recs, goals, groups, tontines, trips, accounts }; }
 function applyData(d) {
-  months = (d && d.months) || {}; trips = (d && d.trips) || {}; subs = (d && d.subs) || {}; debts = (d && d.debts) || {}; recs = (d && d.recs) || {}; goals = (d && d.goals) || {}; groups = (d && d.groups) || {}; tontines = (d && d.tontines) || {};
+  months = (d && d.months) || {}; trips = (d && d.trips) || {}; accounts = (d && d.accounts) || {}; subs = (d && d.subs) || {}; debts = (d && d.debts) || {}; recs = (d && d.recs) || {}; goals = (d && d.goals) || {}; groups = (d && d.groups) || {}; tontines = (d && d.tontines) || {};
   settings = { ...clone(DEFAULT_SETTINGS), ...((d && d.settings) || {}) };
   if (!(d && d.settings) && window.LANG === "en" && window.T) {   // nouveau compte en anglais : catégories par défaut en anglais
     for (const c of settings.cats) c.name = T(c.name);
@@ -539,7 +540,11 @@ function renderMois() {
   const list = itemsOf(cur.y, cur.m).sort((a, b) => b.date.localeCompare(a.date) || (b.created || 0) - (a.created || 0));
   const t = totals(list);
   setHeader(`${MOIS[cur.m - 1]} ${cur.y}`, "Résultat du mois (rentrées − dépenses)", t.result);
-  {
+  if (typeof accHasBalance === "function" && accHasBalance()) {   // le solde réel de tous les comptes en vedette, le résultat du mois en pastille
+    const day = accRefDay(), tot = accTotalAt(day);
+    setHeader(`${MOIS[cur.m - 1]} ${cur.y}`, day === todayISO() ? "Solde total aujourd'hui" : `Solde total au ${frDate(day)}`, tot, true);
+    document.getElementById("resPill").innerHTML = `<span class="pill ${t.result >= 0 ? "good" : "bad"}">${t.result >= 0 ? "+" : ""}${esc(eur(t.result))} ce mois-ci</span>`;
+  } else {
     const pm = cur.m === 1 ? { y: cur.y - 1, m: 12 } : { y: cur.y, m: cur.m - 1 }, pl = itemsOf(pm.y, pm.m);
     if (pl.length) { const d = t.result - totals(pl).result; document.getElementById("resPill").innerHTML = `<span class="pill ${d >= 0 ? "good" : "bad"}">${d >= 0 ? "+" : ""}${esc(eur(d))} vs ${esc(MOIS[pm.m - 1])}</span>`; }
   }
@@ -547,7 +552,7 @@ function renderMois() {
   const budCats = settings.cats.filter(c => (c.budget || 0) > 0 || t.byCat[c.id]);
   const fixPct = t.depense ? t.fixe / t.depense * 100 : 0;
 
-  let html = banner + tilesHTML(t) + bilanHTML() + forecastHTML(t);
+  let html = banner + tilesHTML(t) + (typeof accCardHTML === "function" ? accCardHTML(true) : "") + bilanHTML() + forecastHTML(t);
   const todoAll = allItems().filter(x => x.type === "depense" && x.ndf && x.ndfStatus !== "rembourse");
   if (todoAll.length && !isSimple()) {
     const sum = todoAll.reduce((s, x) => s + Number(x.amount), 0);
@@ -603,6 +608,7 @@ function renderMois() {
     ${list.length > OPS_N + 2 ? `<button class="ops-more" id="opsMore">${showAll ? "Voir moins" : `Voir tout (${list.length})`}</button>` : ""}</div>`;
   view.innerHTML = html;
   const om = document.getElementById("opsMore"); if (om) om.onclick = () => { window.__opsAll = !window.__opsAll; render(); };
+  if (typeof accBindCard === "function") accBindCard();
   const mt = document.getElementById("moreToggle"); if (mt) mt.onclick = () => { homeMoreOpen(!homeMoreOpen()); render(); };
   const ib = document.getElementById("impBtn"); if (ib) ib.onclick = startImport;
   const gf = document.getElementById("goFrais"); if (gf) gf.onclick = () => switchTab("frais");
@@ -677,6 +683,7 @@ function renderReglages() {
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="linkGoogle"${CFG.googleClientId ? "" : " disabled"}>Se connecter avec Google</button><button class="btn primary" id="linkMicrosoft"${CFG.microsoftClientId ? "" : " disabled"}>Se connecter avec Microsoft</button></div>
     <div style="margin-top:8px"><button class="btn danger" id="logout" data-l="Quitter le mode essai">Quitter le mode essai</button></div></div>`
     : `<div style="display:flex;gap:8px;flex-wrap:wrap">${store && store.folderUrl() ? `<a class="btn" href="${esc(store.folderUrl())}" target="_blank" rel="noopener">Ouvrir mon dossier</a>` : ""}<button class="btn danger" id="logout" data-l="Se déconnecter">Se déconnecter</button></div></div>`}
+  ${typeof accCardHTML === "function" ? accCardHTML(false) : ""}
   ${typeof socContactsCardHTML === "function" ? socContactsCardHTML() : ""}
   <div class="card"><h2>Apparence</h2>
     <div class="seg2" id="themeSeg" style="grid-template-columns:repeat(3,1fr)">${[["auto", "Automatique"], ["light", "Clair"], ["dark", "Sombre"]].map(([k, l]) => `<button type="button" data-th="${k}" aria-pressed="${applyTheme.cur === k}">${l}</button>`).join("")}</div>
@@ -717,6 +724,7 @@ function renderReglages() {
     <p class="hint">Version ${APP_VERSION}</p><button class="btn" id="forceUpdate">Charger la dernière version</button></div>`;
   view.innerHTML = html;
   if (typeof socBindTagCard === "function") socBindTagCard();
+  if (typeof accBindCard === "function") accBindCard();
   document.querySelectorAll("#themeSeg [data-th]").forEach(b => b.onclick = () => { try { localStorage.setItem("bourselle-theme", b.dataset.th); } catch (e) {} applyTheme.cur = applyTheme(b.dataset.th); render(); });
   document.querySelectorAll("#modeSeg [data-m]").forEach(b => b.onclick = () => { if ((b.dataset.m === "simple") !== isSimple()) setMode(b.dataset.m); });
   const fu = document.getElementById("forceUpdate");
@@ -747,7 +755,7 @@ function renderReglages() {
   document.getElementById("dlAll").onclick = () => {
     const m = clone(months);
     for (const d of Object.values(m)) for (const t of Object.values(d.items || {})) delete t.files;
-    saveFile(`bourselle-sauvegarde-${todayISO()}.json`, JSON.stringify({ app: "bourselle", version: 1, exportedAt: new Date().toISOString(), months: m, settings, subs, debts, recs, goals, groups, tontines, trips }, null, 1));
+    saveFile(`bourselle-sauvegarde-${todayISO()}.json`, JSON.stringify({ app: "bourselle", version: 1, exportedAt: new Date().toISOString(), months: m, settings, subs, debts, recs, goals, groups, tontines, trips, accounts }, null, 1));
   };
   document.getElementById("importFile").onchange = async e => {
     const f = e.target.files && e.target.files[0]; e.target.value = "";
@@ -809,6 +817,7 @@ function importData(d) {
   for (const [id, x] of Object.entries(d.groups || {})) if (!groups[id]) { groups[id] = x; n++; }
   for (const [id, x] of Object.entries(d.tontines || {})) if (!tontines[id]) { tontines[id] = x; n++; }
   for (const [id, x] of Object.entries(d.trips || {})) if (!trips[id]) { trips[id] = x; n++; }
+  for (const [id, x] of Object.entries(d.accounts || {})) if (!accounts[id]) { accounts[id] = x; n++; }
   if (d.settings && Array.isArray(d.settings.cats)) {
     for (const c of d.settings.cats) {
       const mine = settings.cats.find(x => x.id === c.id);
@@ -1039,6 +1048,7 @@ function convertAll(R, to) {
   for (const x of Object.values(debts)) { x.amount = r2(x.amount); if (x.monthly) x.monthly = r2(x.monthly); for (const p of x.payments || []) p.amount = r2(p.amount); }
   for (const g of Object.values(groups)) for (const e of Object.values(g.expenses || {})) if (!e.deleted) { e.amount = r2(e.amount); e.updated = Date.now(); }
   for (const t of Object.values(tontines)) if (t.rate) t.rate = Math.round(Number(t.rate) / R * 1e6) / 1e6;   // taux = devise de la tontine pour 1 unité du budget
+  for (const a of Object.values(accounts)) if (a.anchor) a.anchor.amount = r2(a.anchor.amount * R);
   for (const t of Object.values(trips)) { if (t.rate) t.rate = Math.round(t.rate * R * 1e4) / 1e4; if (t.amount) t.amount = r2(t.amount); }
   const fl = settings.fxLast || {}; for (const k of Object.keys(fl)) fl[k] = Math.round(fl[k] / R * 1e6) / 1e6;
 }
@@ -1091,7 +1101,7 @@ function drawForm() {
   document.getElementById("typeSeg").innerHTML = TYPES.map(t => `<button type="button" aria-pressed="${t.id === form.type}" data-t="${t.id}">${t.label}</button>`).join("");
   document.querySelectorAll("#typeSeg button").forEach(b => b.onclick = () => {
     form.type = b.dataset.t;
-    form.cat = form.type === "depense" ? "courses" : settings[form.type][0];
+    form.cat = form.type === "depense" ? defCat("courses") : settings[form.type][0];
     form.fixe = form.type === "depense" ? catById(form.cat).fixe : false;
     if (form.type !== "depense") form.ndf = false;
     drawForm();
@@ -1125,6 +1135,7 @@ function drawForm() {
   drawRep();
   document.getElementById("scanBtn").hidden = !!form.oldKey || form.type !== "depense";
   drawFiles();
+  if (typeof accFormDraw === "function") accFormDraw();
 }
 function garEnd() {
   if (!form) return "";
@@ -1243,6 +1254,7 @@ document.getElementById("sheet").onsubmit = e => {
   if (isNdf && !settings.ndfTrial) { settings.ndfTrial = todayISO(); saveSettings(); }   // début du mois d'essai des notes de frais
   const tx = { id: form.id, type: form.type, amount, cat: form.cat, date, note: document.getElementById("fNote").value.trim().slice(0, 80),
     fixe: form.type === "depense" && !isNdf ? !!form.fixe : false, created: form.created || Date.now(), files: form.files };
+  if (typeof accFormApply === "function") accFormApply(tx);
   if (form.type === "depense" && form.gar.on) {
     const end = garEnd();
     const item = document.getElementById("gItem").value.trim() || tx.note;

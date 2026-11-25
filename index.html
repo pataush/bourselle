@@ -98,6 +98,10 @@
       <div><label class="lbl" for="fDate">Date</label><input class="field" type="date" id="fDate"></div>
       <div><label class="lbl" for="fNote">Note</label><input class="field" id="fNote" placeholder="ex. Carrefour"></div>
     </div>
+    <div id="accWrap" hidden><div class="two">
+      <div><label class="lbl" for="fAcc" id="accLbl">Depuis le compte</label><select class="field" id="fAcc"></select></div>
+      <div id="accToWrap" hidden><label class="lbl" for="fAccTo">Vers le compte</label><select class="field" id="fAccTo"></select></div>
+    </div></div>
     <div id="goalWrap" hidden><span class="lbl">Objectif d'épargne</span><div class="chips" id="fGoal"></div></div>
     <div id="repWrap"><span class="lbl">Répéter automatiquement</span><div class="chips" id="fRep"></div><p class="hint" id="repHint" style="margin:6px 0 0"></p></div>
     <span class="lbl">Type de charge</span>
@@ -166,6 +170,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@azure/msal-browser@2.38.3/lib/msal-browser.min.js"></script>
 <script src="storage.js"></script>
 <script src="app.js"></script>
+<script src="accounts.js"></script>
 <script src="tontine.js"></script>
 <script src="economies.js"></script>
 <script src="ndf.js"></script>
