@@ -236,9 +236,20 @@ function catLangSync() {
     if (c.name === d.name || c.name === en) c.name = window.LANG === "en" ? en : d.name;
   }
 }
+// Copie de secours sur l'appareil des modifications pas encore enregistrées dans le Drive :
+// si l'enregistrement échoue et que l'app est fermée, rien n'est perdu.
+function pendingKey() { if (!store || store.id === "local") return null; const u = store.user ? store.user() : {}; return "bourselle-pending-" + store.id + "-" + ((u && u.email) || ""); }
+function keepPending() { const k = pendingKey(); if (!k) return; try { localStorage.setItem(k, JSON.stringify(snapshot())); } catch (e) {} }
+function dropPending() { const k = pendingKey(); if (k) try { localStorage.removeItem(k); } catch (e) {} }
+function readPending() { const k = pendingKey(); if (!k) return null; try { return JSON.parse(localStorage.getItem(k) || "null"); } catch (e) { return null; } }
+function syncErrorText(e) {
+  if (!e) return "";
+  const det = [e.status, e.reason].filter(Boolean).join(" ");
+  const m = e.message || "Erreur"; return (window.T ? T(m) : m) + (det ? ` (${det})` : "");
+}
 function saveNow() { clearTimeout(saveTimer); if (dirty) flush(); }   // suppressions : enregistrer sans attendre
 function scheduleSave() {
-  dirty = true; setSync("", "Modifications en attente…");
+  dirty = true; setSync("", "Modifications en attente…"); keepPending();
   clearTimeout(saveTimer); saveTimer = setTimeout(flush, 700);
 }
 async function flush() {
@@ -246,12 +257,14 @@ async function flush() {
   saving = true; dirty = false; setSync("", "Enregistrement…");
   try {
     version = await store.save(snapshot());
-    lastError = null; hideReconnect();
+    lastError = null; hideReconnect(); if (!dirty) dropPending();
     setSync("ok", "Enregistré · " + store.label);
     if (typeof ndfSyncSoon === "function") ndfSyncSoon();
   } catch (e) {
-    dirty = true; lastError = e;
-    if (e.code === "auth") { setSync("warn", "Reconnexion nécessaire"); showReconnect(); }
+    dirty = true; lastError = e; keepPending();
+    try { console.warn("Bourselle : enregistrement impossible", e.code, e.status, e.reason, e.message); } catch (x) {}
+    if (e.code === "auth" || e.code === "scope") { setSync("warn", "Reconnexion nécessaire"); showReconnect(); if (e.code === "scope") toast(e.message); }
+    else if (e.code === "offline") { setSync("warn", "Hors ligne – enregistré sur l'appareil"); clearTimeout(saveTimer); saveTimer = setTimeout(flush, 8000); }
     else if (e.code === "quota") { setSync("warn", "Drive plein"); toast("Ton Drive est plein : libère de la place pour continuer à enregistrer."); }
     else { setSync("warn", "Non enregistré – nouvel essai…"); clearTimeout(saveTimer); saveTimer = setTimeout(flush, 8000); }
   } finally {
@@ -259,7 +272,11 @@ async function flush() {
     if (dirty && !lastError) { clearTimeout(saveTimer); saveTimer = setTimeout(flush, 300); }
   }
 }
-window.addEventListener("beforeunload", e => { if (dirty || saving) { flush(); e.preventDefault(); e.returnValue = ""; } });
+window.addEventListener("beforeunload", e => { if (dirty || saving) { keepPending(); flush(); e.preventDefault(); e.returnValue = ""; } });
+// iPhone : l'app peut être fermée sans « beforeunload » ; on garde la copie de secours et on tente l'enregistrement.
+window.addEventListener("pagehide", () => { if (dirty || saving) { keepPending(); flush(); } });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && (dirty || saving)) { keepPending(); flush(); } });
+document.getElementById("syncTxt").addEventListener("click", () => { if (lastError) toast(syncErrorText(lastError)); });
 // Un autre appareil a-t-il modifié les données ? On vérifie quand l'app revient au premier plan.
 document.addEventListener("visibilitychange", async () => {
   if (document.visibilityState === "hidden") { flush(); return; }
@@ -279,7 +296,7 @@ document.addEventListener("click", () => {
 function showReconnect() { document.getElementById("reconnect").hidden = false; }
 function hideReconnect() { document.getElementById("reconnect").hidden = true; }
 document.getElementById("reconnectBtn").onclick = async () => {
-  try { await store.signIn(true); hideReconnect(); lastError = null; dirty = true; flush(); }
+  try { await store.signIn(lastError && lastError.code === "scope" ? "consent" : true); hideReconnect(); lastError = null; dirty = true; flush(); }
   catch (e) { toast("Reconnexion impossible : " + (e.message || "réessaie")); }
 };
 
@@ -2571,6 +2588,10 @@ async function connect(id, interactive, existing) {
     version = r.version;
     const demo = id !== "local" ? demoToMigrate() : null;
     applyData(r.data);
+    const pend = readPending();
+    let recovered = false;
+    if (pend && pend.savedAt && (!r.data || !r.data.savedAt || pend.savedAt > r.data.savedAt)) { applyData(pend); recovered = true; }
+    else if (pend) dropPending();
     let moved = -1;
     if (demo) {
       moved = importData(demo);
@@ -2580,7 +2601,8 @@ async function connect(id, interactive, existing) {
     }
     hideLogin(); applyRecurring(); render();
     if (moved >= 0) toast(moved ? `Tes données d'essai (${moved} élément${moved > 1 ? "s" : ""}) sont maintenant dans ton ${st.label}.` : `Connecté à ton ${st.label}.`);
-    if ((!r.data || moved > 0) && id !== "local") { dirty = true; flush(); }
+    if (recovered) toast("Tes dernières saisies, pas encore enregistrées dans le Drive, ont été récupérées.");
+    if ((!r.data || moved > 0 || recovered) && id !== "local") { dirty = true; flush(); }
     else setSync("ok", id === "local" ? "Sur cet appareil" : "Enregistré · " + st.label);
   } catch (e) {
     if (prev && prev.id === "local" && id !== "local") {   // échec depuis le mode essai : on y reste

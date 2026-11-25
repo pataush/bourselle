@@ -35,8 +35,16 @@
 
   async function check(res) {
     if (res.ok) return res;
-    if (res.status === 401) throw new StoreError("auth", "Session expirée");
-    if (res.status === 403) throw new StoreError("forbidden", "Accès refusé par le Drive");
+    let reason = "";
+    try { const j = await res.clone().json(); const er = j && j.error; reason = (er && ((er.errors && er.errors[0] && er.errors[0].reason) || er.status || (typeof er === "string" ? er : er.code))) || ""; } catch (e) {}
+    const mk = (code, msg) => { const e = new StoreError(code, msg); e.status = res.status; e.reason = String(reason || ""); return e; };
+    if (res.status === 401) throw mk("auth", "Session expirée");
+    if (res.status === 403) {
+      if (/storageQuota|quotaExceeded/i.test(reason)) throw mk("quota", "Espace de stockage plein");
+      if (/rateLimit|userRateLimit|backendError/i.test(reason)) throw mk("unavailable", "Service momentanément indisponible");
+      if (/insufficient|scope|appNotAuthorized|PERMISSION_DENIED|accessNotConfigured|forbidden/i.test(reason) || !reason) throw mk("scope", "Le Drive refuse l'enregistrement : reconnecte-toi et autorise l'accès au dossier « Bourselle »");
+      throw mk("forbidden", "Accès refusé par le Drive");
+    }
     if (res.status === 404) throw new StoreError("not_found", "Introuvable");
     if (res.status === 507 || res.status === 413) throw new StoreError("quota", "Espace de stockage plein");
     if (res.status === 429 || res.status >= 500) throw new StoreError("unavailable", "Service momentanément indisponible");
@@ -104,7 +112,9 @@
     }
     async function api(url, opts = {}) {
       if (!token || Date.now() > expires) throw new StoreError("auth", "Session expirée");
-      const res = await fetch(url, { ...opts, headers: { ...(opts.headers || {}), Authorization: "Bearer " + token } });
+      let res;
+      try { res = await fetch(url, { ...opts, headers: { ...(opts.headers || {}), Authorization: "Bearer " + token } }); }
+      catch (e) { throw new StoreError("offline", "Pas de connexion internet"); }
       if (res.status === 401) { token = null; }
       return check(res);
     }
@@ -144,7 +154,7 @@
       id: "google", label: "Google Drive", canFiles: true,
       async signIn(interactive) {
         await waitFor(() => window.google && google.accounts && google.accounts.oauth2);
-        await requestToken(interactive === "choose" ? "select_account" : "");
+        await requestToken(interactive === "choose" ? "select_account" : interactive === "consent" ? "consent" : "");
         me = await (await api("https://www.googleapis.com/oauth2/v3/userinfo")).json();
         if (me.email) localStorage.setItem("mb-google-hint", me.email);
         await ensureFolders();

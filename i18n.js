@@ -12,6 +12,15 @@
 
   // ---------- Textes fixes ----------
   const EXACT = {
+    "Hors ligne – enregistré sur l'appareil": "Offline – saved on this device",
+    "Le Drive refuse l'enregistrement : reconnecte-toi et autorise l'accès au dossier « Bourselle »": "Drive refused to save: sign in again and allow access to the “Bourselle” folder",
+    "Pas de connexion internet": "No internet connection",
+    "Tes dernières saisies, pas encore enregistrées dans le Drive, ont été récupérées.": "Your latest entries, not yet saved to Drive, have been recovered.",
+    "Accès refusé par le Drive": "Access denied by Drive",
+    "Service momentanément indisponible": "Service temporarily unavailable",
+    "Espace de stockage plein": "Storage full",
+    "Introuvable": "Not found",
+    "Reconnexion nécessaire": "Sign-in needed",
     "Le paiement en ligne arrive très bientôt. Pour obtenir dès maintenant l'offre": "Online payment is coming very soon. To get the plan",
     "contacte-nous": "contact us",
     ": tu recevras ton code d'activation.": ": you'll receive your activation code.",
