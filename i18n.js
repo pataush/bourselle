@@ -12,6 +12,25 @@
 
   // ---------- Textes fixes ----------
   const EXACT = {
+    "Accueil": "Home",
+    "Analyse": "Insights",
+    "Opérations": "Transactions",
+    "Profil": "Profile",
+    "Bonjour,": "Hello,",
+    "Dernières opérations": "Latest transactions",
+    "Voir moins": "Show less",
+    "Alertes": "Alerts",
+    "Apparence": "Appearance",
+    "Automatique": "Automatic",
+    "Clair": "Light",
+    "Sombre": "Dark",
+    "Automatique suit le réglage de ton téléphone.": "Automatic follows your phone's setting.",
+    "Abonnements à surveiller": "Subscriptions to watch",
+    "Garanties bientôt expirées": "Warranties expiring soon",
+    "Notes de frais à rembourser": "Expense claims to be reimbursed",
+    "Tontines : cotisations à suivre": "Savings circles: contributions to follow",
+    "Réclamations de dettes reçues": "Debt claims received",
+    "Budgets dépassés ce mois-ci": "Budgets over this month",
     "Simple : le budget du mois, l'année, le partage des frais, je dois / on me doit, le plan d'économies et les objectifs. Passe à la version complète pour les abonnements, les tontines, les notes de frais et les garanties. Tes données ne changent pas.": "Simple: this month's budget, the year, shared costs, I owe / owed to me, the savings plan and goals. Switch to the full version for subscriptions, savings circles, expense claims and warranties. Your data doesn't change.",
     "Complète : toutes les fonctions. La version simple garde l'essentiel (budget du mois, année, partage des frais, dettes, économies, objectifs) pour un usage plus léger. Tes données ne changent pas.": "Full: every feature. The simple version keeps the essentials (monthly budget, year, shared costs, debts, savings plan, goals) for lighter use. Your data doesn't change.",
     "Version de l'app": "App version",
@@ -478,6 +497,8 @@
   // ---------- Textes avec des valeurs ({m} montant, {d} date, {n} nombre, {x} autre) ----------
   const s = n => (Number(String(n).replace(/[^\d.]/g, "")) > 1 ? "s" : "");
   const PATTERNS = [
+    ["Voir tout ({n})", "See all ({n})"],
+    ["{m} vs {x}", "{m} vs {x}"],
     ["@{x} est déjà dans tes contacts", "@{x} is already in your contacts"],
     ["Aucun utilisateur @{x}", "No user @{x}"],
     ["Ajoute-moi sur Bourselle : @{x}", "Add me on Bourselle: @{x}"],

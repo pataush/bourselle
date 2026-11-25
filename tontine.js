@@ -228,7 +228,7 @@ tontineMoisHTML = function () {
     const late = lateList(id, t).filter(x => x.m.id !== t.me).length;
     if (late && isOrganizer(t)) items.push(`${esc(t.name)} : ${late} cotisation${late > 1 ? "s" : ""} de membres en retard`);
   }
-  return items.length ? `<button class="card" id="goTon" style="text-align:left;width:100%;cursor:pointer;border-left:6px solid #2f6fb0"><h2>Tontines<small>${items.length}</small></h2><div class="hint">${items.slice(0, 3).join("<br>")}</div></button>` : "";
+  return items.length ? `<button class="card" id="goTon" style="text-align:left;width:100%;cursor:pointer;border-left:6px solid #3f8f68"><h2>Tontines<small>${items.length}</small></h2><div class="hint">${items.slice(0, 3).join("<br>")}</div></button>` : "";
 };
 const isOrganizer = t => ["president", "tresorier", "secretaire"].includes(tmem(t, t.me).role);
 
@@ -312,10 +312,10 @@ function tonCardHTML(id, t, s) {
       <br>Ta part estimée : <b>${tm(t, f.share(t.me))}</b> · fin le ${esc(frDate(s.rounds[N - 1].date))}`;
   }
   const bal = s.received - s.contributed;
-  return `<div class="gar ${cls}" style="${cls ? "" : "border-left-color:#2f6fb0"}">
-    <div class="top"><span class="n">${esc(t.name)}</span><span class="st" style="${cls ? "" : "background:#2f6fb0"}">${s.done ? "Terminée" : s.unpaid.length ? "Cotisation à payer" : lateOthers.length ? "Retards" : "En cours"}</span></div>
+  return `<div class="gar ${cls}" style="${cls ? "" : "border-left-color:#3f8f68"}">
+    <div class="top"><span class="n">${esc(t.name)}</span><span class="st" style="${cls ? "" : "background:#3f8f68"}">${s.done ? "Terminée" : s.unpaid.length ? "Cotisation à payer" : lateOthers.length ? "Retards" : "En cours"}</span></div>
     <div class="top"><span class="amt num">${tm(t, dueOf(t, t.me))} <small class="hint">/ ${TON_UNIT[t.freq]}</small></span><span class="hint">${esc((TON_TYPES.find(x => x[0] === t.type) || [, ""])[1])}${tcur(t) !== baseCur() ? " · " + esc(tcur(t)) : ""}</span></div>
-    <div class="bar"><i style="width:${N ? s.paidN / N * 100 : 0}%;background:#2f6fb0"></i></div>
+    <div class="bar"><i style="width:${N ? s.paidN / N * 100 : 0}%;background:#3f8f68"></i></div>
     <div class="s">${sum}
       <br>Versé ${tmB(t, s.contributed)} · reçu ${tm(t, s.received)}${rot ? ` → ${bal > 0.004 ? `tu as reçu ${tm(t, bal)} d'avance` : bal < -0.004 ? `${tm(t, -bal)} t'attendent` : "équilibré"}` : ""}
       ${s.unpaid.length ? `<br><b style="color:var(--bad)">${s.unpaid.length} de tes cotisations en retard</b>` : ""}</div>

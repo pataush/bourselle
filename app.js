@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "36";
+const APP_VERSION = "37";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -16,21 +16,21 @@ async function forceUpdate() {
 }
 const DEFAULT_SETTINGS = {
   cats: [
-    { id: "logement", name: "Logement", budget: 900, color: "#1f4e79", fixe: true },
-    { id: "energie", name: "Énergie & eau", budget: 120, color: "#2e86c1", fixe: true },
-    { id: "telecom", name: "Télécom & abonnements", budget: 60, color: "#48c9b0", fixe: true },
-    { id: "assurances", name: "Assurances", budget: 80, color: "#16a085", fixe: true },
-    { id: "credits", name: "Crédits", budget: 0, color: "#7d3c98", fixe: true },
-    { id: "courses", name: "Courses", budget: 450, color: "#e6b800", fixe: false },
-    { id: "transport", name: "Transport & carburant", budget: 150, color: "#e67e22", fixe: false },
-    { id: "sante", name: "Santé", budget: 40, color: "#e74c3c", fixe: false },
-    { id: "enfants", name: "Enfants & éducation", budget: 100, color: "#af7ac5", fixe: false },
-    { id: "loisirs", name: "Loisirs & sorties", budget: 120, color: "#ec7063", fixe: false },
-    { id: "shopping", name: "Shopping & habillement", budget: 80, color: "#5d6d7e", fixe: false },
-    { id: "maison", name: "Maison & entretien", budget: 50, color: "#a04000", fixe: false },
-    { id: "impots", name: "Impôts & taxes", budget: 150, color: "#34495e", fixe: true },
-    { id: "cadeaux", name: "Cadeaux & dons", budget: 30, color: "#f1948a", fixe: false },
-    { id: "divers", name: "Divers", budget: 50, color: "#9aa5ad", fixe: false },
+    { id: "logement", name: "Logement", budget: 900, color: "#1f6b4b", fixe: true },
+    { id: "energie", name: "Énergie & eau", budget: 120, color: "#3f8f68", fixe: true },
+    { id: "telecom", name: "Télécom & abonnements", budget: 60, color: "#86bfa0", fixe: true },
+    { id: "assurances", name: "Assurances", budget: 80, color: "#2c4a3e", fixe: true },
+    { id: "credits", name: "Crédits", budget: 0, color: "#8a6d3b", fixe: true },
+    { id: "courses", name: "Courses", budget: 450, color: "#c9a24a", fixe: false },
+    { id: "transport", name: "Transport & carburant", budget: 150, color: "#e2c374", fixe: false },
+    { id: "sante", name: "Santé", budget: 40, color: "#c8553d", fixe: false },
+    { id: "enfants", name: "Enfants & éducation", budget: 100, color: "#b5838d", fixe: false },
+    { id: "loisirs", name: "Loisirs & sorties", budget: 120, color: "#d98c5f", fixe: false },
+    { id: "shopping", name: "Shopping & habillement", budget: 80, color: "#5f7d70", fixe: false },
+    { id: "maison", name: "Maison & entretien", budget: 50, color: "#a5673f", fixe: false },
+    { id: "impots", name: "Impôts & taxes", budget: 150, color: "#3d4a44", fixe: true },
+    { id: "cadeaux", name: "Cadeaux & dons", budget: 30, color: "#e6b9a6", fixe: false },
+    { id: "divers", name: "Divers", budget: 50, color: "#cbc3b1", fixe: false },
   ],
   rentree: ["Salaire", "Prime", "Allocations / aides", "Revenus locatifs", "Remboursement", "Vente", "Autre"],
   epargne: ["Livret A", "LDDS", "LEP", "PEL", "Autre"],
@@ -231,6 +231,34 @@ function homeMoreOpen(v) {
   if (v === undefined) { try { return localStorage.getItem("bourselle-home-more") === "1"; } catch (e) { return false; } }
   try { localStorage.setItem("bourselle-home-more", v ? "1" : "0"); } catch (e) {} return v;
 }
+// Alertes regroupées derrière la cloche
+function alertsList() {
+  const L = [], add = (tab, label, n) => { if (n > 0 && subAllowed(tab)) L.push({ tab, label, n }); };
+  try {
+    add("abos", "Abonnements à surveiller", Object.values(subs).filter(x => subStatus(x).st === "soon").length);
+    add("garanties", "Garanties bientôt expirées", garItems().filter(x => garStatus(x.warranty) === "soon").length);
+    add("frais", "Notes de frais à rembourser", allItems().filter(x => x.type === "depense" && x.ndf && x.ndfStatus !== "rembourse").length);
+    if (typeof tontineAlerts === "function") add("tontines", "Tontines : cotisations à suivre", tontineAlerts());
+    if (typeof SOC !== "undefined") add("dettes", "Réclamations de dettes reçues", SOC.in.filter(c => c.status === "pending").length);
+    const t = totals(itemsOf(cur.y, cur.m));
+    add("mois", "Budgets dépassés ce mois-ci", settings.cats.filter(c => c.budget && (t.byCat[c.id] || 0) > c.budget).length);
+  } catch (e) {}
+  return L;
+}
+function showAlerts() {
+  const L = alertsList();
+  const f = openForm(`<div class="f2"><h3>Alertes</h3>${L.length ? L.map((a, i) => `<button type="button" class="alert-row" data-al="${i}"><b>${esc(a.label)}</b><span class="n">${a.n}</span></button>`).join("")
+    : `<p class="hint">Rien à surveiller pour l'instant.</p>`}</div>`, () => true);
+  f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
+  f.querySelectorAll("[data-al]").forEach(b => b.onclick = () => { const a = L[Number(b.dataset.al)]; closeForm(); if (a.tab === "mois") homeMoreOpen(true); switchTab(a.tab); });
+}
+// Thème : automatique (selon le téléphone), clair ou sombre
+function applyTheme(v) {
+  v = v || (() => { try { return localStorage.getItem("bourselle-theme") || "auto"; } catch (e) { return "auto"; } })();
+  if (v === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", v);
+  return v;
+}
+applyTheme.cur = applyTheme();
 function catById(id) { return settings.cats.find(c => c.id === id) || { id, name: id || "Sans catégorie", color: "#9aa5ad", budget: 0 }; }
 function itemsOf(y, m) { const d = months[ym(y, m)]; return d ? Object.entries(d.items || {}).map(([id, t]) => ({ ...t, id })) : []; }
 
@@ -265,7 +293,15 @@ function applyData(d) {
     for (const k of ["rentree", "epargne", "invest"]) settings[k] = settings[k].map(x => T(x));
   }
   if (!(d && d.settings) && !settings.currency) settings.currency = regionCurrency();   // nouveau compte : devise de la région
-  catLangSync(); applyCurrency();
+  catLangSync(); catColorsSync(); applyCurrency();
+}
+// Ancienne palette des catégories par défaut → palette vert et or (seulement si la couleur n'a pas été changée)
+const OLD_CAT_COLORS = {"logement": "#1f4e79", "energie": "#2e86c1", "telecom": "#48c9b0", "assurances": "#16a085", "credits": "#7d3c98", "courses": "#e6b800", "transport": "#e67e22", "sante": "#e74c3c", "enfants": "#af7ac5", "loisirs": "#ec7063", "shopping": "#5d6d7e", "maison": "#a04000", "impots": "#34495e", "cadeaux": "#f1948a", "divers": "#9aa5ad"};
+function catColorsSync() {
+  for (const c of (settings && settings.cats) || []) {
+    const d = DEFAULT_SETTINGS.cats.find(x => x.id === c.id);
+    if (d && OLD_CAT_COLORS[c.id] && String(c.color).toLowerCase() === OLD_CAT_COLORS[c.id]) c.color = d.color;
+  }
 }
 // Catégories par défaut non renommées : on affiche leur nom dans la langue choisie (compte créé en anglais puis app en français, et inversement)
 function catLangSync() {
@@ -428,7 +464,7 @@ function pairBars(a, b) {
   for (const v of [top, top / 2, 0]) g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" ${v ? 'stroke-dasharray="3 3"' : ""}/><text x="${L - 4}" y="${y(v) + 3}" text-anchor="end">${esc(eur(v, true))}</text>`;
   for (let i = 0; i < 12; i++) {
     const x = L + i * bw + bw * .12, w = bw * .36;
-    if (a[i]) g += `<rect x="${x}" y="${y(a[i])}" width="${w}" height="${y(0) - y(a[i])}" rx="2" fill="#2f6fb0"><title>Rentrées ${MOIS_C[i]} : ${eur(a[i])}</title></rect>`;
+    if (a[i]) g += `<rect x="${x}" y="${y(a[i])}" width="${w}" height="${y(0) - y(a[i])}" rx="2" fill="#3f8f68"><title>Rentrées ${MOIS_C[i]} : ${eur(a[i])}</title></rect>`;
     if (b[i]) g += `<rect x="${x + w + 1}" y="${y(b[i])}" width="${w}" height="${y(0) - y(b[i])}" rx="2" fill="var(--accent)"><title>Dépenses ${MOIS_C[i]} : ${eur(b[i])}</title></rect>`;
     g += `<text x="${x + w}" y="${H - 6}" text-anchor="middle">${MOIS_C[i].slice(0, 3)}</text>`;
   }
@@ -455,10 +491,10 @@ function setHeader(label, cap, value, neutral) {
 
 function tilesHTML(t) {
   return `<div class="tiles">
-    <div class="tile"><div class="k"><span class="sw" style="background:#2f6fb0"></span>Rentrées</div><div class="v num">${eur(t.rentree)}</div></div>
-    <div class="tile"><div class="k"><span class="sw" style="background:var(--accent)"></span>Dépenses</div><div class="v num">${eur(t.depense)}</div></div>
-    <div class="tile"><div class="k"><span class="sw" style="background:var(--good)"></span>Épargne + invest.</div><div class="v num">${eur(t.epargne + t.invest)}</div></div>
-    <div class="tile"><div class="k"><span class="sw" style="background:var(--muted)"></span>Reste disponible</div><div class="v num" style="color:${t.reste < 0 ? "var(--bad)" : "inherit"}">${eur(t.reste)}</div></div>
+    <div class="tile ti in"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 4v16M5 13l7 7 7-7"/></svg></span><div><div class="k">Rentrées</div><div class="v num">${eur(t.rentree)}</div></div></div>
+    <div class="tile ti out"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 20V4M5 11l7-7 7 7"/></svg></span><div><div class="k">Dépenses</div><div class="v num">${eur(t.depense)}</div></div></div>
+    <div class="tile ti sav"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 7h-1V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v13a3 3 0 0 0 3 3h13a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/><path d="M3 7h15M16 14h.01"/></svg></span><div><div class="k">Épargne + invest.</div><div class="v num">${eur(t.epargne + t.invest)}</div></div></div>
+    <div class="tile ti left"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><div><div class="k">Reste disponible</div><div class="v num" style="color:${t.reste < 0 ? "var(--bad)" : "inherit"}">${eur(t.reste)}</div></div></div>
   </div>`;
 }
 
@@ -466,6 +502,10 @@ function renderMois() {
   const list = itemsOf(cur.y, cur.m).sort((a, b) => b.date.localeCompare(a.date) || (b.created || 0) - (a.created || 0));
   const t = totals(list);
   setHeader(`${MOIS[cur.m - 1]} ${cur.y}`, "Résultat du mois (rentrées − dépenses)", t.result);
+  {
+    const pm = cur.m === 1 ? { y: cur.y - 1, m: 12 } : { y: cur.y, m: cur.m - 1 }, pl = itemsOf(pm.y, pm.m);
+    if (pl.length) { const d = t.result - totals(pl).result; document.getElementById("resPill").innerHTML = `<span class="pill ${d >= 0 ? "good" : "bad"}">${d >= 0 ? "+" : ""}${esc(eur(d))} vs ${esc(MOIS[pm.m - 1])}</span>`; }
+  }
   const parts = catParts(t.byCat);
   const budCats = settings.cats.filter(c => (c.budget || 0) > 0 || t.byCat[c.id]);
   const fixPct = t.depense ? t.fixe / t.depense * 100 : 0;
@@ -504,8 +544,8 @@ function renderMois() {
     ${parts.length ? `<div class="donut-wrap">${donut(parts)}${legendHTML(parts)}</div>` : `<div class="empty">Aucune dépense ce mois-ci. Appuie sur + pour en ajouter une.</div>`}</div>`;
 
   if (t.depense) html += `<div class="card"><h2>Fixes ou variables</h2>
-    <div class="split"><i style="width:${fixPct}%;background:#1f4e79"></i><i style="width:${100 - fixPct}%;background:var(--accent)"></i></div>
-    <div class="split-legend"><span><span class="sw" style="background:#1f4e79"></span> Fixes ${esc(eur(t.fixe, true))}</span><span>Variables ${esc(eur(t.variable, true))} <span class="sw" style="background:var(--accent)"></span></span></div></div>`;
+    <div class="split"><i style="width:${fixPct}%;background:#1f6b4b"></i><i style="width:${100 - fixPct}%;background:var(--accent)"></i></div>
+    <div class="split-legend"><span><span class="sw" style="background:#1f6b4b"></span> Fixes ${esc(eur(t.fixe, true))}</span><span>Variables ${esc(eur(t.variable, true))} <span class="sw" style="background:var(--accent)"></span></span></div></div>`;
 
   html += compareHTML();
   html += `<div class="card"><h2>Budget du mois<small>dépensé / prévu</small></h2><div class="bud">${budCats.map(c => {
@@ -521,8 +561,11 @@ function renderMois() {
       <div id="moreBox"${open ? "" : " hidden"}>${more}</div>`;
   }
 
-  html += `<div class="card"><h2>Opérations<button class="linkbtn" id="impBtn">Importer un relevé</button></h2>${list.length ? txListHTML(list) : `<div class="empty">Rien d'enregistré pour ${MOIS[cur.m - 1]}.</div>`}</div>`;
+  const OPS_N = 6, showAll = window.__opsAll || list.length <= OPS_N + 2;
+  html += `<div class="card"><h2>${showAll ? "Opérations" : "Dernières opérations"}<button class="linkbtn" id="impBtn">Importer un relevé</button></h2>${list.length ? txListHTML(showAll ? list : list.slice(0, OPS_N)) : `<div class="empty">Rien d'enregistré pour ${MOIS[cur.m - 1]}.</div>`}
+    ${list.length > OPS_N + 2 ? `<button class="ops-more" id="opsMore">${showAll ? "Voir moins" : `Voir tout (${list.length})`}</button>` : ""}</div>`;
   view.innerHTML = html;
+  const om = document.getElementById("opsMore"); if (om) om.onclick = () => { window.__opsAll = !window.__opsAll; render(); };
   const mt = document.getElementById("moreToggle"); if (mt) mt.onclick = () => { homeMoreOpen(!homeMoreOpen()); render(); };
   const ib = document.getElementById("impBtn"); if (ib) ib.onclick = startImport;
   const gf = document.getElementById("goFrais"); if (gf) gf.onclick = () => switchTab("frais");
@@ -556,8 +599,8 @@ function txListHTML(list, withYear) {
     }
     let name, color, sub, cls, sign;
     if (x.type === "depense") { const c = catById(x.cat); name = x.note || c.name; color = c.color; sub = c.name + (x.fixe ? " · fixe" : ""); cls = "out"; sign = "−"; }
-    else if (x.type === "rentree") { name = x.note || x.cat; color = "#2f6fb0"; sub = "Rentrée · " + x.cat; cls = "in"; sign = "+"; }
-    else { name = x.note || x.cat; color = x.type === "epargne" ? "#1f8a5b" : "#16324a"; sub = (x.type === "epargne" ? "Épargne · " : "Investissement · ") + x.cat; cls = "save"; sign = "→"; }
+    else if (x.type === "rentree") { name = x.note || x.cat; color = "#3f8f68"; sub = "Rentrée · " + x.cat; cls = "in"; sign = "+"; }
+    else { name = x.note || x.cat; color = x.type === "epargne" ? "#2e8a5b" : "#8a6d3b"; sub = (x.type === "epargne" ? "Épargne · " : "Investissement · ") + x.cat; cls = "save"; sign = "→"; }
     html += `<button class="tx" data-id="${esc(x.id)}"><span class="ic" style="background:${color}">${esc((x.type === "depense" ? catById(x.cat).name : x.cat || "?").slice(0, 2))}</span>
       <span><div class="n">${esc(name)}${x.ndf ? `<span class="badge ${x.ndfStatus === "rembourse" ? "done" : "todo"}">${x.ndfStatus === "rembourse" ? "Remboursée" : "Note de frais"}</span>` : ""}</div><div class="s">${esc(sub)}${x.files && x.files.length ? `<span class="clip">${CLIP}${x.files.length}</span>` : ""}${x.warranty ? ` · garantie jusqu'au ${esc(frDate(x.warranty.end))}` : ""}</div></span><span class="a num ${cls}">${sign} ${esc(eur(x.amount))}${x.orig && x.orig.cur !== baseCurrency() ? `<small class="orig">${esc(fmtCur(x.orig.cur, x.orig.amount))}</small>` : ""}</span></button>`;
   }
@@ -575,7 +618,7 @@ function renderAnnee() {
   html += `<div class="card"><h2>Résultat mois par mois</h2>${resultBars(per.map(p => p.result))}
     <div class="legend-inline"><span><span class="sw" style="background:var(--good)"></span>Positif</span><span><span class="sw" style="background:var(--bad)"></span>Négatif</span></div></div>`;
   html += `<div class="card"><h2>Rentrées et dépenses</h2>${pairBars(per.map(p => p.rentree), per.map(p => p.depense))}
-    <div class="legend-inline"><span><span class="sw" style="background:#2f6fb0"></span>Rentrées</span><span><span class="sw" style="background:var(--accent)"></span>Dépenses</span></div></div>`;
+    <div class="legend-inline"><span><span class="sw" style="background:#3f8f68"></span>Rentrées</span><span><span class="sw" style="background:var(--accent)"></span>Dépenses</span></div></div>`;
   html += `<div class="card"><h2>Dépenses de l'année par catégorie</h2>${parts.length ? `<div class="donut-wrap">${donut(parts)}${legendHTML(parts)}</div>` : `<div class="empty">Aucune dépense en ${cur.y}.</div>`}</div>`;
   html += `<div class="card"><h2>Détail par mois</h2><div style="overflow-x:auto"><table class="yr num"><thead><tr><th>Mois</th><th>Rentrées</th><th>Dépenses</th><th>Épargne/inv.</th><th>Résultat</th></tr></thead><tbody>
     ${per.map((p, i) => `<tr data-m="${i + 1}"><td>${MOIS_C[i]}</td><td>${eur(p.rentree, true)}</td><td>${eur(p.depense, true)}</td><td>${eur(p.epargne + p.invest, true)}</td><td class="${p.result > 0 ? "good" : p.result < 0 ? "bad" : ""}">${eur(p.result, true)}</td></tr>`).join("")}
@@ -598,6 +641,9 @@ function renderReglages() {
     <div style="margin-top:8px"><button class="btn danger" id="logout" data-l="Quitter le mode essai">Quitter le mode essai</button></div></div>`
     : `<div style="display:flex;gap:8px;flex-wrap:wrap">${store && store.folderUrl() ? `<a class="btn" href="${esc(store.folderUrl())}" target="_blank" rel="noopener">Ouvrir mon dossier</a>` : ""}<button class="btn danger" id="logout" data-l="Se déconnecter">Se déconnecter</button></div></div>`}
   ${typeof socContactsCardHTML === "function" ? socContactsCardHTML() : ""}
+  <div class="card"><h2>Apparence</h2>
+    <div class="seg2" id="themeSeg" style="grid-template-columns:repeat(3,1fr)">${[["auto", "Automatique"], ["light", "Clair"], ["dark", "Sombre"]].map(([k, l]) => `<button type="button" data-th="${k}" aria-pressed="${applyTheme.cur === k}">${l}</button>`).join("")}</div>
+    <p class="hint" style="margin:8px 0 0">Automatique suit le réglage de ton téléphone.</p></div>
   <div class="card"><h2>Version de l'app</h2>
     <div class="seg2" id="modeSeg"><button type="button" data-m="simple" aria-pressed="${isSimple()}">Simple</button><button type="button" data-m="complete" aria-pressed="${!isSimple()}">Complète</button></div>
     <p class="hint" style="margin:8px 0 0">${isSimple() ? "Simple : le budget du mois, l'année, le partage des frais, je dois / on me doit, le plan d'économies et les objectifs. Passe à la version complète pour les abonnements, les tontines, les notes de frais et les garanties."
@@ -634,6 +680,7 @@ function renderReglages() {
     <p class="hint">Version ${APP_VERSION}</p><button class="btn" id="forceUpdate">Charger la dernière version</button></div>`;
   view.innerHTML = html;
   if (typeof socBindTagCard === "function") socBindTagCard();
+  document.querySelectorAll("#themeSeg [data-th]").forEach(b => b.onclick = () => { try { localStorage.setItem("bourselle-theme", b.dataset.th); } catch (e) {} applyTheme.cur = applyTheme(b.dataset.th); render(); });
   document.querySelectorAll("#modeSeg [data-m]").forEach(b => b.onclick = () => { if ((b.dataset.m === "simple") !== isSimple()) setMode(b.dataset.m); });
   const fu = document.getElementById("forceUpdate");
   if (fu) fu.onclick = () => forceUpdate();
@@ -775,7 +822,13 @@ function setMode(m) {
 function render() {
   if (!subAllowed(tab)) tab = "mois";
   document.body.classList.toggle("mode-simple", isSimple());
-  { const sb = document.querySelector("header .nm .sub"); if (sb) sb.textContent = isSimple() ? "Version simple" : "Mon budget"; }
+  { const sb = document.querySelector("header .nm .sub"); if (sb) sb.textContent = isSimple() ? "Version simple" : ""; }
+  {
+    const u = store && store.user ? store.user() : {}, first = String((u && u.name) || "").trim().split(/[\s@]/)[0];
+    const nm = first ? first.charAt(0).toUpperCase() + first.slice(1) : "Bourselle";
+    document.getElementById("helloName").textContent = nm; document.getElementById("avatar").textContent = nm.charAt(0).toUpperCase();
+    const n = alertsList().reduce((a, x) => a + x.n, 0); document.getElementById("bellDot").hidden = !n;
+  }
   const arrows = !["garanties", "abos", "dettes", "recherche", "objectifs", "economies", "partage", "tontines"].includes(tab);
   if (!document.getElementById("app").hidden) document.getElementById("fab").hidden = tab === "economies";
   document.getElementById("prev").style.visibility = arrows ? "visible" : "hidden";
@@ -811,6 +864,7 @@ function step(d) {
   render();
 }
 document.getElementById("searchBtn").onclick = () => switchTab("recherche");
+document.getElementById("bellBtn").onclick = () => showAlerts();
 document.getElementById("prev").onclick = () => step(-1);
 document.getElementById("next").onclick = () => step(1);
 
@@ -1440,7 +1494,7 @@ function renderDettes() {
   document.getElementById("resPill").innerHTML = owed ? `<span class="pill" style="background:rgba(255,255,255,.15);color:#fff">On te doit ${esc(eur(owed))}</span>` : "";
   let html = banner + `<div class="tiles" style="grid-template-columns:repeat(3,1fr)">
     <div class="tile"><div class="k"><span class="sw" style="background:var(--bad)"></span>Je dois</div><div class="v num">${eur(iOwe, true)}</div></div>
-    <div class="tile"><div class="k"><span class="sw" style="background:#2f6fb0"></span>On me doit</div><div class="v num">${eur(owed, true)}</div></div>
+    <div class="tile"><div class="k"><span class="sw" style="background:#3f8f68"></span>On me doit</div><div class="v num">${eur(owed, true)}</div></div>
     <div class="tile"><div class="k"><span class="sw" style="background:var(--accent)"></span>Mensualités</div><div class="v num">${eur(monthly, true)}</div></div></div>`;
   if (typeof socInboxHTML === "function") html += socInboxHTML();
   const card = x => {
@@ -1462,7 +1516,7 @@ function renderDettes() {
   else {
     html += section(open.filter(x => x.kind === "credit"), "Crédits et prêts", "var(--bad)");
     html += section(open.filter(x => x.kind === "dois"), "Je dois", "var(--bad)");
-    html += section(open.filter(x => x.kind === "medoit"), "On me doit", "#2f6fb0");
+    html += section(open.filter(x => x.kind === "medoit"), "On me doit", "#3f8f68");
     html += section(list.filter(x => x.c.done), "Soldées", "var(--good)");
   }
   html += `<p class="hint" style="text-align:center;margin:4px 0 0">Pour un crédit, le reste dû est estimé à partir de la mensualité, du taux et des échéances passées. Le tableau d'amortissement de ta banque fait foi.</p>`;
@@ -1688,7 +1742,7 @@ function forecastHTML(t) {
     <div class="hint">Ce qu'il te restera après les prélèvements, mensualités, dettes à rembourser et rentrées prévus ce mois-ci.</div>`;
   if (rythme) html += row(`${avgVar > 0 ? "Si tes dépenses variables restent dans ta moyenne" : "Si tes dépenses variables continuent au même rythme"} (≈ ${esc(eur(rythme, true))} de plus)`, after, true);
   if (ex.goalsNeed > 0.5) { after -= ex.goalsNeed; html += row(`Et si tu verses ce qu'il faut pour tes objectifs (≈ ${esc(eur(ex.goalsNeed, true))})`, after, true); }
-  if (due > 0.004) html += `<div class="fc-row"><span>On te doit aussi ${[ex.ndf && "notes de frais", ex.owed && "prêts", ex.grp && "partage"].filter(Boolean).join(", ")} : non compté, en attente</span><b class="num" style="color:#2f6fb0">+ ${esc(eur(due))}</b></div>`;
+  if (due > 0.004) html += `<div class="fc-row"><span>On te doit aussi ${[ex.ndf && "notes de frais", ex.owed && "prêts", ex.grp && "partage"].filter(Boolean).join(", ")} : non compté, en attente</span><b class="num" style="color:#3f8f68">+ ${esc(eur(due))}</b></div>`;
   if (ex.noDue > 0.004) html += `<div class="fc-row"><span>Dettes sans date de remboursement (non comptées)</span><b class="num" style="color:var(--bad)">− ${esc(eur(ex.noDue))}</b></div>`;
   html += up.length ? `<div class="fc-list">${up.slice(0, 8).map(u => `<div class="fc-it"><span class="num">${u.date ? esc(frDate(u.date).slice(0, 5)) : "—"}</span><span>${esc(u.name)} <small class="hint" style="${/retard|pas encore/.test(u.src) ? "color:var(--bad)" : ""}">· ${esc(u.src)}</small></span><b class="num ${u.type === "rentree" ? "a in" : ""}">${u.type === "rentree" ? "+" : "−"} ${esc(eur(u.amount))}</b></div>`).join("")}${up.length > 8 ? `<div class="hint">+ ${up.length - 8} autres</div>` : ""}</div>`
     : `<p class="hint" style="margin-bottom:0">Ajoute ton salaire, ton loyer et tes mensualités en opérations automatiques (Réglages) pour une prévision plus juste.</p>`;
@@ -1751,7 +1805,7 @@ function drawResults() {
 }
 
 // ---------- Objectifs d'épargne ----------
-const GOAL_COLORS = ["#2e8b57", "#2f6fb0", "#e67e22", "#7d3c98", "#c0392b", "#16a085"];
+const GOAL_COLORS = ["#2e8b57", "#3f8f68", "#e67e22", "#7d3c98", "#c0392b", "#16a085"];
 function goalSaved(gid) {
   const g = goals[gid]; if (!g) return 0;
   return (Number(g.initial) || 0) + allItems().filter(x => x.goal === gid && (x.type === "epargne" || x.type === "invest")).reduce((a, x) => a + Number(x.amount), 0);
@@ -1942,7 +1996,7 @@ function renderGroup(gid) {
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn" id="gShare">Copier le récap</button><button class="btn" id="gEdit">Modifier le groupe</button></div></div>
     <div class="card"><h2>Dépenses<small>${exps.length}</small></h2>${exps.length ? exps.map(e => e.kind === "transfer"
       ? `<div class="pay" style="padding:8px 0"><span>${esc(frDate(e.date))} · ${esc(mName(g, e.from))} a remboursé ${esc(mName(g, e.to))}</span><span class="num">${esc(eur(e.amount))} <button class="btn" data-del="${esc(e.id)}" style="padding:2px 8px;font-size:.72rem">✕</button></span></div>`
-      : `<button class="tx" data-exp="${esc(e.id)}"><span class="ic" style="background:#2f6fb0">${esc((e.label || "?").slice(0, 2))}</span><span><div class="n">${esc(e.label)}</div><div class="s">${esc(frDate(e.date))} · payé par ${esc(mName(g, e.paidBy))} · pour ${e.split.length === g.members.length ? "tout le monde" : esc(e.split.map(id => mName(g, id)).join(", "))}</div></span><span class="a num out">${esc(eur(e.amount))}</span></button>`).join("")
+      : `<button class="tx" data-exp="${esc(e.id)}"><span class="ic" style="background:#3f8f68">${esc((e.label || "?").slice(0, 2))}</span><span><div class="n">${esc(e.label)}</div><div class="s">${esc(frDate(e.date))} · payé par ${esc(mName(g, e.paidBy))} · pour ${e.split.length === g.members.length ? "tout le monde" : esc(e.split.map(id => mName(g, id)).join(", "))}</div></span><span class="a num out">${esc(eur(e.amount))}</span></button>`).join("")
       : `<div class="empty">Aucune dépense. Appuie sur + pour en ajouter une.</div>`}</div>`;
   view.innerHTML = html;
   document.getElementById("gBack").onclick = () => { openGroup = null; render(); };
@@ -2264,10 +2318,10 @@ function renderTontines() {
     const cls = s.done ? "off" : s.unpaid.length ? "soon" : "";
     const curR = s.cur, mineR = s.mine;
     const bal = s.received - s.contributed;
-    html += `<div class="gar ${cls}" style="${cls ? "" : "border-left-color:#2f6fb0"}">
-      <div class="top"><span class="n">${esc(t.name)}</span><span class="st" style="${cls ? "" : "background:#2f6fb0"}">${s.done ? "Terminée" : s.unpaid.length ? "Cotisation à payer" : "En cours"}</span></div>
+    html += `<div class="gar ${cls}" style="${cls ? "" : "border-left-color:#3f8f68"}">
+      <div class="top"><span class="n">${esc(t.name)}</span><span class="st" style="${cls ? "" : "background:#3f8f68"}">${s.done ? "Terminée" : s.unpaid.length ? "Cotisation à payer" : "En cours"}</span></div>
       <div class="top"><span class="amt num">${esc(eur(t.amount))} <small class="hint">/ ${TON_UNIT[t.freq]}</small></span><span class="hint num">pot de ${esc(eur(pot))}</span></div>
-      <div class="bar"><i style="width:${s.paidN / N * 100}%;background:#2f6fb0"></i></div>
+      <div class="bar"><i style="width:${s.paidN / N * 100}%;background:#3f8f68"></i></div>
       <div class="s">${N} membres · ${s.paidN}/${N} cotisations versées
         ${curR && !s.done ? `<br>Prochain tour (${curR.k + 1}/${N}) : <b>${esc(tonMember(t, curR.who))}${curR.who === t.me ? " (toi)" : ""}</b> reçoit le pot le ${esc(frDate(curR.date))}` : ""}
         ${mineR ? `<br>${s.received ? `Tu as reçu le pot (${esc(eur(pot))}) le ${esc(frDate(mineR.date))}` : `<b>Ton tour : n°${mineR.k + 1}, le ${esc(frDate(mineR.date))}</b> (${esc(leftTxt(daysUntil(mineR.date)))})`}` : ""}
@@ -2379,7 +2433,7 @@ function tontineMoisHTML() {
     if (s.unpaid.length) items.push(`${esc(t.name)} : ${s.unpaid.length} cotisation${s.unpaid.length > 1 ? "s" : ""} à payer`);
     if (s.mine && !s.received && daysUntil(s.mine.date) >= -30 && daysUntil(s.mine.date) <= warnDays()) items.push(`${esc(t.name)} : tu reçois le pot de ${esc(eur(tonPot(t)))} le ${esc(frDate(s.mine.date))}`);
   }
-  return items.length ? `<button class="card" id="goTon" style="text-align:left;width:100%;cursor:pointer;border-left:6px solid #2f6fb0"><h2>Tontines<small>${items.length}</small></h2><div class="hint">${items.slice(0, 3).join("<br>")}</div></button>` : "";
+  return items.length ? `<button class="card" id="goTon" style="text-align:left;width:100%;cursor:pointer;border-left:6px solid #3f8f68"><h2>Tontines<small>${items.length}</small></h2><div class="hint">${items.slice(0, 3).join("<br>")}</div></button>` : "";
 }
 
 // ---------- Import du relevé bancaire (CSV ou OFX) ----------

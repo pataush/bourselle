@@ -3,10 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#16324a">
+<meta name="theme-color" content="#f6f2ea" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0d1411" media="(prefers-color-scheme: dark)">
 <meta name="description" content="Suivi des dépenses, factures, garanties, abonnements, dettes, épargne et tontines, enregistré dans ton propre Google Drive ou OneDrive.">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Bourselle">
 <title>Bourselle – Mon budget</title>
 <link rel="manifest" href="manifest.webmanifest">
@@ -43,9 +44,13 @@
 <div class="app" id="app" hidden>
   <header class="top">
     <div class="brand">
-      <h1><img src="icons/icon-192.png" alt=""><span class="nm">Bourselle<span class="sub">Mon budget</span></span></h1>
-      <div class="brand-r"><div class="sync"><span class="dot" id="syncDot"></span><span id="syncTxt">Connexion…</span></div><button class="hbtn" id="searchBtn" aria-label="Rechercher dans mes opérations"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button></div>
+      <h1><span class="avatar" id="avatar" aria-hidden="true">B</span><span class="nm"><span class="hello">Bonjour,</span><b id="helloName">Bourselle</b><span class="sub"></span></span></h1>
+      <div class="brand-r"><div class="sync"><span class="dot" id="syncDot"></span><span id="syncTxt">Connexion…</span></div><button class="hbtn" id="searchBtn" aria-label="Rechercher dans mes opérations"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg></button><button class="hbtn" id="bellBtn" aria-label="Alertes"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg><span class="bell-dot" id="bellDot" hidden></span></button></div>
     </div>
+    <div class="hero">
+    <svg class="hero-deco" viewBox="0 0 120 90" aria-hidden="true"><defs><linearGradient id="hg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e9cf86"/><stop offset="1" stop-color="#e9cf86" stop-opacity=".15"/></linearGradient></defs>
+      <rect x="34" y="52" width="14" height="38" rx="3" fill="url(#hg)" opacity=".45"/><rect x="56" y="38" width="14" height="52" rx="3" fill="url(#hg)" opacity=".6"/><rect x="78" y="22" width="14" height="68" rx="3" fill="url(#hg)" opacity=".8"/><rect x="100" y="6" width="14" height="84" rx="3" fill="url(#hg)"/>
+      <path d="M0 88 C40 84 70 70 120 34" fill="none" stroke="#e9cf86" stroke-width="2" opacity=".8"/></svg>
     <div class="period">
       <button id="prev" aria-label="Période précédente">‹</button>
       <div class="label" id="periodLabel"></div>
@@ -56,6 +61,7 @@
       <div class="big num" id="resBig">0 €</div>
       <div id="resPill"></div>
     </div>
+    </div>
   </header>
   <div class="subnav" id="subnav" hidden></div>
   <main id="view"></main>
@@ -65,13 +71,15 @@
 <nav class="tabs" aria-label="Sections" hidden>
   <div class="in" role="tablist">
     <button role="tab" data-tab="mois" aria-selected="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Mois</button>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/></svg>Accueil</button>
     <button role="tab" data-tab="annee" aria-selected="false">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Année</button>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Analyse</button>
+    <button role="tab" data-tab="recherche" aria-selected="false">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8h14l-3-3M20 16H6l3 3"/></svg>Opérations</button>
     <button role="tab" data-tab="suivis" aria-selected="false">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6h11M9 12h11M9 18h11"/><path d="M4 6l1 1 2-2M4 12l1 1 2-2M4 18l1 1 2-2"/></svg>Suivis<span class="cnt" id="garCnt" hidden></span></button>
     <button role="tab" data-tab="reglages" aria-selected="false">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>Réglages</button>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 5-6 8-6s6.5 2 8 6"/></svg>Profil</button>
   </div>
 </nav>
 
