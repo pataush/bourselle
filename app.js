@@ -225,7 +225,16 @@ function applyData(d) {
     for (const k of ["rentree", "epargne", "invest"]) settings[k] = settings[k].map(x => T(x));
   }
   if (!(d && d.settings) && !settings.currency) settings.currency = regionCurrency();   // nouveau compte : devise de la région
-  applyCurrency();
+  catLangSync(); applyCurrency();
+}
+// Catégories par défaut non renommées : on affiche leur nom dans la langue choisie (compte créé en anglais puis app en français, et inversement)
+function catLangSync() {
+  if (!window.TEN || !settings || !settings.cats) return;
+  for (const c of settings.cats) {
+    const d = DEFAULT_SETTINGS.cats.find(x => x.id === c.id); if (!d) continue;
+    const en = TEN(d.name);
+    if (c.name === d.name || c.name === en) c.name = window.LANG === "en" ? en : d.name;
+  }
 }
 function saveNow() { clearTimeout(saveTimer); if (dirty) flush(); }   // suppressions : enregistrer sans attendre
 function scheduleSave() {
@@ -2610,4 +2619,4 @@ async function boot() {
 }
 boot();
 // Langue changée dans Réglages ou sur l'écran de connexion : on redessine sans recharger (la session reste ouverte).
-window.addEventListener("bourselle-lang", () => { try { if (typeof applyCurrency === "function") applyCurrency(); if (typeof store !== "undefined" && store) render(); } catch (e) {} });
+window.addEventListener("bourselle-lang", () => { try { catLangSync(); if (typeof applyCurrency === "function") applyCurrency(); if (typeof store !== "undefined" && store) render(); } catch (e) {} });

@@ -72,7 +72,7 @@ function ecoAnalysis() {
     const base = Math.max(0, (res.avg[c.id] || 0) - (subsByCat[c.id] || 0));
     const save = ecoRound(base * rate); if (save < 5) continue;
     const top = Object.values(notes).filter(o => o.cat === c.id && o.sum >= 10).sort((a, b) => b.sum - a.sum).slice(0, 2);
-    const topTxt = top.length ? ` Postes principaux : ${top.map(o => `${o.label} (${o.n >= 1.5 ? `${Math.round(o.n)} fois, ` : ""}${eur(o.sum, true)}/mois)`).join(" · ")}.` : "";
+    const topTxt = top.length ? ` Postes principaux : ${top.map(o => `${o.label} (${o.n >= 1.5 ? `${Math.round(o.n)} fois, ` : ""}${eur(o.sum, true)}${window.LANG === "en" ? "/mo" : "/mois"})`).join(" · ")}.` : "";
     L.push({ id: "cat:" + c.id, kind: "cat", cat: c.id, level, save, from: Math.round(res.avg[c.id] || 0), title: `Réduire « ${c.name} » de ${Math.round(rate * 100)} %`, detail: `Tu y dépenses ≈ ${eur(res.avg[c.id] || 0, true)} par mois : vise ${eur((res.avg[c.id] || 0) - save, true)}.${topTxt}` });
   }
   // 3. Charges fixes sans abonnement suivi : énergie, assurances, télécom

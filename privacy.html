@@ -19,9 +19,9 @@
 <main>
 <a class="back" href="./">← Retour à Bourselle</a>
 <h1>Politique de confidentialité</h1>
-<p class="muted">Dernière mise à jour : 16 novembre 2026</p>
+<p class="muted">Dernière mise à jour : 19 novembre 2026</p>
 
-<p>Bourselle est une application web de suivi de budget (dépenses, revenus, factures, garanties, abonnements, dettes, objectifs, tontines). Cette page explique quelles données elle utilise et où elles sont conservées.</p>
+<p>Bourselle est une application web de suivi de budget (dépenses, revenus, factures, garanties, abonnements, dettes, objectifs, plan d'économies, tontines, notes de frais et déplacements). Cette page explique quelles données elle utilise et où elles sont conservées.</p>
 
 <h2>En bref</h2>
 <ul>
@@ -35,6 +35,8 @@
   <li><strong>Identité de base</strong> : ton nom, ton adresse e-mail et ta photo de profil, fournis par Google ou Microsoft lors de la connexion. Ils servent uniquement à afficher ton compte dans l'app.</li>
   <li><strong>Ton code Bourselle Plus</strong> (si tu en as un) : enregistré avec tes réglages dans ton propre Drive ou OneDrive. Il contient ton adresse e-mail et la date de fin de ton offre.</li>
   <li><strong>Tes données de budget</strong> : opérations, catégories, réglages, justificatifs (photos de tickets, factures) que tu saisis ou importes.</li>
+  <li><strong>Tes notes de frais</strong> : les dépenses marquées « note de frais » (type, motif, client, TVA), tes déplacements (date, motif, plage horaire, trajet, kilomètres) et les informations que tu choisis d'indiquer en en-tête (nom, fonction, entreprise, adresse, numéro de note). Rien n'est rempli à ta place.</li>
+  <li><strong>Ta carte grise</strong> (si tu l'ajoutes) : la photo ou le fichier que tu choisis, ainsi que la puissance fiscale et le type de véhicule, utilisés pour calculer les indemnités kilométriques. Ce document contient des informations personnelles (nom, adresse, immatriculation) : il n'est enregistré que dans ton propre Drive ou OneDrive et n'est jamais envoyé ailleurs.</li>
 </ul>
 
 <h2>Où sont stockées les données</h2>
@@ -43,6 +45,13 @@
   <li><strong>Avec Microsoft</strong> : dans le dossier « Applications/Bourselle » de ton OneDrive, via l'autorisation <code>Files.ReadWrite.AppFolder</code>, limitée à ce dossier.</li>
   <li><strong>Sans compte</strong> (mode essai) : uniquement dans le navigateur de ton appareil.</li>
 </ul>
+<p><strong>Dossier « Notes de frais ».</strong> Si tu utilises les notes de frais, l'app crée dans ce même espace un dossier « Bourselle › Notes de frais » qui contient :</p>
+<ul>
+  <li>tes tickets, rangés par mois (« Notes de frais › 2026 › 2026-11 ») et nommés « date – libellé – montant » ;</li>
+  <li>un classeur Excel par année (« Notes de frais 2026.xlsx »), avec un onglet par mois et un récapitulatif, mis à jour quand tes notes changent ;</li>
+  <li>un dossier « Véhicule » avec ta carte grise.</li>
+</ul>
+<p>Ces fichiers restent dans ton Drive ou OneDrive, avec la même autorisation limitée que le reste de l'app. Supprimer une dépense dans l'app met son ticket à la corbeille ; remplacer la carte grise supprime l'ancienne.</p>
 <p>Une copie de travail est gardée dans le navigateur de ton appareil pour que l'app fonctionne hors connexion. Elle est effacée lorsque tu te déconnectes ou vides les données du site.</p>
 
 <h2>Traitements sur l'appareil</h2>
@@ -57,14 +66,15 @@
   <li>GitHub Pages, qui héberge les fichiers de l'application (aucune donnée de budget n'y transite).</li>
   <li>Google Fonts, pour l'affichage des polices.</li>
   <li>ExchangeRate-API (et Frankfurter en secours), pour les taux de change du jour : seul le code de la devise de ton budget est envoyé (par exemple « EUR »), aucune donnée personnelle.</li>
-  <li>Pour Bourselle Plus : le prestataire de paiement (par exemple Stripe) traite le paiement. Nous recevons seulement ton adresse e-mail, l'offre choisie et la référence du paiement, pour t'envoyer ton code d'activation et tenir notre comptabilité. Nous ne voyons jamais tes données bancaires.</li>
+  <li>Frankfurter (taux de la Banque centrale européenne), pour convertir une note de frais au taux de la date du ticket : seuls les deux codes de devise et la date sont envoyés (par exemple « EUR, USD, 2026-10-12 »), jamais le montant ni le ticket.</li>
+  <li>Pour Bourselle Plus : le prestataire de paiement (par exemple Stripe) traite le paiement. Nous recevons seulement ton adresse e-mail, l'offre choisie et la référence du paiement, pour t'envoyer ton code d'activation et tenir notre comptabilité. Nous ne voyons jamais tes données bancaires. Le code est fabriqué et envoyé automatiquement par notre petit serveur (hébergé chez Cloudflare) via le service d'e-mail Resend ; ce serveur garde ton adresse e-mail et ton code, uniquement pour pouvoir te le renvoyer si tu le demandes (« Je n'ai pas reçu mon code »). Tu peux demander leur suppression à tout moment.</li>
 </ul>
 
 <h2>Tes droits</h2>
 <p>Tes données t'appartiennent. Tu peux à tout moment :</p>
 <ul>
   <li>les exporter depuis l'app, ou télécharger les fichiers depuis ton Drive / OneDrive ;</li>
-  <li>les supprimer en effaçant le dossier « Bourselle » de ton Drive ou OneDrive ;</li>
+  <li>les supprimer en effaçant le dossier « Bourselle » de ton Drive ou OneDrive (y compris les notes de frais, le classeur Excel et la carte grise) ;</li>
   <li>retirer l'accès de Bourselle : sur <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">myaccount.google.com/permissions</a> (Google) ou <a href="https://account.live.com/consent/Manage" target="_blank" rel="noopener">account.live.com/consent/Manage</a> (Microsoft).</li>
 </ul>
 
