@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1f6b4b">
+<title>Bourselle</title>
+<link rel="icon" href="icons/favicon-32.png">
+<link rel="stylesheet" href="style.css">
+<style>
+  body { margin: 0; min-height: 100vh; }
+  .gp { max-width: 520px; margin: 0 auto; padding: calc(14px + env(safe-area-inset-top)) 14px 40px; display: flex; flex-direction: column; gap: 12px; }
+  .gp-top { display: flex; align-items: center; gap: 10px; }
+  .gp-top img { width: 34px; height: 34px; border-radius: 10px; }
+  .gp-top b { font-size: 1.05rem; } .gp-top span { margin-left: auto; font-size: .78rem; color: var(--muted); }
+  .gp-hero { background: linear-gradient(135deg, #1f6b4b, #154d36); color: #fff; border-radius: 22px; padding: 18px; }
+  .gp-hero h1 { margin: 0 0 4px; font-size: 1.25rem; } .gp-hero .cap { opacity: .8; font-size: .85rem; }
+  .gp-hero .big { font-size: 2rem; font-weight: 700; margin-top: 6px; }
+  .gp-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 9px 0; border-bottom: 1px solid var(--line); }
+  .gp-row:last-child { border-bottom: 0; }
+  .gp-row small { display: block; color: var(--muted); font-size: .78rem; }
+  .gp-acts { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .gp-acts .btn { padding: 7px 11px; font-size: .82rem; }
+  .card h2 { margin: 0 0 8px; font-size: 1rem; }
+  .gp label { display: block; font-size: .8rem; color: var(--muted); margin: 10px 0 4px; }
+  .gp input[type=text], .gp input[type=date], .gp input[inputmode] { width: 100%; box-sizing: border-box; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 10px 12px; }
+  .gp select { width: 100%; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; padding: 10px 12px; }
+  .gp .chk { display: flex; flex-wrap: wrap; gap: 6px; }
+  .gp .chk label { margin: 0; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); border-radius: 999px; padding: 6px 11px; color: var(--ink); font-size: .85rem; }
+  .pos { color: var(--good, #1f8a5b); } .neg { color: var(--bad, #c43c33); }
+  .gp-toast { position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: #16241d; color: #fff; padding: 10px 16px; border-radius: 12px; font-size: .88rem; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: 90vw; }
+  .gp-toast.on { opacity: 1; }
+  .gp-cta { text-align: center; } .gp-cta a { color: var(--gold); font-weight: 600; text-decoration: none; }
+  .hide { display: none !important; }
+</style>
+</head>
+<body>
+<main class="gp" id="gp">
+  <div class="gp-top"><img src="icons/icon-192.png" alt=""><b>Bourselle</b><span id="gpLang"></span></div>
+  <div class="card"><div class="empty" id="gpLoad">…</div></div>
+</main>
+<div class="gp-toast" id="gpToast"></div>
+<script src="config.js"></script>
+<script src="qr.js"></script>
+<script src="pay.js"></script>
+<script>
+(() => {
+  const EN = !/^fr\b/i.test(navigator.language || "fr");
+  const D = {
+    "Chargement…": "Loading…", "Ce lien n'est plus valable.": "This link is no longer valid.", "Connexion impossible. Réessaie dans un instant.": "Can't connect. Try again in a moment.",
+    "Qui es-tu ?": "Who are you?", "Choisis ton nom pour voir ce que tu dois.": "Pick your name to see what you owe.", "Changer": "Change",
+    "On te doit": "You are owed", "Tu dois": "You owe", "Tu es quitte": "You're all square", "Total du groupe": "Group total",
+    "Qui doit à qui": "Who owes whom", "Tout le monde est quitte.": "Everyone is square.", "Payer": "Pay", "J'ai payé": "I've paid",
+    "Dépenses": "Expenses", "Aucune dépense.": "No expenses yet.", "payé par": "paid by", "a remboursé": "paid back",
+    "Ajouter une dépense": "Add an expense", "Quoi ?": "What?", "ex. Courses, Restaurant": "e.g. Groceries, Restaurant", "Montant": "Amount", "Date": "Date", "Payé par": "Paid by", "Pour qui ?": "For whom?",
+    "Ajouter": "Add", "Annuler": "Cancel", "Dépense ajoutée": "Expense added", "Remboursement enregistré": "Payment recorded",
+    "Indique ce qui a été payé": "Say what was paid for", "Montant invalide": "Invalid amount", "Choisis au moins une personne": "Pick at least one person",
+    "Gère ton budget avec Bourselle : gratuit, tes données restent dans ton Drive.": "Manage your budget with Bourselle: free, your data stays in your Drive.", "Découvrir Bourselle": "Discover Bourselle",
+    "pour": "for", "tout le monde": "everyone", "Copié": "Copied", "moi": "me",
+    "À payer": "To pay", "Bénéficiaire": "Payee", "Copier": "Copy", "Motif": "Reference", "Payer avec PayPal": "Pay with PayPal", "Ouvrir son lien de paiement": "Open their payment link",
+    "Scanne ce QR code avec l'appli de ta banque : le virement est déjà rempli.": "Scan this QR code with your banking app: the transfer is pre-filled.",
+    "Payer {x}": "Pay {x}", "{x} n'a pas encore indiqué comment le payer : règle-le comme d'habitude, puis appuie sur « J'ai payé ».": "{x} hasn't added payment details yet: pay them as usual, then tap “I've paid”.",
+    "Une fois le paiement fait, appuie sur « J'ai payé » pour prévenir le groupe.": "Once you've paid, tap “I've paid” to let the group know.",
+    "Lien de paiement introuvable.": "Payment link not found.", "Pour payer {x}": "To pay {x}", "Envoyé par {x}": "Sent by {x}",
+  };
+  const t = (s, x) => { let r = EN && D[s] ? D[s] : s; return x != null ? r.replace("{x}", x) : r; };
+  document.documentElement.lang = EN ? "en" : "fr";
+  const API = ((window.APP_CONFIG || {}).plus || {}).api || "";
+  const $ = id => document.getElementById(id), main = $("gp");
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  let toastT; const toast = m => { const el = $("gpToast"); el.textContent = t(m); el.classList.add("on"); clearTimeout(toastT); toastT = setTimeout(() => el.classList.remove("on"), 2600); };
+  const hash = new URLSearchParams(location.hash.slice(1));
+  const top = main.firstElementChild.outerHTML;
+  const cta = `<p class="hint gp-cta">${esc(t("Gère ton budget avec Bourselle : gratuit, tes données restent dans ton Drive."))}<br><a href="./">${esc(t("Découvrir Bourselle"))} ›</a></p>`;
+  const fail = m => { main.innerHTML = top + `<div class="card"><div class="empty">${esc(t(m))}</div></div>` + cta; };
+  const today = () => { const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10); };
+  const fdate = d => { const [y, m, j] = d.split("-"); return EN ? `${j}/${m}/${y}` : `${j}/${m}/${y}`; };
+  async function api(path, body) {
+    const r = await fetch(API + path, body ? { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) } : {});
+    const j = await r.json().catch(() => ({})); if (!r.ok) { const e = new Error(j.error || "erreur"); e.status = r.status; throw e; } return j;
+  }
+  // ---------- Lien de paiement : #p=jeton&a=montant&c=devise&n=motif ----------
+  async function payPage() {
+    try {
+      const j = await api("/p/" + hash.get("p")), p = j.pay, amount = Number(hash.get("a")) || 0, cur = (hash.get("c") || "EUR").toUpperCase(), note = hash.get("n") || "";
+      const money = v => new Intl.NumberFormat(EN ? "en-GB" : "fr-FR", { style: "currency", currency: cur }).format(v);
+      document.title = t("Pour payer {x}", p.name || "") + " · Bourselle";
+      main.innerHTML = top + `<div class="gp-hero"><div class="cap">${esc(t("Pour payer {x}", ""))}</div><h1>${esc(p.name || "")}</h1>${amount ? `<div class="big">${esc(money(amount))}</div>` : ""}</div>
+        <div class="card">${PAY.html(p, amount, cur, note, t, money)}</div>` + cta;
+      PAY.bind(main, toast);
+    } catch (e) { fail(e.status === 404 ? "Lien de paiement introuvable." : "Connexion impossible. Réessaie dans un instant."); }
+  }
+  // ---------- Groupe partagé : #g=jeton ----------
+  const tok = hash.get("g"), KEY = "bourselle-g-" + tok;
+  let G = null, me = null, view = "main";
+  const money = v => new Intl.NumberFormat(EN ? "en-GB" : "fr-FR", { style: "currency", currency: (G && G.cur) || "EUR" }).format(v);
+  const nm = id => ((G.members.find(m => m.id === id) || {}).name || "?") + (id === me ? ` (${t("moi")})` : "");
+  function balances() {
+    const bal = {}; for (const m of G.members) bal[m.id] = 0;
+    for (const e of Object.values(G.expenses)) {
+      const amt = Number(e.amount) || 0;
+      if (e.kind === "transfer") { bal[e.from] = (bal[e.from] || 0) + amt; bal[e.to] = (bal[e.to] || 0) - amt; continue; }
+      const split = (e.split || []).filter(id => id in bal); if (!split.length) continue;
+      bal[e.paidBy] = (bal[e.paidBy] || 0) + amt;
+      const sh = e.owed && Object.keys(e.owed).length ? e.owed : null;
+      for (const id of split) bal[id] -= sh ? (Number(sh[id]) || 0) : amt / split.length;
+    }
+    for (const k in bal) bal[k] = Math.round(bal[k] * 100) / 100;
+    return bal;
+  }
+  function settle(bal) {
+    const deb = Object.entries(bal).filter(([, v]) => v < -0.004).map(([id, v]) => ({ id, v: -v })).sort((a, b) => b.v - a.v);
+    const cre = Object.entries(bal).filter(([, v]) => v > 0.004).map(([id, v]) => ({ id, v })).sort((a, b) => b.v - a.v);
+    const out = []; let i = 0, j = 0;
+    while (i < deb.length && j < cre.length) {
+      const x = Math.min(deb[i].v, cre[j].v); out.push({ from: deb[i].id, to: cre[j].id, amount: Math.round(x * 100) / 100 });
+      deb[i].v -= x; cre[j].v -= x; if (deb[i].v < 0.005) i++; if (cre[j].v < 0.005) j++;
+    }
+    return out;
+  }
+  async function load() {
+    try { G = await api("/g/" + tok); } catch (e) { return fail(e.status === 404 ? "Ce lien n'est plus valable." : "Connexion impossible. Réessaie dans un instant."); }
+    try { me = localStorage.getItem(KEY); } catch (e) {}
+    if (me && !G.members.some(m => m.id === me)) me = null;
+    document.title = G.name + " · Bourselle";
+    draw();
+  }
+  function draw() {
+    if (!me) {
+      main.innerHTML = top + `<div class="gp-hero"><div class="cap">${esc(t("Envoyé par {x}", G.owner ? "@" + G.owner : "Bourselle"))}</div><h1>${esc(G.name)}</h1></div>
+        <div class="card"><h2>${esc(t("Qui es-tu ?"))}</h2><p class="hint" style="margin:0 0 10px">${esc(t("Choisis ton nom pour voir ce que tu dois."))}</p>
+        <div class="chips">${G.members.map(m => `<button class="chip" data-me="${esc(m.id)}">${esc(m.name)}</button>`).join("")}</div></div>` + cta;
+      main.querySelectorAll("[data-me]").forEach(b => b.onclick = () => { me = b.dataset.me; try { localStorage.setItem(KEY, me); } catch (e) {} draw(); });
+      return;
+    }
+    if (view === "add") return drawAdd();
+    const bal = balances(), st = settle(bal), mine = bal[me] || 0;
+    const exps = Object.entries(G.expenses).map(([id, e]) => ({ ...e, id })).sort((a, b) => b.date.localeCompare(a.date) || (b.created || 0) - (a.created || 0));
+    const total = exps.filter(e => e.kind !== "transfer").reduce((a, e) => a + Number(e.amount), 0);
+    main.innerHTML = top + `<div class="gp-hero"><div class="cap">${esc(G.name)} · ${esc((G.members.find(m => m.id === me) || {}).name)} <button class="linkbtn" id="gpWho" style="color:#f3d98b">${esc(t("Changer"))}</button></div>
+      <div class="big">${esc(mine > 0.004 ? t("On te doit") : mine < -0.004 ? t("Tu dois") : t("Tu es quitte"))}${Math.abs(mine) > 0.004 ? " " + esc(money(Math.abs(mine))) : ""}</div>
+      <div class="cap">${esc(t("Total du groupe"))} ${esc(money(total))}</div></div>
+      <div class="card"><h2>${esc(t("Qui doit à qui"))}</h2>${st.length ? st.map((s, i) => `<div class="gp-row"><div><b>${esc(nm(s.from))} → ${esc(nm(s.to))}</b><small>${esc(money(s.amount))}</small></div>
+        ${s.from === me ? `<div class="gp-acts"><button class="btn primary" data-pay="${i}">${esc(t("Payer"))}</button></div>` : ""}</div>`).join("") : `<div class="empty">${esc(t("Tout le monde est quitte."))}</div>`}</div>
+      <button class="btn primary" id="gpAdd">+ ${esc(t("Ajouter une dépense"))}</button>
+      <div class="card"><h2>${esc(t("Dépenses"))}</h2>${exps.length ? exps.map(e => e.kind === "transfer"
+        ? `<div class="gp-row"><div>${esc(nm(e.from))} ${esc(t("a remboursé"))} ${esc(nm(e.to))}<small>${esc(fdate(e.date))}</small></div><b>${esc(money(e.amount))}</b></div>`
+        : `<div class="gp-row"><div><b>${esc(e.label)}</b><small>${esc(fdate(e.date))} · ${esc(t("payé par"))} ${esc(nm(e.paidBy))} · ${esc(t("pour"))} ${(e.split || []).length === G.members.length ? esc(t("tout le monde")) : esc((e.split || []).map(nm).join(", "))}</small></div><b>${esc(money(Number(e.amount)))}</b></div>`).join("")
+        : `<div class="empty">${esc(t("Aucune dépense."))}</div>`}</div>` + cta;
+    $("gpWho").onclick = () => { me = null; try { localStorage.removeItem(KEY); } catch (e) {} draw(); };
+    $("gpAdd").onclick = () => { view = "add"; draw(); window.scrollTo(0, 0); };
+    main.querySelectorAll("[data-pay]").forEach(b => b.onclick = () => drawPay(st[Number(b.dataset.pay)]));
+  }
+  function drawPay(s) {
+    const p = (G.pays || {})[s.to], who = nm(s.to);
+    main.innerHTML = top + `<div class="card"><h2>${esc(t("Payer {x}", who))}</h2>
+      ${p ? PAY.html(p, s.amount, G.cur || "EUR", G.name, t, money) : `<div class="pay-amt"><span>${esc(t("À payer"))}</span><b>${esc(money(s.amount))}</b></div><p class="hint">${esc(t("{x} n'a pas encore indiqué comment le payer : règle-le comme d'habitude, puis appuie sur « J'ai payé ».", who))}</p>`}
+      ${p ? `<p class="hint" style="margin:10px 0 0">${esc(t("Une fois le paiement fait, appuie sur « J'ai payé » pour prévenir le groupe."))}</p>` : ""}
+      <div class="gp-acts" style="margin-top:12px"><button class="btn" id="gpBack">${esc(t("Annuler"))}</button><button class="btn primary" id="gpPaid">${esc(t("J'ai payé"))}</button></div></div>`;
+    PAY.bind(main, toast);
+    $("gpBack").onclick = () => draw();
+    $("gpPaid").onclick = async () => {
+      $("gpPaid").disabled = true;
+      try { const r = await api("/g/" + tok + "/add", { by: me, expense: { kind: "transfer", from: s.from, to: s.to, amount: s.amount, date: today() } }); G.expenses[r.id] = r.expense; toast("Remboursement enregistré"); draw(); }
+      catch (e) { $("gpPaid").disabled = false; toast(e.message); }
+    };
+  }
+  function drawAdd() {
+    main.innerHTML = top + `<div class="card"><h2>${esc(t("Ajouter une dépense"))}</h2>
+      <label for="aLabel">${esc(t("Quoi ?"))}</label><input type="text" id="aLabel" maxlength="60" placeholder="${esc(t("ex. Courses, Restaurant"))}">
+      <label for="aAmt">${esc(t("Montant"))} (${esc(G.cur || "EUR")})</label><input id="aAmt" inputmode="decimal" placeholder="0,00">
+      <label for="aDate">${esc(t("Date"))}</label><input type="date" id="aDate" value="${today()}">
+      <label for="aBy">${esc(t("Payé par"))}</label><select id="aBy">${G.members.map(m => `<option value="${esc(m.id)}" ${m.id === me ? "selected" : ""}>${esc(m.name)}</option>`).join("")}</select>
+      <label>${esc(t("Pour qui ?"))}</label><div class="chk">${G.members.map(m => `<label><input type="checkbox" value="${esc(m.id)}" checked> ${esc(m.name)}</label>`).join("")}</div>
+      <div class="gp-acts" style="margin-top:14px"><button class="btn" id="aCancel">${esc(t("Annuler"))}</button><button class="btn primary" id="aSave">${esc(t("Ajouter"))}</button></div></div>`;
+    $("aCancel").onclick = () => { view = "main"; draw(); };
+    $("aSave").onclick = async () => {
+      const label = $("aLabel").value.trim(), amount = Number($("aAmt").value.replace(/\s/g, "").replace(",", "."));
+      const split = [...main.querySelectorAll(".chk input:checked")].map(i => i.value);
+      if (!label) return toast("Indique ce qui a été payé");
+      if (!(amount > 0)) return toast("Montant invalide");
+      if (!split.length) return toast("Choisis au moins une personne");
+      $("aSave").disabled = true;
+      try { const r = await api("/g/" + tok + "/add", { by: me, expense: { label, amount, date: $("aDate").value || today(), paidBy: $("aBy").value, split } }); G.expenses[r.id] = r.expense; view = "main"; toast("Dépense ajoutée"); draw(); }
+      catch (e) { $("aSave").disabled = false; toast(e.message); }
+    };
+  }
+  $("gpLoad").textContent = t("Chargement…");
+  if (hash.get("p")) payPage(); else if (tok) load(); else fail("Ce lien n'est plus valable.");
+  window.addEventListener("hashchange", () => location.reload());
+})();
+</script>
+</body>
+</html>

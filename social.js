@@ -39,6 +39,7 @@ async function socRefresh() {
     SOC.tag = j.tag || SOC.tag; SOC.in = j.in || []; SOC.out = j.out || []; SOC.loaded = true; SOC.err = "";
     const changed = socMerge();
     try { await socPullGroups(); await socPushGroups(); } catch (e) {}
+    socLoadPay();
     if (!SOC.addChecked) { SOC.addChecked = true; socPendingAdd(); }
     const fresh = SOC.in.filter(c => c.status === "pending" && !socSeen.has(c.id));
     if (fresh.length) {
@@ -204,6 +205,11 @@ function socRelaunch(id) {
   socSendClaim(id);
 }
 function socBindRefused() {
+  document.querySelectorAll("[data-socpay]").forEach(b => b.onclick = () => {
+    const d = debts[b.dataset.socpay], c = d && SOC.in.find(y => y.id === d.claim); if (!c || !c.pay) return;
+    const left = debtCalc(d).remaining;
+    showPay(c.pay, left, d.name, "@" + c.from, () => setTimeout(() => { addPayment({ ...d, id: b.dataset.socpay }); const a = document.getElementById("pAmount"); if (a) a.value = String(left).replace(".", ","); }, 250));
+  });
   document.querySelectorAll("[data-socsend]").forEach(b => b.onclick = () => { b.disabled = true; socSendClaim(b.dataset.socsend); });
   document.querySelectorAll("[data-socre]").forEach(b => b.onclick = () => { b.disabled = true; socRelaunch(b.dataset.socre); });
   document.querySelectorAll("[data-socrm]").forEach(b => b.onclick = () => {
@@ -238,7 +244,8 @@ function socDebtLine(x) {
   if (x.kind === "medoit" && x.claimStatus === "declined")
     return `<div class="soc-refused"><b>Dette refusée</b> <span>par</span> <b>@${esc(who || "")}</b>
       <div class="acts"><button class="btn primary" data-socre="${esc(x.id)}">Relancer</button><button class="btn danger" data-socrm="${esc(x.id)}">Supprimer</button></div></div>`;
-  return `<div class="soc-st"><span>${x.kind === "medoit" ? "Réclamée à" : "Réclamée par"}</span> <b>@${esc(who || "")}</b> · <span>${esc(SOC_ST[x.claimStatus] || "envoyée")}</span></div>`;
+  const c = x.kind !== "medoit" ? SOC.in.find(y => y.id === x.claim) : null, canPay = c && c.pay && c.status === "accepted" && x.c && !x.c.done;
+  return `<div class="soc-st"><span>${x.kind === "medoit" ? "Réclamée à" : "Réclamée par"}</span> <b>@${esc(who || "")}</b> · <span>${esc(SOC_ST[x.claimStatus] || "envoyée")}</span>${canPay ? ` <button class="linkbtn" data-socpay="${esc(x.id)}">Payer</button>` : ""}</div>`;
 }
 // Envoyer la réclamation d'une dette « On me doit »
 async function socSendClaim(id) {
@@ -279,7 +286,7 @@ function socMergeGroup(id, r) {
   if (!me) return false;
   const exp = { ...(local ? local.expenses || {} : {}) };
   for (const [eid, e] of Object.entries(r.expenses || {})) { const o = exp[eid]; if (!o || (Number(e.updated) || 0) >= (Number(o.updated) || 0)) exp[eid] = e; }
-  const next = { ...(local || {}), name: r.name, members: r.members, me, expenses: exp, shared: true, owner: r.owner, rev: r.rev, created: (local && local.created) || r.updated || Date.now() };
+  const next = { ...(local || {}), name: r.name, members: r.members, me, expenses: exp, shared: true, owner: r.owner, rev: r.rev, link: r.link || "", pays: r.pays || {}, created: (local && local.created) || r.updated || Date.now() };
   const changed = JSON.stringify(local || null) !== JSON.stringify(next);
   groups[id] = next; return changed;
 }
@@ -291,7 +298,7 @@ async function socPushGroups() {
     const sig = JSON.stringify([g.name, g.members, g.expenses]);
     if (g._sent === sig) continue;
     try {
-      const r = await socApi("/groups/" + id, { method: "POST", body: JSON.stringify({ group: { name: g.name, members: (g.members || []).map(m => ({ id: m.id, name: m.name, tag: m.tag || "" })), expenses: g.expenses || {} } }) });
+      const r = await socApi("/groups/" + id, { method: "POST", body: JSON.stringify({ group: { name: g.name, me: g.me, cur: baseCurrency(), members: (g.members || []).map(m => ({ id: m.id, name: m.name, tag: m.tag || "" })), expenses: g.expenses || {} } }) });
       if (r.deleted) { delete groups[id]; changed = true; continue; }
       changed = socMergeGroup(id, r) || changed;
       groups[id]._sent = JSON.stringify([groups[id].name, groups[id].members, groups[id].expenses]);
@@ -325,4 +332,68 @@ async function socPay(id, p) {
 async function socCancel(d) {
   if (!d || !d.claim || d.kind !== "medoit" || !socOn() || ["declined", "cancelled", "settled"].includes(d.claimStatus)) return;
   try { await socApi("/claims/" + d.claim, { method: "POST", body: JSON.stringify({ action: "cancel" }) }); } catch (e) {}
+}
+
+// ---------- Me faire payer / payer quelqu'un ----------
+// L'utilisateur peut indiquer son IBAN (QR code de virement), son PayPal.me ou un autre lien de paiement.
+// Ils sont montrés aux membres de ses groupes et sur son lien de paiement ; l'argent ne passe jamais par Bourselle.
+const appBase = () => location.origin + location.pathname.replace(/[^/]*$/, "");
+const groupLinkUrl = link => appBase() + "g.html#g=" + link;
+const payLinkUrl = (amount, note) => SOC.payToken ? appBase() + "g.html#p=" + SOC.payToken + (amount > 0 ? "&a=" + (Math.round(amount * 100) / 100) + "&c=" + baseCurrency() : "") + (note ? "&n=" + encodeURIComponent(note.slice(0, 50)) : "") : "";
+async function socLoadPay(force) {
+  if (!socOn() || (SOC.payLoaded && !force)) return;
+  try { const j = await socApi("/me/pay"); const was = SOC.payLoaded; SOC.pay = j.pay; SOC.payToken = j.token || ""; SOC.payLoaded = true; if (!was && tab === "reglages" && document.getElementById("app") && !document.getElementById("sheet2Root").classList.contains("open")) render(); } catch (e) {}
+}
+async function shareText(text, url, okMsg) {
+  if (window.T) text = window.T(text);
+  if (navigator.share) { try { await navigator.share({ text, url }); return; } catch (e) { if (e && e.name === "AbortError") return; } }
+  try { await navigator.clipboard.writeText(url ? text + "\n" + url : text); toast(okMsg || "Lien copié : colle-le dans un message"); } catch (e) { toast(url || text); }
+}
+async function editPay() {
+  if (!socOn()) { toast("Connecte-toi avec Google ou Microsoft pour te faire payer"); return; }
+  await socLoadPay(true);
+  const p = SOC.pay || {};
+  const f = openForm(`<div class="f2"><h3>Me faire payer</h3>
+    <p class="hint" style="margin:0 0 8px">Ceux qui te doivent de l'argent (membres de tes groupes, ton lien de paiement) verront ces informations pour te payer directement. Rien ne passe par Bourselle.</p>
+    ${fld("pyName", "Titulaire du compte", `placeholder="ex. Anne Martin" value="${esc(p.name || "")}"`)}
+    ${fld("pyIban", "IBAN", `placeholder="FR76 …" autocapitalize="characters" value="${esc(p.iban ? PAY.ibanFmt(p.iban) : "")}"`)}
+    <p class="hint" style="margin:4px 0 0">Avec ton IBAN, Bourselle affiche un QR code de virement déjà rempli (montant et motif).</p>
+    ${fld("pyPaypal", "PayPal.me (facultatif)", `placeholder="ex. annemartin" value="${esc(p.paypal || "")}"`)}
+    ${fld("pyLink", "Autre lien de paiement (facultatif)", `placeholder="https://… (Lydia, Wero, Revolut…)" value="${esc(p.link || "")}"`)}
+    ${SOC.payToken ? `<button type="button" class="btn" id="pyShare" style="margin-top:12px;width:100%">Partager mon lien de paiement</button>` : ""}</div>`, () => {
+    const iban = PAY.clean(val("pyIban")), name = val("pyName").trim(), paypal = val("pyPaypal").trim(), link = val("pyLink").trim();
+    if (iban && !PAY.ibanOk(iban)) { toast("IBAN invalide : vérifie-le"); return false; }
+    if (iban && !name) { toast("Indique le nom du titulaire du compte"); return false; }
+    if (link && !/^https:\/\/\S{4,}$/.test(link)) { toast("Le lien doit commencer par https://"); return false; }
+    (async () => {
+      try {
+        const j = await socApi("/me/pay", { method: "POST", body: JSON.stringify({ name, iban, paypal, link }) });
+        SOC.pay = j.pay; SOC.payToken = j.token || ""; SOC.payLoaded = true;
+        toast(j.pay ? "Moyens de paiement enregistrés" : "Moyens de paiement retirés"); render();
+        socPullGroups().catch(() => {});
+      } catch (e) { toast(e.message); }
+    })();
+  });
+  const sh = f.querySelector("#pyShare"); if (sh) sh.onclick = () => shareText("Pour me payer :", payLinkUrl(0, ""));
+}
+// Fenêtre « Payer » : IBAN + QR code, PayPal, lien ; « J'ai payé » enregistre le remboursement
+function showPay(p, amount, note, who, onPaid) {
+  const f = openForm(`<div class="f2"><h3>Payer ${esc(who)}</h3>${PAY.html(p, amount, baseCurrency(), note, x => x, v => eur(v))}
+    <p class="hint" style="margin:8px 0 0">Une fois le paiement fait, appuie sur « J'ai payé » pour l'enregistrer.</p></div>`, () => { onPaid && onPaid(); });
+  f.querySelector("button[type=submit]").textContent = "J'ai payé";
+  PAY.bind(f, toast);
+}
+// Lien d'invitation d'un groupe (créé à la demande par le créateur du groupe)
+async function socGroupLink(gid, off) {
+  const g = groups[gid]; if (!g) return;
+  if (!socOn()) { toast("Connecte-toi avec Google ou Microsoft pour inviter par lien"); return; }
+  if (!socIOwn(g)) { if (g.link) return shareText(`Rejoins le groupe « ${g.name} » sur Bourselle :`, groupLinkUrl(g.link)); toast(`Demande le lien à @${g.owner}`); return; }
+  try {
+    g.shared = true;
+    const r = await socApi("/groups/" + gid, { method: "POST", body: JSON.stringify({ link: !off, group: { name: g.name, me: g.me, cur: baseCurrency(), members: (g.members || []).map(m => ({ id: m.id, name: m.name, tag: m.tag || "" })), expenses: g.expenses || {} } }) });
+    socMergeGroup(gid, r); groups[gid]._sent = JSON.stringify([groups[gid].name, groups[gid].members, groups[gid].expenses]);
+    saveGroups(); render();
+    if (off) { toast("Lien d'invitation désactivé"); return; }
+    if (r.link) shareText(`Rejoins le groupe « ${g.name} » sur Bourselle : tu verras les dépenses et qui doit quoi, sans créer de compte.`, groupLinkUrl(r.link));
+  } catch (e) { toast(e.message); }
 }

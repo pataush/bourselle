@@ -580,6 +580,22 @@
     "Bien vendu (le retirer du patrimoine)": "Sold (remove from net worth)", "Historique de la valeur": "Value history",
     "Donne un nom au bien": "Give the asset a name", "Indique une valeur valide": "Enter a valid value", "Bien retiré": "Asset removed", "Bien modifié": "Asset updated", "Bien ajouté": "Asset added", "Bien supprimé": "Asset deleted",
     "ex. Appartement, Clio, Assurance-vie, Montre": "e.g. Flat, Car, Life insurance, Watch", "ex. 180 000": "e.g. 180,000",
+    // Payer / inviter par lien
+    "Me faire payer": "Get paid", "IBAN, PayPal.me, lien de paiement": "IBAN, PayPal.me, payment link",
+    "Ceux qui te doivent de l'argent (membres de tes groupes, ton lien de paiement) verront ces informations pour te payer directement. Rien ne passe par Bourselle.": "People who owe you money (members of your groups, your payment link) will see these details to pay you directly. Nothing goes through Bourselle.",
+    "Titulaire du compte": "Account holder", "ex. Anne Martin": "e.g. Anne Martin", "Avec ton IBAN, Bourselle affiche un QR code de virement déjà rempli (montant et motif).": "With your IBAN, Bourselle shows a pre-filled bank transfer QR code (amount and reference).",
+    "PayPal.me (facultatif)": "PayPal.me (optional)", "ex. annemartin": "e.g. annemartin", "Autre lien de paiement (facultatif)": "Other payment link (optional)", "https://… (Lydia, Wero, Revolut…)": "https://… (Revolut, Wise, Lydia…)",
+    "Partager mon lien de paiement": "Share my payment link", "IBAN invalide : vérifie-le": "Invalid IBAN: please check it", "Indique le nom du titulaire du compte": "Enter the account holder's name", "Le lien doit commencer par https://": "The link must start with https://",
+    "Moyens de paiement enregistrés": "Payment details saved", "Moyens de paiement retirés": "Payment details removed", "Une fois le paiement fait, appuie sur « J'ai payé » pour l'enregistrer.": "Once you've paid, tap “I've paid” to record it.",
+    "J'ai payé": "I've paid", "Payer": "Pay", "Demander": "Request", "Copié": "Copied", "Lien copié : colle-le dans un message": "Link copied: paste it into a message", "Pour me payer :": "To pay me:",
+    "Connecte-toi avec Google ou Microsoft pour inviter par lien": "Sign in with Google or Microsoft to invite by link", "Connecte-toi avec Google ou Microsoft pour te faire payer": "Sign in with Google or Microsoft to get paid",
+    "Lien d'invitation désactivé": "Invite link turned off", "Inviter par lien": "Invite by link", "Partager le lien": "Share the link", "Créer le lien d'invitation": "Create the invite link", "Désactiver le lien": "Turn off the link",
+    "Toute personne qui a le lien voit le groupe, peut ajouter une dépense ou dire qu'elle a remboursé, sans compte Bourselle.": "Anyone with the link can see the group, add an expense or say they've paid back, without a Bourselle account.",
+    "Envoie un lien : tes amis voient le groupe et qui doit quoi, ajoutent leurs dépenses et paient, sans créer de compte.": "Send a link: your friends see the group and who owes what, add their expenses and pay, without creating an account.",
+    "Ajoute d'abord tes moyens de paiement (Profil › Me faire payer)": "First add your payment details (Profile › Get paid)",
+    "Ton IBAN, PayPal.me ou un lien Lydia, Wero… pour que les membres de tes groupes te paient en un geste.": "Your IBAN, PayPal.me or a payment link so members of your groups can pay you in one tap.",
+    "Ajouter mes moyens de paiement": "Add my payment details", "Payer avec PayPal": "Pay with PayPal", "Ouvrir son lien de paiement": "Open their payment link",
+    "Scanne ce QR code avec l'appli de ta banque : le virement est déjà rempli.": "Scan this QR code with your banking app: the transfer is pre-filled.", "via le lien": "via the link", "PayPal.me": "PayPal.me", "lien de paiement": "payment link",
   };
 
   // ---------- Textes avec des valeurs ({m} montant, {d} date, {n} nombre, {x} autre) ----------
@@ -827,6 +843,14 @@
     ["Je dois · {x}", "I owe · {x}"],
     ["On me doit · {x}", "Owed to me · {x}"],
     ["Valeur estimée aujourd'hui ({x})", "Estimated value today ({x})"],
+    ["Payer {x}", "Pay {x}"],
+    ["{x} (moi) → {x}", "{x} (me) → {x}"], ["{x} → {x} (moi)", "{x} → {x} (me)"],
+    ["Enregistré : {x}", "Saved: {x}"],
+    ["Demande le lien à @{x}", "Ask @{x} for the link"],
+    ["{x}, tu me dois {m} pour « {x} ». Tu peux payer ici :", "{1}, you owe me {2} for “{3}”. You can pay here:"],
+    ["Tu me dois {m} pour « {x} ». Tu peux payer ici :", "You owe me {m} for “{x}”. You can pay here:"],
+    ["Rejoins le groupe « {x} » sur Bourselle :", "Join the group “{x}” on Bourselle:"],
+    ["Rejoins le groupe « {x} » sur Bourselle : tu verras les dépenses et qui doit quoi, sans créer de compte.", "Join the group “{x}” on Bourselle: you'll see the expenses and who owes what, without creating an account."],
   ];
   const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
   const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];

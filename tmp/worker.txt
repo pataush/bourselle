@@ -1,0 +1,403 @@
+/* Bourselle — serveur des codes Plus (Cloudflare Worker)
+ * Reçoit les paiements (Stripe ou Lemon Squeezy), fabrique le code d'activation signé « BRS1… »
+ * et l'envoie par e-mail au client (Resend). Le client peut aussi redemander son code depuis l'app.
+ *
+ * Secrets à définir (Cloudflare › Worker › Settings › Variables, type « Secret ») :
+ *   PLUS_PRIVATE_JWK   clé privée de signature (contenu de "priv" dans keys.json) — ne jamais la publier
+ *   RESEND_KEY         clé API Resend (resend.com)
+ *   STRIPE_WEBHOOK_SECRET   whsec_… (si Stripe)
+ *   LEMON_WEBHOOK_SECRET    secret du webhook (si Lemon Squeezy)
+ * Variables (non secrètes) :
+ *   MAIL_FROM          ex. "Bourselle <codes@ton-domaine.fr>"
+ *   APP_URL            https://pataush.github.io/bourselle/
+ *   PLANS              JSON : identifiant Stripe (lien de paiement plink_…, ou prix price_…) ou variante Lemon Squeezy → offre
+ *                      ex. {"plink_123":"mensuel","price_456":"annuel","789":"vie"}
+ * Stockage : un espace KV lié sous le nom CODES.
+ */
+const NAMES = { mensuel: "Plus mensuel", annuel: "Plus annuel", famille: "Famille", vie: "À vie", essai: "Essai" };
+const enc = new TextEncoder();
+const b64u = bytes => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, "0")).join("");
+const iso = d => d.toISOString().slice(0, 10);
+const frDate = s => s ? s.split("-").reverse().join("/") : "";
+const okEmail = s => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s || "");
+const json = (o, status = 200, extra = {}) => new Response(JSON.stringify(o), { status, headers: { "content-type": "application/json", ...extra } });
+
+function addMonths(d, n) { const x = new Date(d); const day = x.getUTCDate(); x.setUTCMonth(x.getUTCMonth() + n); if (x.getUTCDate() < day) x.setUTCDate(0); return x; }
+// Même règle que le générateur : mois ou année + 7 jours de marge ; « vie » sans fin.
+export function expiryFor(plan, from = new Date()) {
+  if (plan === "vie") return null;
+  const d = addMonths(from, plan === "mensuel" ? 1 : 12); d.setUTCDate(d.getUTCDate() + 7); return iso(d);
+}
+export async function makeCode(env, plan, emails, ref) {
+  const key = await crypto.subtle.importKey("jwk", JSON.parse(env.PLUS_PRIVATE_JWK), { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+  const payload = { v: 1, p: plan, e: emails.map(s => s.toLowerCase()), x: expiryFor(plan), i: (ref || crypto.randomUUID()).slice(-12), d: iso(new Date()) };
+  const body = b64u(enc.encode(JSON.stringify(payload)));
+  const sig = new Uint8Array(await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, key, enc.encode(body)));
+  return { code: `BRS1.${body}.${b64u(sig)}`, payload };
+}
+async function hmac(secret, data) {
+  const k = await crypto.subtle.importKey("raw", enc.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return hex(await crypto.subtle.sign("HMAC", k, enc.encode(data)));
+}
+const same = (a, b) => { if (a.length !== b.length) return false; let r = 0; for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i); return r === 0; };
+
+function mailText(env, plan, code, emails, x) {
+  const app = env.APP_URL || "https://pataush.github.io/bourselle/";
+  return `Bonjour,\n\nMerci pour ton achat de Bourselle ${NAMES[plan] || "Plus"} !\n\nVoici ton code d'activation :\n\n${code}\n\n` +
+    `Pour l'activer : ouvre Bourselle (${app}), va dans Réglages › Bourselle Plus › « Découvrir Plus », colle le code puis appuie sur « Activer le code ».\n\n` +
+    `Il fonctionne avec ${emails.length > 1 ? "ces comptes" : "ce compte"} : ${emails.join(", ")}.\n${x ? "Valable jusqu'au " + frDate(x) + "." : "Sans date de fin."}\n\nÀ bientôt,\nL'équipe Bourselle`;
+}
+async function sendMail(env, to, subject, text) {
+  const html = `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.5;color:#16324a">${text.split("\n").map(l => l.startsWith("BRS1.")
+    ? `<p style="background:#fff4d6;border:1px solid #f2b928;border-radius:8px;padding:10px;word-break:break-all;font-family:monospace;font-size:13px">${l}</p>`
+    : l ? `<p style="margin:0 0 8px">${l.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</p>` : "").join("")}</div>`;
+  const r = await fetch("https://api.resend.com/emails", { method: "POST", headers: { authorization: `Bearer ${env.RESEND_KEY}`, "content-type": "application/json" },
+    body: JSON.stringify({ from: env.MAIL_FROM, to: [to], subject, text, html }) });
+  if (!r.ok) throw new Error("mail " + r.status + " " + (await r.text()).slice(0, 200));
+}
+// Délivre (ou renouvelle) le code d'un client, une seule fois par événement de paiement.
+async function deliver(env, eventId, email, plan, ref) {
+  email = String(email || "").trim().toLowerCase();
+  if (!okEmail(email) || !NAMES[plan]) return { skipped: "données incomplètes", email, plan };
+  if (eventId && await env.CODES.get("evt:" + eventId)) return { skipped: "déjà traité" };
+  const { code, payload } = await makeCode(env, plan, [email], ref);
+  await env.CODES.put("code:" + email, JSON.stringify({ code, plan, x: payload.x, at: payload.d }));
+  await sendMail(env, email, `Ton code Bourselle ${NAMES[plan]}`, mailText(env, plan, code, [email], payload.x));
+  if (eventId) await env.CODES.put("evt:" + eventId, "1", { expirationTtl: 60 * 60 * 24 * 90 });
+  return { sent: email, plan, until: payload.x };
+}
+const plans = env => { try { return JSON.parse(env.PLANS || "{}"); } catch (e) { return {}; } };
+
+async function stripe(req, env) {
+  const body = await req.text(), sig = req.headers.get("stripe-signature") || "";
+  const parts = Object.fromEntries(sig.split(",").map(p => p.split("=")));
+  const t = Number(parts.t), v1 = sig.split(",").filter(p => p.startsWith("v1=")).map(p => p.slice(3));
+  if (!t || Math.abs(Date.now() / 1000 - t) > 600) return json({ error: "signature expirée" }, 400);
+  const want = await hmac(env.STRIPE_WEBHOOK_SECRET || "", `${t}.${body}`);
+  if (!v1.some(v => same(v, want))) return json({ error: "signature invalide" }, 400);
+  const ev = JSON.parse(body), o = ev.data && ev.data.object || {}, P = plans(env);
+  if (ev.type === "checkout.session.completed" && o.payment_status !== "unpaid") {
+    const plan = (o.metadata && o.metadata.plan) || P[o.payment_link] || P[o.id];
+    return json(await deliver(env, ev.id, (o.customer_details && o.customer_details.email) || o.customer_email, plan, o.id));
+  }
+  if (ev.type === "invoice.paid" && o.billing_reason === "subscription_cycle") {   // renouvellement d'abonnement
+    const line = (o.lines && o.lines.data || [])[0] || {}, price = (line.price && line.price.id) || (line.pricing && line.pricing.price_details && line.pricing.price_details.price);
+    return json(await deliver(env, ev.id, o.customer_email, (line.metadata && line.metadata.plan) || P[price], o.id));
+  }
+  return json({ ignored: ev.type });
+}
+async function lemon(req, env) {
+  const body = await req.text(), sig = req.headers.get("x-signature") || "";
+  if (!same(sig, await hmac(env.LEMON_WEBHOOK_SECRET || "", body))) return json({ error: "signature invalide" }, 400);
+  const ev = JSON.parse(body), name = ev.meta && ev.meta.event_name, a = (ev.data && ev.data.attributes) || {}, P = plans(env);
+  const custom = (ev.meta && ev.meta.custom_data) || {};
+  if (name === "order_created" && a.status === "paid") {
+    const v = a.first_order_item && String(a.first_order_item.variant_id);
+    return json(await deliver(env, "ls-order-" + ev.data.id, a.user_email, custom.plan || P[v], "ls" + ev.data.id));
+  }
+  if (name === "subscription_payment_success" && a.billing_reason === "renewal") {
+    const plan = custom.plan || P[String(a.variant_id || "")] || JSON.parse(await env.CODES.get("code:" + String(a.user_email || "").toLowerCase()) || "{}").plan;
+    return json(await deliver(env, "ls-inv-" + ev.data.id, a.user_email, plan, "ls" + ev.data.id));
+  }
+  return json({ ignored: name });
+}
+// L'app demande de renvoyer le code : on l'envoie à l'adresse enregistrée, jamais dans la réponse.
+async function resend(req, env, cors) {
+  let email = "";
+  try { email = String((await req.json()).email || "").trim().toLowerCase(); } catch (e) {}
+  if (!okEmail(email)) return json({ ok: false, error: "adresse invalide" }, 400, cors);
+  if (await env.CODES.get("rl:" + email)) return json({ ok: true }, 200, cors);
+  await env.CODES.put("rl:" + email, "1", { expirationTtl: 120 });
+  const rec = JSON.parse(await env.CODES.get("code:" + email) || "null");
+  if (rec && (!rec.x || rec.x >= iso(new Date()))) await sendMail(env, email, `Ton code Bourselle ${NAMES[rec.plan] || "Plus"}`, mailText(env, rec.plan, rec.code, [email], rec.x));
+  return json({ ok: true }, 200, cors);   // même réponse que l'adresse soit connue ou non
+}
+
+// ======================================================================
+// Tags et réclamations de dettes entre utilisateurs
+// Chaque utilisateur a un tag (@marie-7k2q). Un utilisateur Plus peut réclamer une dette à un tag :
+// elle apparaît dans l'app de l'autre, qui l'accepte ou la refuse ; les remboursements se suivent des deux côtés.
+// L'identité est vérifiée auprès de Google ou de Microsoft avec le jeton de connexion de l'app : aucun mot de passe ici.
+// Les adresses e-mail ne sont jamais renvoyées aux autres utilisateurs.
+// ======================================================================
+const PLUS_PUB = { kty: "EC", crv: "P-256", x: "FVolf7Ixuv9wbaEw8Liyh1YbtbrZOsghwVphdfVVOLM", y: "rsfy0EMVoZkRjGF0asb7-kY3EMaDg6ICztrXPUcaaGM" };
+const TAG_RE = /^[a-z0-9][a-z0-9_-]{2,23}$/;
+const OWNER_HASHES = ["91959f39f66b2a1ca4ba68dc60665c1c43737e3b151bda7a01055d3b430fdd0e"];
+const sha = async s => hex(await crypto.subtle.digest("SHA-256", enc.encode(s)));
+const rid = (n = 10) => b64u(crypto.getRandomValues(new Uint8Array(n))).replace(/[-_]/g, "").slice(0, n).toLowerCase();
+const kvJ = async (env, k, d = null) => { const v = await env.CODES.get(k); try { return v ? JSON.parse(v) : d; } catch (e) { return d; } };
+const kvP = (env, k, v, o) => env.CODES.put(k, JSON.stringify(v), o);
+class HttpErr extends Error { constructor(status, msg) { super(msg); this.status = status; } }
+
+// Qui appelle ? On demande à Google ou à Microsoft à qui appartient le jeton (résultat gardé 50 min).
+const TOK_CACHE = new Map();
+export async function whoIs(req, env) {
+  const auth = req.headers.get("authorization") || "", prov = (req.headers.get("x-provider") || "google").toLowerCase();
+  const tok = /^Bearer (.{20,})$/.exec(auth); if (!tok) throw new HttpErr(401, "connexion requise");
+  // Cache en mémoire (pas dans KV : l'offre gratuite de Cloudflare limite les écritures à 1 000 par jour)
+  const key = await sha(prov + ":" + tok[1]), hit = TOK_CACHE.get(key);
+  if (hit && hit.until > Date.now()) return hit.me;
+  const url = prov === "microsoft" ? "https://graph.microsoft.com/v1.0/me" : "https://www.googleapis.com/oauth2/v3/userinfo";
+  const r = await fetch(url, { headers: { authorization: "Bearer " + tok[1] } });
+  if (!r.ok) throw new HttpErr(401, "connexion expirée");
+  const j = await r.json();
+  const email = String(j.email || j.mail || j.userPrincipalName || "").trim().toLowerCase();
+  if (!okEmail(email) || (prov === "google" && j.email_verified === false)) throw new HttpErr(401, "adresse non vérifiée");
+  const me = { email, name: String(j.given_name || j.givenName || j.name || j.displayName || "").trim().slice(0, 40) };
+  TOK_CACHE.set(key, { me, until: Date.now() + 50 * 60 * 1000 }); if (TOK_CACHE.size > 2000) TOK_CACHE.clear();
+  return me;
+}
+const slug = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 14) || "membre";
+async function myTag(env, me) {
+  const t = await env.CODES.get("owner:" + me.email);
+  if (t) return t;
+  for (let i = 0; i < 6; i++) {
+    const tag = slug(me.name || me.email.split("@")[0]) + "-" + rid(4);
+    if (!await env.CODES.get("tag:" + tag)) { await env.CODES.put("tag:" + tag, me.email, { metadata: { n: me.name || "" } }); await env.CODES.put("owner:" + me.email, tag); return tag; }
+  }
+  throw new HttpErr(500, "tag indisponible");
+}
+// Réclamer une dette est réservé à Bourselle Plus : on vérifie le code d'activation (même clé que l'app).
+async function hasPlus(env, me, code) {
+  if (OWNER_HASHES.includes(await sha(me.email))) return true;
+  const m = /^BRS1\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/.exec(String(code || "").replace(/\s+/g, ""));
+  if (!m) return false;
+  // Clé publique (la même que dans l'app) : vérifier un code ne demande aucun secret.
+  const key = await crypto.subtle.importKey("jwk", PLUS_PUB, { name: "ECDSA", namedCurve: "P-256" }, false, ["verify"]);
+  const bytes = s => Uint8Array.from(atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)), c => c.charCodeAt(0));
+  if (!await crypto.subtle.verify({ name: "ECDSA", hash: "SHA-256" }, key, bytes(m[2]), enc.encode(m[1]))) return false;
+  const p = JSON.parse(new TextDecoder().decode(bytes(m[1])));
+  const em = (p.e || []).map(x => String(x).toLowerCase());
+  return (!em.length || em.includes(me.email)) && (!p.x || p.x >= iso(new Date()));
+}
+const pub = (c, tagOf) => ({ id: c.id, from: c.fromTag, fromName: c.fromName, to: c.toTag, amount: c.amount, cur: c.cur, name: c.name, note: c.note,
+  date: c.date, due: c.due, status: c.status, payments: c.payments || [], created: c.created, updated: c.updated });
+const grpPub = g => ({ id: g.id, name: g.name, owner: g.ownerTag, members: g.members, expenses: g.expenses, rev: g.rev, updated: g.updated, deleted: !!g.deleted, link: g.link || "", cur: g.cur || "" });
+// ---------- Me faire payer ----------
+// Coordonnées que l'utilisateur choisit de montrer à ceux qui lui doivent de l'argent (membres de ses groupes, lien de paiement).
+const payPub = p => p && (p.iban || p.paypal || p.link) ? { name: p.name || "", iban: p.iban || "", paypal: p.paypal || "", link: p.link || "" } : null;
+async function payOf(env, email) { return email ? payPub(await kvJ(env, "pay:" + email)) : null; }
+function ibanOk(iban) {
+  const s = String(iban || "").replace(/\s+/g, "").toUpperCase();
+  if (!/^[A-Z]{2}\d{2}[A-Z0-9]{10,30}$/.test(s)) return false;
+  const r = (s.slice(4) + s.slice(0, 4)).replace(/[A-Z]/g, c => String(c.charCodeAt(0) - 55));
+  let m = 0; for (const ch of r) m = (m * 10 + Number(ch)) % 97;
+  return m === 1;
+}
+// Coordonnées de paiement des membres d'un groupe (par identifiant de membre)
+async function grpPays(env, g) {
+  const out = {};
+  for (const m of g.members || []) {
+    let email = null;
+    if (m.id && m.id === g.ownerMid) email = g.ownerEmail;
+    else if (m.tag) email = await env.CODES.get("tag:" + m.tag);
+    const p = await payOf(env, email); if (p) out[m.id] = p;
+  }
+  return out;
+}
+async function grpOut(env, g) { const o = grpPub(g); if (!g.deleted) o.pays = await grpPays(env, g); return o; }
+async function listOf(env, k) { return (await kvJ(env, k, [])) || []; }
+async function pushTo(env, k, id) { const l = await listOf(env, k); if (!l.includes(id)) { l.unshift(id); await kvP(env, k, l.slice(0, 300)); } }
+const num = v => { const n = Number(String(v).replace(",", ".")); return Number.isFinite(n) ? Math.round(n * 100) / 100 : NaN; };
+const isoOk = s => /^\d{4}-\d{2}-\d{2}$/.test(s || "");
+
+// ---------- Pages publiques (sans compte) : groupe partagé par lien, lien de paiement ----------
+const pubGroup = (g, pays) => ({ name: g.name, cur: g.cur || "EUR", owner: g.ownerTag || "", updated: g.updated,
+  members: (g.members || []).map(m => ({ id: m.id, name: m.name, tag: m.tag || "" })), pays,
+  expenses: Object.fromEntries(Object.entries(g.expenses || {}).filter(([, e]) => e && !e.deleted)) });
+async function publicApi(req, env, url, cors) {
+  const pm = /^\/p\/([a-z0-9]{10,24})$/.exec(url.pathname);
+  if (pm && req.method === "GET") {
+    const email = await env.CODES.get("ptk:" + pm[1]); const p = await payOf(env, email);
+    if (!p) throw new HttpErr(404, "lien de paiement introuvable");
+    return json({ pay: p }, 200, cors);
+  }
+  const m = /^\/g\/([a-z0-9]{10,24})(\/add)?$/.exec(url.pathname);
+  if (!m) throw new HttpErr(404, "introuvable");
+  const id = await env.CODES.get("lnk:" + m[1]); const g = id ? await kvJ(env, "grp:" + id) : null;
+  if (!g || g.deleted || g.link !== m[1]) throw new HttpErr(404, "ce lien n'est plus valable");
+  if (!m[2] && req.method === "GET") return json(pubGroup(g, await grpPays(env, g)), 200, cors);
+  if (m[2] && req.method === "POST") {
+    const b = await req.json().catch(() => ({})), e = b.expense || {}, ids = new Set((g.members || []).map(x => x.id));
+    const day = iso(new Date()), rl = "rlg:" + m[1] + ":" + day, n = Number(await env.CODES.get(rl) || 0);
+    if (n >= 60) throw new HttpErr(429, "trop d'ajouts aujourd'hui");
+    const amount = num(e.amount); if (!(amount > 0 && amount < 1e7)) throw new HttpErr(400, "montant invalide");
+    const date = isoOk(e.date) ? e.date : day, now = Date.now(), by = String(b.by || "").slice(0, 16);
+    let x;
+    if (e.kind === "transfer") {
+      if (!ids.has(e.from) || !ids.has(e.to) || e.from === e.to) throw new HttpErr(400, "membres invalides");
+      x = { kind: "transfer", from: e.from, to: e.to, amount, date, created: now, updated: now, via: "lien", by };
+    } else {
+      const split = [...new Set(Array.isArray(e.split) ? e.split : [])].filter(s => ids.has(s));
+      const label = String(e.label || "").trim().slice(0, 60);
+      if (!label) throw new HttpErr(400, "indique ce qui a été payé");
+      if (!ids.has(e.paidBy) || !split.length) throw new HttpErr(400, "membres invalides");
+      x = { label, amount, date, paidBy: e.paidBy, split, created: now, updated: now, via: "lien", by };
+    }
+    const eid = "gx" + rid(10); g.expenses = g.expenses || {}; g.expenses[eid] = x;
+    g.updated = now; g.rev = (g.rev || 0) + 1;
+    if (JSON.stringify(g).length > 200000) throw new HttpErr(413, "groupe trop grand");
+    await env.CODES.put(rl, String(n + 1), { expirationTtl: 90000 }); await kvP(env, "grp:" + id, g);
+    return json({ id: eid, expense: x }, 200, cors);
+  }
+  throw new HttpErr(405, "méthode non permise");
+}
+
+async function social(req, env, url, cors) {
+  const me = await whoIs(req, env);
+  const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
+  const path = url.pathname;
+  if (path === "/me" && req.method === "GET") return json({ tag: await myTag(env, me) }, 200, cors);
+  if (path === "/me/tag" && req.method === "POST") {
+    const tag = String(body.tag || "").trim().toLowerCase().replace(/^@/, "");
+    if (!TAG_RE.test(tag)) throw new HttpErr(400, "3 à 24 caractères : lettres, chiffres, - ou _");
+    const old = await myTag(env, me);
+    if (tag === old) return json({ tag }, 200, cors);
+    const holder = await env.CODES.get("tag:" + tag);
+    if (holder && holder !== me.email) throw new HttpErr(409, "ce tag est déjà pris");
+    await env.CODES.put("tag:" + tag, me.email, { metadata: { n: me.name || "" } }); await env.CODES.put("owner:" + me.email, tag); await env.CODES.delete("tag:" + old);
+    return json({ tag }, 200, cors);
+  }
+  if (path === "/me/pay" && req.method === "GET") { const p = await kvJ(env, "pay:" + me.email); return json({ pay: payPub(p), token: (p && p.token) || "" }, 200, cors); }
+  if (path === "/me/pay" && req.method === "POST") {
+    const old = await kvJ(env, "pay:" + me.email) || {};
+    const iban = String(body.iban || "").replace(/\s+/g, "").toUpperCase(), paypal = String(body.paypal || "").trim().replace(/^@/, "").replace(/^https?:\/\/(www\.)?paypal\.me\//i, "").replace(/\/.*$/, "");
+    const link = String(body.link || "").trim(), name = String(body.name || "").trim().slice(0, 60);
+    if (iban && !ibanOk(iban)) throw new HttpErr(400, "IBAN invalide");
+    if (paypal && !/^[A-Za-z0-9]{1,40}$/.test(paypal)) throw new HttpErr(400, "nom PayPal.me invalide");
+    if (link && !/^https:\/\/[^\s<>"]{4,200}$/.test(link)) throw new HttpErr(400, "le lien doit commencer par https://");
+    if (iban && !name) throw new HttpErr(400, "indique le nom du titulaire du compte");
+    if (!iban && !paypal && !link) { await env.CODES.delete("pay:" + me.email); if (old.token) await env.CODES.delete("ptk:" + old.token); return json({ pay: null, token: "" }, 200, cors); }
+    const p = { name, iban, paypal, link, token: old.token || rid(14), updated: Date.now() };
+    await kvP(env, "pay:" + me.email, p); if (!old.token) await env.CODES.put("ptk:" + p.token, me.email);
+    return json({ pay: payPub(p), token: p.token }, 200, cors);
+  }
+  if (path === "/tag" && req.method === "GET") {   // ce tag existe-t-il ? (sans rien révéler d'autre)
+    const t = String(url.searchParams.get("t") || "").toLowerCase().replace(/^@/, "");
+    return json({ exists: TAG_RE.test(t) && !!await env.CODES.get("tag:" + t) }, 200, cors);
+  }
+  // Rechercher un utilisateur par le début de son tag (3 caractères minimum) : renvoie le tag et le prénom, jamais l'adresse.
+  if (path === "/search" && req.method === "GET") {
+    const q = String(url.searchParams.get("q") || "").trim().toLowerCase().replace(/^@/, "").replace(/[^a-z0-9_-]/g, "");
+    if (q.length < 3) return json({ users: [] }, 200, cors);
+    const mine = await myTag(env, me);
+    const r = await env.CODES.list({ prefix: "tag:" + q, limit: 8 });
+    const users = (r.keys || []).map(k => ({ tag: k.name.slice(4), name: (k.metadata && k.metadata.n) || "" })).filter(u => u.tag !== mine).slice(0, 6);
+    return json({ users }, 200, cors);
+  }
+  if (path === "/claims" && req.method === "GET") {
+    const ids = [...new Set([...(await listOf(env, "in:" + me.email)), ...(await listOf(env, "out:" + me.email))])];
+    const out = { tag: await myTag(env, me), in: [], out: [] };
+    for (const id of ids.slice(0, 200)) {
+      const c = await kvJ(env, "claim:" + id); if (!c) continue;
+      if (c.toEmail === me.email) { const o = pub(c); if (c.status === "accepted") o.pay = await payOf(env, c.fromEmail); out.in.push(o); } else if (c.fromEmail === me.email) out.out.push(pub(c));
+    }
+    return json(out, 200, cors);
+  }
+  if (path === "/claims" && req.method === "POST") {
+    if (!await hasPlus(env, me, body.plus)) throw new HttpErr(402, "réservé à Bourselle Plus");
+    const to = String(body.to || "").trim().toLowerCase().replace(/^@/, "");
+    const toEmail = TAG_RE.test(to) ? await env.CODES.get("tag:" + to) : null;
+    if (!toEmail) throw new HttpErr(404, "aucun utilisateur avec ce tag");
+    if (toEmail === me.email) throw new HttpErr(400, "tu ne peux pas te réclamer une dette");
+    const amount = num(body.amount);
+    if (!(amount > 0 && amount < 1e9)) throw new HttpErr(400, "montant invalide");
+    const day = iso(new Date()), rl = "rlc:" + me.email + ":" + day, n = Number(await env.CODES.get(rl) || 0);
+    if (n >= 30) throw new HttpErr(429, "trop de réclamations aujourd'hui");
+    await env.CODES.put(rl, String(n + 1), { expirationTtl: 90000 });
+    const c = { id: rid(12), fromEmail: me.email, fromTag: await myTag(env, me), fromName: me.name, toEmail, toTag: to,
+      amount, cur: String(body.cur || "EUR").slice(0, 3).toUpperCase(), name: String(body.name || "").slice(0, 60), note: String(body.note || "").slice(0, 200),
+      date: isoOk(body.date) ? body.date : day, due: isoOk(body.due) ? body.due : "", status: "pending", payments: [], created: Date.now(), updated: Date.now() };
+    await kvP(env, "claim:" + c.id, c); await pushTo(env, "out:" + me.email, c.id); await pushTo(env, "in:" + toEmail, c.id);
+    return json(pub(c), 200, cors);
+  }
+  // ---------- Groupes de partage synchronisés entre membres ----------
+  // Un groupe partagé est gardé ici ; chaque membre qui a un tag le retrouve dans son app.
+  // Fusion par dépense (identifiant + date de mise à jour) : deux membres peuvent ajouter des dépenses en même temps.
+  if (path === "/groups" && req.method === "GET") {
+    const ids = await listOf(env, "gi:" + me.email), out = [];
+    for (const id of ids.slice(0, 100)) { const g = await kvJ(env, "grp:" + id); if (g && (g.ownerEmail === me.email || (g.memberEmails || []).includes(me.email))) out.push(await grpOut(env, g)); }
+    return json({ groups: out }, 200, cors);
+  }
+  const gm = /^\/groups\/([a-z0-9]{6,24})$/.exec(path);
+  if (gm && req.method === "POST") {
+    const id = gm[1], cur = await kvJ(env, "grp:" + id), b = body.group || {};
+    if (!cur && body.deleted) return json({ id, deleted: true }, 200, cors);
+    if (cur && cur.ownerEmail !== me.email && !(cur.memberEmails || []).includes(me.email)) throw new HttpErr(403, "pas ton groupe");
+    if (cur && cur.deleted) return json(grpPub(cur), 200, cors);
+    const owner = !cur || cur.ownerEmail === me.email;
+    const g = cur || { id, ownerEmail: me.email, expenses: {}, created: Date.now() };
+    if (owner) {   // seul le créateur change le nom et les membres
+      if (body.deleted) { g.deleted = true; }
+      g.name = String(b.name || g.name || "Groupe").slice(0, 60);
+      const members = (Array.isArray(b.members) ? b.members : g.members || []).slice(0, 30).map(m => ({ id: String(m.id || "").slice(0, 16), name: String(m.name || "").slice(0, 40), tag: m.tag ? String(m.tag).toLowerCase().slice(0, 24) : "" })).filter(m => m.id);
+      if (!members.length) throw new HttpErr(400, "membres manquants");
+      g.members = members;
+      const emails = [];
+      for (const mb of members) if (mb.tag) { const e = await env.CODES.get("tag:" + mb.tag); if (e && e !== me.email) emails.push(e); }
+      g.memberEmails = [...new Set(emails)];
+      if (!g.ownerTag) g.ownerTag = await myTag(env, me);
+      if (b.me) g.ownerMid = String(b.me).slice(0, 16);
+      if (b.cur) g.cur = String(b.cur).slice(0, 3).toUpperCase();
+      // Lien d'invitation : toute personne qui l'a peut voir le groupe, y ajouter une dépense ou un remboursement, sans compte
+      if (body.link === true && !g.link) { g.link = rid(16); await env.CODES.put("lnk:" + g.link, id); }
+      if ((body.link === false || body.deleted) && g.link) { await env.CODES.delete("lnk:" + g.link); g.link = ""; }
+    }
+    // fusion des dépenses : la plus récente l'emporte (y compris une suppression)
+    const inc = b.expenses && typeof b.expenses === "object" ? b.expenses : {};
+    let n = 0;
+    for (const [eid, e] of Object.entries(inc)) {
+      if (++n > 500 || !/^[A-Za-z0-9_-]{1,32}$/.test(eid) || !e || typeof e !== "object") continue;
+      const old = g.expenses[eid];
+      if (!old || (Number(e.updated) || 0) > (Number(old.updated) || 0)) g.expenses[eid] = JSON.parse(JSON.stringify(e).slice(0, 4000));
+    }
+    g.updated = Date.now(); g.rev = (g.rev || 0) + 1;
+    if (JSON.stringify(g).length > 200000) throw new HttpErr(413, "groupe trop grand");
+    await kvP(env, "grp:" + id, g);
+    if (!cur || owner) { await pushTo(env, "gi:" + g.ownerEmail, id); for (const e of g.memberEmails) await pushTo(env, "gi:" + e, id); }
+    return json(await grpOut(env, g), 200, cors);
+  }
+  const m = /^\/claims\/([a-z0-9]{6,16})$/.exec(path);
+  if (m && req.method === "POST") {
+    const c = await kvJ(env, "claim:" + m[1]); if (!c) throw new HttpErr(404, "réclamation introuvable");
+    const debtor = c.toEmail === me.email, creditor = c.fromEmail === me.email;
+    if (!debtor && !creditor) throw new HttpErr(403, "pas ta réclamation");
+    const a = body.action;
+    if (a === "accept" || a === "decline") { if (!debtor || c.status !== "pending") throw new HttpErr(409, "action impossible"); c.status = a === "accept" ? "accepted" : "declined"; }
+    else if (a === "cancel") { if (!creditor || c.status === "settled") throw new HttpErr(409, "action impossible"); c.status = "cancelled"; }
+    else if (a === "pay") {
+      if (c.status !== "accepted") throw new HttpErr(409, "la dette doit d'abord être acceptée");
+      const amount = num(body.amount); if (!(amount > 0)) throw new HttpErr(400, "montant invalide");
+      const pid = String(body.pid || rid(8)).slice(0, 16);
+      if (!(c.payments || []).some(p => p.id === pid)) c.payments = (c.payments || []).concat([{ id: pid, amount, date: isoOk(body.date) ? body.date : iso(new Date()), by: debtor ? "to" : "from" }]);
+      if (c.payments.reduce((s, p) => s + p.amount, 0) >= c.amount - 0.004) c.status = "settled";
+    } else throw new HttpErr(400, "action inconnue");
+    c.updated = Date.now(); await kvP(env, "claim:" + c.id, c);
+    return json(pub(c), 200, cors);
+  }
+  throw new HttpErr(404, "introuvable");
+}
+export default {
+  async fetch(req, env) {
+    const url = new URL(req.url), origin = req.headers.get("origin") || "";
+    const allowed = (env.APP_URL || "https://pataush.github.io/bourselle/").replace(/(https?:\/\/[^/]+).*/, "$1");
+    const cors = origin === allowed ? { "access-control-allow-origin": origin, "access-control-allow-methods": "GET, POST, OPTIONS", "access-control-allow-headers": "content-type, authorization, x-provider", vary: "origin" } : {};
+    try {
+      if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: cors });
+      if (req.method === "POST" && url.pathname === "/webhook/stripe") return await stripe(req, env);
+      if (req.method === "POST" && url.pathname === "/webhook/lemon") return await lemon(req, env);
+      if (req.method === "POST" && url.pathname === "/resend") return await resend(req, env, cors);
+      if (/^\/(g|p)\//.test(url.pathname)) {
+        try { return await publicApi(req, env, url, cors); }
+        catch (e) { if (e instanceof HttpErr) return json({ error: e.message }, e.status, cors); throw e; }
+      }
+      if (/^\/(me|tag|claims|search|groups)(\/|$)/.test(url.pathname)) {
+        try { return await social(req, env, url, cors); }
+        catch (e) { if (e instanceof HttpErr) return json({ error: e.message }, e.status, cors); throw e; }
+      }
+      if (url.pathname === "/") return json({ ok: true, service: "bourselle-codes" });
+      return json({ error: "introuvable" }, 404);
+    } catch (e) { return json({ error: "erreur serveur" }, 500, cors); }
+  },
+};

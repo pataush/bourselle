@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "44";
+const APP_VERSION = "45";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -248,6 +248,7 @@ function showProfileMenu() {
     <div class="pm-list">
       ${soc && SOC.tag ? row("pmQr", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v7h-7"/></svg>', "Mon QR code", "Pour qu'on t'ajoute en contact") : ""}
       ${soc ? row("pmContacts", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.6.9 2.6 2.6 3 5.2"/></svg>', "Mes contacts", `${(settings.contacts || []).length} contact${(settings.contacts || []).length > 1 ? "s" : ""}`) : ""}
+      ${soc ? row("pmPay", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>', "Me faire payer", "IBAN, PayPal.me, lien de paiement") : ""}
       ${row("pmAlerts", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></svg>', "Alertes", nAl ? `${nAl} à voir` : "Rien à signaler")}
       ${typeof showPlus === "function" ? row("pmPlus", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg>', "Bourselle Plus", typeof isPlus === "function" && isPlus() ? "Activé" : "Découvrir l'offre") : ""}
       ${row("pmTheme", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 0 0 18z" fill="currentColor"/></svg>', "Apparence", `${TH[theme]} → toucher pour ${TH[nextTheme].toLowerCase()}`)}
@@ -259,6 +260,7 @@ function showProfileMenu() {
     </div></div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
   const on = (id, fn) => { const b = f.querySelector("#" + id); if (b) b.onclick = fn; };
+  on("pmPay", () => { closeForm(); setTimeout(editPay, 250); });
   on("pmCopy", () => { navigator.clipboard?.writeText("@" + SOC.tag).then(() => toast("Tag copié")).catch(() => toast("@" + SOC.tag)); });
   on("pmQr", () => { closeForm(); socShowQr(); });
   on("pmContacts", () => { closeForm(); switchTab("reglages"); setTimeout(() => document.getElementById("socSearch")?.scrollIntoView({ block: "center" }), 80); });
@@ -611,6 +613,7 @@ function renderMois() {
   const om = document.getElementById("opsMore"); if (om) om.onclick = () => { window.__opsAll = !window.__opsAll; render(); };
   if (typeof accBindCard === "function") accBindCard();
   if (typeof patriBindHome === "function") patriBindHome();
+  { const b = document.getElementById("payEdit"); if (b) b.onclick = editPay; const sh = document.getElementById("payShare"); if (sh) sh.onclick = () => shareText("Pour me payer :", payLinkUrl(0, "")); }
   const mt = document.getElementById("moreToggle"); if (mt) mt.onclick = () => { homeMoreOpen(!homeMoreOpen()); render(); };
   const ib = document.getElementById("impBtn"); if (ib) ib.onclick = startImport;
   const gf = document.getElementById("goFrais"); if (gf) gf.onclick = () => switchTab("frais");
@@ -686,6 +689,8 @@ function renderReglages() {
     <div style="margin-top:8px"><button class="btn danger" id="logout" data-l="Quitter le mode essai">Quitter le mode essai</button></div></div>`
     : `<div style="display:flex;gap:8px;flex-wrap:wrap">${store && store.folderUrl() ? `<a class="btn" href="${esc(store.folderUrl())}" target="_blank" rel="noopener">Ouvrir mon dossier</a>` : ""}<button class="btn danger" id="logout" data-l="Se déconnecter">Se déconnecter</button></div></div>`}
   ${typeof accCardHTML === "function" ? accCardHTML(false) : ""}
+  ${typeof editPay === "function" && typeof socOn === "function" && socOn() ? `<div class="card"><h2>Me faire payer</h2><p class="hint" style="margin:0 0 10px">${SOC.pay ? `Enregistré : ${[SOC.pay.iban ? "IBAN " + esc(PAY.ibanFmt(SOC.pay.iban).slice(0, 7)) + "…" : "", SOC.pay.paypal ? "PayPal.me" : "", SOC.pay.link ? "lien de paiement" : ""].filter(Boolean).join(", ")}` : "Ton IBAN, PayPal.me ou un lien Lydia, Wero… pour que les membres de tes groupes te paient en un geste."}</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="payEdit">${SOC.pay ? "Modifier" : "Ajouter mes moyens de paiement"}</button>${SOC.payToken ? `<button class="btn" id="payShare">Partager mon lien de paiement</button>` : ""}</div></div>` : ""}
   ${typeof socContactsCardHTML === "function" ? socContactsCardHTML() : ""}
   <div class="card"><h2>Apparence</h2>
     <div class="seg2" id="themeSeg" style="grid-template-columns:repeat(3,1fr)">${[["auto", "Automatique"], ["light", "Clair"], ["dark", "Sombre"]].map(([k, l]) => `<button type="button" data-th="${k}" aria-pressed="${applyTheme.cur === k}">${l}</button>`).join("")}</div>
@@ -728,6 +733,7 @@ function renderReglages() {
   if (typeof socBindTagCard === "function") socBindTagCard();
   if (typeof accBindCard === "function") accBindCard();
   if (typeof patriBindHome === "function") patriBindHome();
+  { const b = document.getElementById("payEdit"); if (b) b.onclick = editPay; const sh = document.getElementById("payShare"); if (sh) sh.onclick = () => shareText("Pour me payer :", payLinkUrl(0, "")); }
   document.querySelectorAll("#themeSeg [data-th]").forEach(b => b.onclick = () => { try { localStorage.setItem("bourselle-theme", b.dataset.th); } catch (e) {} applyTheme.cur = applyTheme(b.dataset.th); render(); });
   document.querySelectorAll("#modeSeg [data-m]").forEach(b => b.onclick = () => { if ((b.dataset.m === "simple") !== isSimple()) setMode(b.dataset.m); });
   const fu = document.getElementById("forceUpdate");
@@ -2074,11 +2080,13 @@ function renderGroup(gid) {
   let html = banner + `<button class="btn" id="gBack" style="align-self:flex-start">‹ Tous les groupes</button>
     <div class="card"><h2>Soldes</h2>${g.members.map(m => `<div class="fc-it" style="grid-template-columns:1fr auto"><span>${esc(mName(g, m.id))}</span><b class="num" style="color:${bal[m.id] > 0.004 ? "var(--good)" : bal[m.id] < -0.004 ? "var(--bad)" : "var(--muted)"}">${bal[m.id] > 0 ? "+" : ""}${esc(eur(bal[m.id]))}</b></div>`).join("")}</div>
     <div class="card"><h2>Qui doit à qui</h2>${st.length ? st.map((s, i) => `<div class="ndf-item"><div><div class="n">${esc(mName(g, s.from))} → ${esc(mName(g, s.to))}</div></div><div class="num" style="font-weight:700">${esc(eur(s.amount))}</div>
-        <div class="acts"><button class="btn primary" data-settle="${i}">Marquer comme remboursé</button></div></div>`).join("") : `<div class="empty">Tout le monde est quitte.</div>`}
+        <div class="acts">${s.from === g.me && g.pays && g.pays[s.to] ? `<button class="btn primary" data-gpay="${i}">Payer</button>` : ""}${s.to === g.me && typeof socOn === "function" && socOn() ? `<button class="btn" data-gask="${i}">Demander</button>` : ""}<button class="btn ${s.from === g.me && g.pays && g.pays[s.to] ? "" : "primary"}" data-settle="${i}">Marquer comme remboursé</button></div></div>`).join("") : `<div class="empty">Tout le monde est quitte.</div>`}
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn" id="gShare">Copier le récap</button><button class="btn" id="gEdit">Modifier le groupe</button></div></div>
+    ${typeof socGroupLink === "function" ? `<div class="card"><h2>Inviter par lien</h2><p class="hint" style="margin:0 0 10px">${g.link ? "Toute personne qui a le lien voit le groupe, peut ajouter une dépense ou dire qu'elle a remboursé, sans compte Bourselle." : "Envoie un lien : tes amis voient le groupe et qui doit quoi, ajoutent leurs dépenses et paient, sans créer de compte."}</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="gLink">${g.link ? "Partager le lien" : "Créer le lien d'invitation"}</button>${g.link && (!g.owner || typeof SOC === "undefined" || g.owner === SOC.tag) ? `<button class="btn" id="gLinkOff">Désactiver le lien</button>` : ""}</div></div>` : ""}
     <div class="card"><h2>Dépenses<small>${exps.length}</small></h2>${exps.length ? exps.map(e => e.kind === "transfer"
       ? `<div class="pay" style="padding:8px 0"><span>${esc(frDate(e.date))} · ${esc(mName(g, e.from))} a remboursé ${esc(mName(g, e.to))}</span><span class="num">${esc(eur(e.amount))} <button class="btn" data-del="${esc(e.id)}" style="padding:2px 8px;font-size:.72rem">✕</button></span></div>`
-      : `<button class="tx" data-exp="${esc(e.id)}"><span class="ic" style="background:#3f8f68">${esc((e.label || "?").slice(0, 2))}</span><span><div class="n">${esc(e.label)}</div><div class="s">${esc(frDate(e.date))} · payé par ${esc(mName(g, e.paidBy))} · pour ${e.split.length === g.members.length && (!e.mode || e.mode === "equal") ? "tout le monde" : esc(e.split.map(id => e.mode && e.mode !== "equal" ? `${mName(g, id)} ${eur(expShares(e)[id] || 0)}` : mName(g, id)).join(", "))}</div></span><span class="a num out">${esc(eur(e.amount))}</span></button>`).join("")
+      : `<button class="tx" data-exp="${esc(e.id)}"><span class="ic" style="background:#3f8f68">${esc((e.label || "?").slice(0, 2))}</span><span><div class="n">${esc(e.label)}</div><div class="s">${esc(frDate(e.date))} · payé par ${esc(mName(g, e.paidBy))}${e.via === "lien" ? " · via le lien" : ""} · pour ${e.split.length === g.members.length && (!e.mode || e.mode === "equal") ? "tout le monde" : esc(e.split.map(id => e.mode && e.mode !== "equal" ? `${mName(g, id)} ${eur(expShares(e)[id] || 0)}` : mName(g, id)).join(", "))}</div></span><span class="a num out">${esc(eur(e.amount))}</span></button>`).join("")
       : `<div class="empty">Aucune dépense. Appuie sur + pour en ajouter une.</div>`}</div>`;
   view.innerHTML = html;
   document.getElementById("gBack").onclick = () => { openGroup = null; render(); };
@@ -2093,6 +2101,22 @@ function renderGroup(gid) {
     saveGroups(); render(); toast("Remboursement enregistré");
   });
   view.querySelectorAll("[data-del]").forEach(b => b.onclick = () => { dropExp(g, b.dataset.del); saveGroups(); render(); });
+  view.querySelectorAll("[data-gpay]").forEach(b => b.onclick = () => {
+    const s = st[Number(b.dataset.gpay)];
+    showPay(g.pays[s.to], s.amount, g.name, mName(g, s.to), () => {
+      g.expenses = g.expenses || {}; g.expenses[newId()] = { kind: "transfer", from: s.from, to: s.to, amount: s.amount, date: todayISO(), created: Date.now(), updated: Date.now() };
+      saveGroups(); render(); toast("Remboursement enregistré");
+    });
+  });
+  view.querySelectorAll("[data-gask]").forEach(b => b.onclick = async () => {
+    const s = st[Number(b.dataset.gask)], who = (g.members.find(m => m.id === s.from) || {}).name || "";
+    if (typeof socLoadPay === "function") await socLoadPay();
+    const url = g.link ? groupLinkUrl(g.link) : payLinkUrl(s.amount, g.name);
+    if (!url) { toast("Ajoute d'abord tes moyens de paiement (Profil › Me faire payer)"); return editPay(); }
+    shareText(`${who ? who + ", tu" : "Tu"} me dois ${eur(s.amount)} pour « ${g.name} ». Tu peux payer ici :`, url);
+  });
+  { const l = document.getElementById("gLink"); if (l) l.onclick = () => g.link && !(g.owner && typeof SOC !== "undefined" && g.owner !== SOC.tag) ? shareText(`Rejoins le groupe « ${g.name} » sur Bourselle :`, groupLinkUrl(g.link)) : socGroupLink(gid); }
+  { const l = document.getElementById("gLinkOff"); if (l) l.onclick = () => { if (l.dataset.c !== "1") { l.dataset.c = "1"; l.textContent = "Confirmer ?"; return; } socGroupLink(gid, true); }; }
   view.querySelectorAll("[data-exp]").forEach(b => b.onclick = () => editGroupExpense(gid, b.dataset.exp));
 }
 function editGroup(id) {
