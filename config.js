@@ -10,7 +10,7 @@ window.APP_CONFIG = {
     checkout: { mensuel: "", annuel: "", famille: "", vie: "" },
     contact: "https://github.com/pataush/bourselle/issues",
     // Adresse du serveur des codes (Cloudflare Worker), ex. "https://bourselle-codes.ton-compte.workers.dev"
-    api: "",
+    api: "https://bourselle-codes.purple-thunder-28e8.workers.dev", mail: false,   // mail : passer à true quand l'envoi des codes par e-mail (Resend) est configuré
     // prices: { annuel: { price: "24,99 €" } },   // pour changer un prix affiché
     // free: { scan: 5, import: 1, tontines: 1, groups: 1 },   // limites de la version gratuite
   },

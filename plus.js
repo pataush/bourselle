@@ -126,7 +126,7 @@ function showPlus(feature) {
     <label class="lbl" for="plusCode">J'ai un code d'activation</label>
     <textarea class="field" id="plusCode" rows="3" placeholder="BRS1.…" spellcheck="false" autocapitalize="off"></textarea>
     <p class="hint" style="margin:0">Le code est envoyé par e-mail après le paiement. Il est lié à l'adresse de ton compte${myEmail() ? ` (${esc(myEmail())})` : ""}.</p>
-    ${PLUS_CFG.api ? `<button type="button" class="btn" id="plusResend" style="align-self:flex-start">Je n'ai pas reçu mon code</button>` : ""}</div>`,
+    ${PLUS_CFG.api && PLUS_CFG.mail ? `<button type="button" class="btn" id="plusResend" style="align-self:flex-start">Je n'ai pas reçu mon code</button>` : ""}</div>`,
     () => {
       const code = val("plusCode");
       if (!code) return true;
