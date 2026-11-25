@@ -596,6 +596,11 @@
     "Ton IBAN, PayPal.me ou un lien Lydia, Wero… pour que les membres de tes groupes te paient en un geste.": "Your IBAN, PayPal.me or a payment link so members of your groups can pay you in one tap.",
     "Ajouter mes moyens de paiement": "Add my payment details", "Payer avec PayPal": "Pay with PayPal", "Ouvrir son lien de paiement": "Open their payment link",
     "Scanne ce QR code avec l'appli de ta banque : le virement est déjà rempli.": "Scan this QR code with your banking app: the transfer is pre-filled.", "via le lien": "via the link", "PayPal.me": "PayPal.me", "lien de paiement": "payment link",
+    // Tickets et commentaires (groupes)
+    "Ajouter le ticket": "Add the receipt", "Retirer le ticket": "Remove the receipt", "Ticket indisponible hors connexion": "Receipt unavailable offline",
+    "Connecte-toi avec Google ou Microsoft pour joindre un ticket": "Sign in with Google or Microsoft to attach a receipt", "Envoi du ticket…": "Uploading the receipt…", "Ticket ajouté": "Receipt added",
+    "Envoi impossible": "Upload failed", "Commentaires": "Comments", "Aucun commentaire.": "No comments yet.", "Écrire un commentaire…": "Write a comment…", "ticket": "receipt",
+    "Image illisible": "Unreadable image", "Image trop lourde": "Image too large",
   };
 
   // ---------- Textes avec des valeurs ({m} montant, {d} date, {n} nombre, {x} autre) ----------
@@ -843,7 +848,7 @@
     ["Je dois · {x}", "I owe · {x}"],
     ["On me doit · {x}", "Owed to me · {x}"],
     ["Valeur estimée aujourd'hui ({x})", "Estimated value today ({x})"],
-    ["Payer {x}", "Pay {x}"],
+    ["Payer {x}", "Pay {x}"], ["Soit {m} par personne.", "That's {m} per person."],
     ["{x} (moi) → {x}", "{x} (me) → {x}"], ["{x} → {x} (moi)", "{x} → {x} (me)"],
     ["Enregistré : {x}", "Saved: {x}"],
     ["Demande le lien à @{x}", "Ask @{x} for the link"],

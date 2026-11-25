@@ -33,6 +33,14 @@
   .gp-toast.on { opacity: 1; }
   .gp-cta { text-align: center; } .gp-cta a { color: var(--gold); font-weight: 600; text-decoration: none; }
   .hide { display: none !important; }
+  .gp-exp { width: 100%; text-align: left; background: none; border: 0; padding: 0; color: inherit; font: inherit; cursor: pointer; }
+  .ge-badges { display: flex; gap: 6px; margin-top: 4px; } .ge-badge { font-size: .72rem; color: var(--muted); background: rgba(120,130,125,.14); border-radius: 999px; padding: 2px 8px; }
+  .gp-photo img { width: 100%; max-height: 360px; object-fit: contain; border-radius: 12px; background: #fff; border: 1px solid var(--line); cursor: zoom-in; }
+  .ge-c { background: rgba(31,107,75,.07); border-radius: 12px; padding: 8px 10px; font-size: .88rem; margin-bottom: 8px; }
+  .ge-c small { color: var(--muted); } .ge-c p { margin: 3px 0 0; white-space: pre-wrap; word-break: break-word; }
+  .ge-cnew { display: flex; gap: 8px; } .ge-cnew input { flex: 1; min-width: 0; }
+  .ph-view { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,.88); display: grid; place-items: center; padding: 16px; }
+  .ph-view img { max-width: 100%; max-height: 100%; border-radius: 8px; }
 </style>
 </head>
 <body>
@@ -62,7 +70,9 @@
     "Scanne ce QR code avec l'appli de ta banque : le virement est déjà rempli.": "Scan this QR code with your banking app: the transfer is pre-filled.",
     "Payer {x}": "Pay {x}", "{x} n'a pas encore indiqué comment le payer : règle-le comme d'habitude, puis appuie sur « J'ai payé ».": "{x} hasn't added payment details yet: pay them as usual, then tap “I've paid”.",
     "Une fois le paiement fait, appuie sur « J'ai payé » pour prévenir le groupe.": "Once you've paid, tap “I've paid” to let the group know.",
-    "Lien de paiement introuvable.": "Payment link not found.", "Pour payer {x}": "To pay {x}", "Envoyé par {x}": "Sent by {x}",
+    "Lien de paiement introuvable.": "Payment link not found.", "Ticket": "Receipt", "Ajouter le ticket": "Add the receipt", "Envoi du ticket…": "Uploading the receipt…", "Ticket ajouté": "Receipt added",
+    "Commentaires": "Comments", "Aucun commentaire.": "No comments yet.", "Écrire un commentaire…": "Write a comment…", "Envoyer": "Send", "‹ Retour": "‹ Back", "ticket": "receipt",
+    "Image illisible": "Unreadable image", "Image trop lourde": "Image too large", "Photo du ticket (facultatif)": "Receipt photo (optional)", "Chargement…": "Loading…", "Pour payer {x}": "To pay {x}", "Envoyé par {x}": "Sent by {x}",
   };
   const t = (s, x) => { let r = EN && D[s] ? D[s] : s; return x != null ? r.replace("{x}", x) : r; };
   document.documentElement.lang = EN ? "en" : "fr";
@@ -135,6 +145,7 @@
       return;
     }
     if (view === "add") return drawAdd();
+    if (view.startsWith("exp:")) return drawExp(view.slice(4));
     const bal = balances(), st = settle(bal), mine = bal[me] || 0;
     const exps = Object.entries(G.expenses).map(([id, e]) => ({ ...e, id })).sort((a, b) => b.date.localeCompare(a.date) || (b.created || 0) - (a.created || 0));
     const total = exps.filter(e => e.kind !== "transfer").reduce((a, e) => a + Number(e.amount), 0);
@@ -146,11 +157,41 @@
       <button class="btn primary" id="gpAdd">+ ${esc(t("Ajouter une dépense"))}</button>
       <div class="card"><h2>${esc(t("Dépenses"))}</h2>${exps.length ? exps.map(e => e.kind === "transfer"
         ? `<div class="gp-row"><div>${esc(nm(e.from))} ${esc(t("a remboursé"))} ${esc(nm(e.to))}<small>${esc(fdate(e.date))}</small></div><b>${esc(money(e.amount))}</b></div>`
-        : `<div class="gp-row"><div><b>${esc(e.label)}</b><small>${esc(fdate(e.date))} · ${esc(t("payé par"))} ${esc(nm(e.paidBy))} · ${esc(t("pour"))} ${(e.split || []).length === G.members.length ? esc(t("tout le monde")) : esc((e.split || []).map(nm).join(", "))}</small></div><b>${esc(money(Number(e.amount)))}</b></div>`).join("")
+        : `<button class="gp-row gp-exp" data-exp="${esc(e.id)}"><div><b>${esc(e.label)}</b><small>${esc(fdate(e.date))} · ${esc(t("payé par"))} ${esc(nm(e.paidBy))} · ${esc(t("pour"))} ${(e.split || []).length === G.members.length ? esc(t("tout le monde")) : esc((e.split || []).map(nm).join(", "))}</small>${badges(e)}</div><b>${esc(money(Number(e.amount)))}</b></button>`).join("")
         : `<div class="empty">${esc(t("Aucune dépense."))}</div>`}</div>` + cta;
     $("gpWho").onclick = () => { me = null; try { localStorage.removeItem(KEY); } catch (e) {} draw(); };
     $("gpAdd").onclick = () => { view = "add"; draw(); window.scrollTo(0, 0); };
     main.querySelectorAll("[data-pay]").forEach(b => b.onclick = () => drawPay(st[Number(b.dataset.pay)]));
+    main.querySelectorAll("[data-exp]").forEach(b => b.onclick = () => { view = "exp:" + b.dataset.exp; draw(); window.scrollTo(0, 0); });
+  }
+  const comsOf = eid => Object.entries(G.comments || {}).filter(([, c]) => c && !c.deleted && c.eid === eid).sort((a, b) => a[1].at - b[1].at);
+  const badges = e => { const n = comsOf(e.id).length; return e.photo || n ? `<div class="ge-badges">${e.photo ? `<span class="ge-badge">📎 ${esc(t("ticket"))}</span>` : ""}${n ? `<span class="ge-badge">💬 ${n}</span>` : ""}</div>` : ""; };
+  const photos = {};
+  const getPhoto = async pid => photos[pid] || (photos[pid] = (await api("/g/" + tok + "/photo/" + pid)).data);
+  async function upload(file) { const d = await shrinkPhoto(file); const r = await api("/g/" + tok + "/photo", { data: d }); photos[r.pid] = d; return r.pid; }
+  // Détail d'une dépense : ticket et commentaires
+  function drawExp(eid) {
+    const e = G.expenses[eid]; if (!e) { view = "main"; return draw(); }
+    const fd = ts => fdate(new Date(ts).toISOString().slice(0, 10));
+    main.innerHTML = top + `<button class="btn" id="xBack" style="align-self:flex-start">${esc(t("‹ Retour"))}</button>
+      <div class="card"><h2>${esc(e.label)}</h2><div class="gp-row"><div><small>${esc(fdate(e.date))} · ${esc(t("payé par"))} ${esc(nm(e.paidBy))} · ${esc(t("pour"))} ${(e.split || []).length === G.members.length ? esc(t("tout le monde")) : esc((e.split || []).map(nm).join(", "))}</small></div><b>${esc(money(Number(e.amount)))}</b></div></div>
+      <div class="card"><h2>${esc(t("Ticket"))}</h2><div id="xPh" class="gp-photo">${e.photo ? `<p class="hint">${esc(t("Chargement…"))}</p>` : `<label class="btn" style="display:inline-block;cursor:pointer">📷 ${esc(t("Ajouter le ticket"))}<input type="file" accept="image/*" id="xPhIn" hidden></label>`}</div></div>
+      <div class="card"><h2>${esc(t("Commentaires"))}</h2>${comsOf(eid).map(([, c]) => `<div class="ge-c"><div><b>${esc(nm(c.by))}</b> <small>${esc(fd(c.at))}</small></div><p>${esc(c.text)}</p></div>`).join("") || `<p class="hint" style="margin:0 0 8px">${esc(t("Aucun commentaire."))}</p>`}
+        <div class="ge-cnew"><input type="text" id="xCom" maxlength="500" placeholder="${esc(t("Écrire un commentaire…"))}"><button class="btn primary" id="xSend">${esc(t("Envoyer"))}</button></div></div>` + cta;
+    $("xBack").onclick = () => { view = "main"; draw(); };
+    if (e.photo) getPhoto(e.photo).then(d => { const b = $("xPh"); if (!b) return; b.innerHTML = `<img alt="">`; b.firstChild.src = d; b.firstChild.onclick = () => showPhoto(d); }).catch(() => { const b = $("xPh"); if (b) b.innerHTML = ""; });
+    const inp = $("xPhIn"); if (inp) inp.onchange = async () => {
+      const f = inp.files && inp.files[0]; if (!f) return; $("xPh").innerHTML = `<p class="hint">${esc(t("Envoi du ticket…"))}</p>`;
+      try { const pid = await upload(f); const r = await api("/g/" + tok + "/attach", { eid, pid }); G.expenses[eid] = r.expense; toast("Ticket ajouté"); }
+      catch (err) { toast(err.message); }
+      drawExp(eid);
+    };
+    const send = async () => {
+      const text = $("xCom").value.trim(); if (!text) return; $("xSend").disabled = true;
+      try { const r = await api("/g/" + tok + "/comment", { eid, by: me, text }); G.comments = G.comments || {}; G.comments[r.id] = r.comment; drawExp(eid); }
+      catch (err) { $("xSend").disabled = false; toast(err.message); }
+    };
+    $("xSend").onclick = send; $("xCom").onkeydown = ev => { if (ev.key === "Enter") { ev.preventDefault(); send(); } };
   }
   function drawPay(s) {
     const p = (G.pays || {})[s.to], who = nm(s.to);
@@ -172,6 +213,7 @@
       <label for="aAmt">${esc(t("Montant"))} (${esc(G.cur || "EUR")})</label><input id="aAmt" inputmode="decimal" placeholder="0,00">
       <label for="aDate">${esc(t("Date"))}</label><input type="date" id="aDate" value="${today()}">
       <label for="aBy">${esc(t("Payé par"))}</label><select id="aBy">${G.members.map(m => `<option value="${esc(m.id)}" ${m.id === me ? "selected" : ""}>${esc(m.name)}</option>`).join("")}</select>
+      <label for="aPh">${esc(t("Photo du ticket (facultatif)"))}</label><input type="file" accept="image/*" id="aPh">
       <label>${esc(t("Pour qui ?"))}</label><div class="chk">${G.members.map(m => `<label><input type="checkbox" value="${esc(m.id)}" checked> ${esc(m.name)}</label>`).join("")}</div>
       <div class="gp-acts" style="margin-top:14px"><button class="btn" id="aCancel">${esc(t("Annuler"))}</button><button class="btn primary" id="aSave">${esc(t("Ajouter"))}</button></div></div>`;
     $("aCancel").onclick = () => { view = "main"; draw(); };
@@ -182,7 +224,10 @@
       if (!(amount > 0)) return toast("Montant invalide");
       if (!split.length) return toast("Choisis au moins une personne");
       $("aSave").disabled = true;
-      try { const r = await api("/g/" + tok + "/add", { by: me, expense: { label, amount, date: $("aDate").value || today(), paidBy: $("aBy").value, split } }); G.expenses[r.id] = r.expense; view = "main"; toast("Dépense ajoutée"); draw(); }
+      try {
+        const f = $("aPh").files && $("aPh").files[0]; let photo = "";
+        if (f) { toast("Envoi du ticket…"); photo = await upload(f); }
+        const r = await api("/g/" + tok + "/add", { by: me, expense: { label, amount, date: $("aDate").value || today(), paidBy: $("aBy").value, split, photo } }); G.expenses[r.id] = r.expense; view = "main"; toast("Dépense ajoutée"); draw(); }
       catch (e) { $("aSave").disabled = false; toast(e.message); }
     };
   }

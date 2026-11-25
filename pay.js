@@ -48,3 +48,22 @@ const PAY = {
     });
   },
 };
+// Réduit une photo (ticket) avant envoi : 1280 px au plus, JPEG, moins de 600 Ko
+async function shrinkPhoto(file) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ko(new Error("Image illisible")); i.src = url; });
+    for (const [max, q] of [[1280, .72], [1100, .6], [900, .5], [700, .45]]) {
+      const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight)), c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(img.naturalWidth * k)); c.height = Math.max(1, Math.round(img.naturalHeight * k));
+      const x = c.getContext("2d"); x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height); x.drawImage(img, 0, 0, c.width, c.height);
+      const d = c.toDataURL("image/jpeg", q); if (d.length < 800000) return d;
+    }
+    throw new Error("Image trop lourde");
+  } finally { URL.revokeObjectURL(url); }
+}
+// Affiche une photo en plein écran (toucher pour fermer)
+function showPhoto(src) {
+  const o = document.createElement("div"); o.className = "ph-view"; o.innerHTML = `<img alt="">`; o.firstChild.src = src;
+  o.onclick = () => o.remove(); document.body.appendChild(o);
+}

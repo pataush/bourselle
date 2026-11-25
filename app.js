@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "45";
+const APP_VERSION = "46";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -2010,6 +2010,11 @@ function expShares(e) {
   if (e.owed && Object.keys(e.owed).length) return e.owed;
   return computeOwed(Number(e.amount) || 0, e.split || [], "equal", {});
 }
+// Petits repères sous une dépense de groupe : ticket joint, nombre de commentaires
+function geBadges(g, e) {
+  const n = Object.values(g.comments || {}).filter(c => c && !c.deleted && c.eid === e.id).length;
+  return e.photo || n ? `<div class="ge-badges">${e.photo ? `<span class="ge-badge">📎 <span>ticket</span></span>` : ""}${n ? `<span class="ge-badge">💬 ${n}</span>` : ""}</div>` : "";
+}
 function liveExp(g) { const o = {}; for (const [k, e] of Object.entries(g.expenses || {})) if (e && !e.deleted) o[k] = e; return o; }
 // Supprimer une dépense : dans un groupe partagé on garde une trace datée, pour que la suppression arrive chez les autres membres
 function dropExp(g, eid) { if (g.shared || (g.members || []).some(m => m.tag)) g.expenses[eid] = { deleted: true, updated: Date.now() }; else delete g.expenses[eid]; }
@@ -2086,7 +2091,7 @@ function renderGroup(gid) {
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="gLink">${g.link ? "Partager le lien" : "Créer le lien d'invitation"}</button>${g.link && (!g.owner || typeof SOC === "undefined" || g.owner === SOC.tag) ? `<button class="btn" id="gLinkOff">Désactiver le lien</button>` : ""}</div></div>` : ""}
     <div class="card"><h2>Dépenses<small>${exps.length}</small></h2>${exps.length ? exps.map(e => e.kind === "transfer"
       ? `<div class="pay" style="padding:8px 0"><span>${esc(frDate(e.date))} · ${esc(mName(g, e.from))} a remboursé ${esc(mName(g, e.to))}</span><span class="num">${esc(eur(e.amount))} <button class="btn" data-del="${esc(e.id)}" style="padding:2px 8px;font-size:.72rem">✕</button></span></div>`
-      : `<button class="tx" data-exp="${esc(e.id)}"><span class="ic" style="background:#3f8f68">${esc((e.label || "?").slice(0, 2))}</span><span><div class="n">${esc(e.label)}</div><div class="s">${esc(frDate(e.date))} · payé par ${esc(mName(g, e.paidBy))}${e.via === "lien" ? " · via le lien" : ""} · pour ${e.split.length === g.members.length && (!e.mode || e.mode === "equal") ? "tout le monde" : esc(e.split.map(id => e.mode && e.mode !== "equal" ? `${mName(g, id)} ${eur(expShares(e)[id] || 0)}` : mName(g, id)).join(", "))}</div></span><span class="a num out">${esc(eur(e.amount))}</span></button>`).join("")
+      : `<button class="tx" data-exp="${esc(e.id)}"><span class="ic" style="background:#3f8f68">${esc((e.label || "?").slice(0, 2))}</span><span><div class="n">${esc(e.label)}</div><div class="s">${esc(frDate(e.date))} · payé par ${esc(mName(g, e.paidBy))}${e.via === "lien" ? " · via le lien" : ""} · pour ${e.split.length === g.members.length && (!e.mode || e.mode === "equal") ? "tout le monde" : esc(e.split.map(id => e.mode && e.mode !== "equal" ? `${mName(g, id)} ${eur(expShares(e)[id] || 0)}` : mName(g, id)).join(", "))}</div>${geBadges(g, e)}</span><span class="a num out">${esc(eur(e.amount))}</span></button>`).join("")
       : `<div class="empty">Aucune dépense. Appuie sur + pour en ajouter une.</div>`}</div>`;
   view.innerHTML = html;
   document.getElementById("gBack").onclick = () => { openGroup = null; render(); };
@@ -2176,7 +2181,7 @@ function editGroup(id) {
 }
 function editGroupExpense(gid, eid) {
   const g = groups[gid], e = eid ? clone(g.expenses[eid]) : { label: "", amount: "", date: todayISO(), paidBy: g.me, split: g.members.map(m => m.id) };
-  let paidBy = e.paidBy, split = new Set(e.split), cat = "loisirs", mode = e.mode || "equal";
+  let paidBy = e.paidBy, split = new Set(e.split), cat = "loisirs", mode = e.mode || "equal", photo = e.photo || "";
   const w = { ...(e.weights || {}) };
   openForm(`<div class="f2"><h3>${eid ? "Modifier la dépense" : "Dépense du groupe"} · ${esc(g.name)}</h3>
     ${fld("geLabel", "Quoi ?", `placeholder="ex. Courses, Location, Restaurant" value="${esc(e.label)}"`)}
@@ -2186,6 +2191,8 @@ function editGroupExpense(gid, eid) {
     <span class="lbl">Répartition</span><div class="seg2" id="geMode" style="grid-template-columns:repeat(4,1fr)">${SPLIT_MODES.map(([k, l]) => `<button type="button" data-mode="${k}">${l}</button>`).join("")}</div>
     <div id="geDetail" class="ge-detail"></div>
     <p class="hint" id="geShare" style="margin:6px 0 0"></p>
+    <span class="lbl">Ticket</span><div id="gePhoto" class="ge-photo"></div>
+    ${eid ? `<span class="lbl">Commentaires</span><div id="geCom" class="ge-com"></div>` : ""}
     ${eid ? "" : `<label class="toggle" for="geMine" style="margin-top:12px"><span>Ajouter ma part à mes dépenses</span><input type="checkbox" id="geMine" checked></label>
     <div id="geCatWrap"><span class="lbl">Catégorie de ma part</span><div class="chips" id="geCat"></div></div>`}</div>`,
     () => {
@@ -2201,13 +2208,51 @@ function editGroupExpense(gid, eid) {
       g.expenses = g.expenses || {};
       const order = g.members.map(m => m.id).filter(id => split.has(id));
       const owed = computeOwed(amount, order, mode, w), weights = {}; if (mode !== "equal") order.forEach(id => { weights[id] = Number(w[id]) || 0; });
-      g.expenses[eid || newId()] = { ...e, label: label.slice(0, 60), amount, date, paidBy, split: order, mode, weights: mode === "equal" ? undefined : weights, owed, created: e.created || Date.now(), updated: Date.now() };
+      g.expenses[eid || newId()] = { ...e, label: label.slice(0, 60), amount, date, paidBy, split: order, mode, weights: mode === "equal" ? undefined : weights, owed, photo: photo || undefined, created: e.created || Date.now(), updated: Date.now() };
       if (!eid && paidBy === g.me && typeof socSendShares === "function") setTimeout(() => socSendShares(gid, label.slice(0, 60), amount, order, date, owed), 50);
       const mine = document.getElementById("geMine");
       if (mine && mine.checked && split.has(g.me)) addTx({ type: "depense", amount: owed[g.me] || 0, cat, date, note: `${g.name} : ${label}`.slice(0, 80), fixe: false });
       saveGroups(); render(); toast(eid ? "Dépense modifiée" : "Dépense ajoutée au groupe");
     },
     eid ? () => { dropExp(g, eid); saveGroups(); render(); toast("Dépense supprimée"); } : null);
+  // Ticket photo
+  const drawPhoto = () => {
+    const box = document.getElementById("gePhoto"); if (!box) return;
+    if (photo) {
+      box.innerHTML = `<button type="button" class="ge-thumb" id="gePhView"><span class="hint">Chargement…</span></button><button type="button" class="linkbtn" id="gePhDel">Retirer le ticket</button>`;
+      const src = typeof socPhotoGet === "function" ? socPhotoGet(gid, photo) : Promise.reject(new Error(""));
+      src.then(d => { const b = document.getElementById("gePhView"); if (!b) return; b.innerHTML = `<img alt="Ticket">`; b.firstChild.src = d; b.onclick = () => showPhoto(d); })
+        .catch(() => { const b = document.getElementById("gePhView"); if (b) b.innerHTML = `<span class="hint">Ticket indisponible hors connexion</span>`; });
+      document.getElementById("gePhDel").onclick = () => { photo = ""; drawPhoto(); };
+    } else {
+      box.innerHTML = `<label class="btn" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg><span>Ajouter le ticket</span><input type="file" accept="image/*" id="gePhIn" hidden></label>`;
+      document.getElementById("gePhIn").onchange = async ev => {
+        const file = ev.target.files && ev.target.files[0]; if (!file) return;
+        if (typeof socOn !== "function" || !socOn()) { toast("Connecte-toi avec Google ou Microsoft pour joindre un ticket"); return; }
+        box.innerHTML = `<span class="hint">Envoi du ticket…</span>`;
+        try { const d = await shrinkPhoto(file); photo = await socPhotoUpload(gid, d); toast("Ticket ajouté"); }
+        catch (err) { toast(err.message || "Envoi impossible"); }
+        drawPhoto();
+      };
+    }
+  };
+  drawPhoto();
+  // Commentaires (chaque membre peut commenter ; ils arrivent chez les autres membres et sur le lien d'invitation)
+  const drawCom = () => {
+    const box = document.getElementById("geCom"); if (!box) return;
+    const list = Object.entries(g.comments || {}).filter(([, c]) => c && !c.deleted && c.eid === eid).sort((a, b) => a[1].at - b[1].at);
+    box.innerHTML = (list.length ? list.map(([cid, c]) => `<div class="ge-c"><div><b>${esc(mName(g, c.by))}</b> <small>${esc(frDate(new Date(c.at).toISOString().slice(0, 10)))}</small></div><p>${esc(c.text)}</p>${c.by === g.me ? `<button type="button" class="linkbtn" data-cdel="${esc(cid)}">Supprimer</button>` : ""}</div>`).join("") : `<p class="hint" style="margin:0">Aucun commentaire.</p>`)
+      + `<div class="ge-cnew"><input class="field" id="geComIn" maxlength="500" placeholder="Écrire un commentaire…"><button type="button" class="btn primary" id="geComSend">Envoyer</button></div>`;
+    const send = () => {
+      const t = document.getElementById("geComIn").value.trim(); if (!t) return;
+      g.comments = g.comments || {}; g.comments[newId()] = { eid, by: g.me, text: t.slice(0, 500), at: Date.now() };
+      saveGroups(); drawCom();
+    };
+    document.getElementById("geComSend").onclick = send;
+    document.getElementById("geComIn").onkeydown = ev => { if (ev.key === "Enter") { ev.preventDefault(); send(); } };
+    box.querySelectorAll("[data-cdel]").forEach(b => b.onclick = () => { g.comments[b.dataset.cdel] = { deleted: true, at: Date.now() }; saveGroups(); drawCom(); });
+  };
+  drawCom();
   const share = () => {
     const a = parseAmount(val("geAmount")) || 0, ids = g.members.map(m => m.id).filter(id => split.has(id)), hint = document.getElementById("geShare");
     if (!ids.length) { hint.textContent = ""; return; }
