@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "52";
+const APP_VERSION = "53";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -582,7 +582,7 @@ function renderMois() {
   const budCats = settings.cats.filter(c => (c.budget || 0) > 0 || t.byCat[c.id]);
   const fixPct = t.depense ? t.fixe / t.depense * 100 : 0;
 
-  let html = banner + budSeg() + tilesHTML(t) + (typeof askCardHTML === "function" && tab === "mois" ? askCardHTML() : "") + (typeof accCardHTML === "function" ? accCardHTML(true) : "") + (typeof patriHomeHTML === "function" ? patriHomeHTML() : "") + bilanHTML() + forecastHTML(t);
+  let html = banner + budSeg() + tilesHTML(t) + (typeof accCardHTML === "function" ? accCardHTML(true) : "") + (typeof patriHomeHTML === "function" ? patriHomeHTML() : "") + bilanHTML() + forecastHTML(t);
   const todoAll = allItems().filter(x => x.type === "depense" && x.ndf && x.ndfStatus !== "rembourse");
   if (todoAll.length && !isSimple()) {
     const sum = todoAll.reduce((s, x) => s + Number(x.amount), 0);
@@ -636,7 +636,7 @@ function renderMois() {
   const OPS_N = 6, showAll = window.__opsAll || list.length <= OPS_N + 2;
   html += `<div class="card"><h2>${showAll ? "Opérations" : "Dernières opérations"}<button class="linkbtn" id="impBtn">Importer un relevé</button></h2>${list.length ? txListHTML(showAll ? list : list.slice(0, OPS_N)) : `<div class="empty">Rien d'enregistré pour ${MOIS[cur.m - 1]}.</div>`}
     ${list.length > OPS_N + 2 ? `<button class="ops-more" id="opsMore">${showAll ? "Voir moins" : `Voir tout (${list.length})`}</button>` : ""}</div>`;
-  view.innerHTML = html; budSegBind(); if (typeof askBind === "function") askBind();
+  view.innerHTML = html; budSegBind();
   const om = document.getElementById("opsMore"); if (om) om.onclick = () => { window.__opsAll = !window.__opsAll; render(); };
   if (typeof accBindCard === "function") accBindCard();
   if (typeof patriBindHome === "function") patriBindHome();
@@ -960,6 +960,7 @@ function step(d) {
 }
 document.getElementById("searchBtn").onclick = () => switchTab("recherche");
 document.getElementById("bellBtn").onclick = () => showAlerts();
+document.getElementById("askFab").onclick = () => typeof showAssistant === "function" && showAssistant();
 { const av = document.getElementById("avatar"); av.onclick = () => showProfileMenu(); av.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showProfileMenu(); } }; }
 document.getElementById("prev").onclick = () => step(-1);
 document.getElementById("next").onclick = () => step(1);
@@ -2960,7 +2961,7 @@ function makeStore(id) {
 function showLogin(msg) {
   document.getElementById("login").hidden = false;
   document.getElementById("app").hidden = true;
-  document.getElementById("fab").hidden = true;
+  document.getElementById("fab").hidden = true; document.getElementById("askFab").hidden = true;
   document.querySelector("nav.tabs").hidden = true;
   const hint = localStorage.getItem("mb-google-hint"), last = localStorage.getItem("mb-provider");
   const g = document.getElementById("loginGoogle"), m = document.getElementById("loginMicrosoft");
@@ -2972,7 +2973,7 @@ function showLogin(msg) {
 function hideLogin() {
   document.getElementById("login").hidden = true;
   document.getElementById("app").hidden = false;
-  document.getElementById("fab").hidden = false;
+  document.getElementById("fab").hidden = false; document.getElementById("askFab").hidden = false;
   document.querySelector("nav.tabs").hidden = false;
 }
 // Mode essai → compte Google / Microsoft : les données d'essai sont transférées dans le cloud.
