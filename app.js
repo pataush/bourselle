@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "41";
+const APP_VERSION = "42";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -419,7 +419,7 @@ function saveSubs() { scheduleSave(); }
 function saveDebts() { scheduleSave(); }
 function saveRecs() { scheduleSave(); }
 function saveGoals() { scheduleSave(); }
-function saveGroups() { scheduleSave(); }
+function saveGroups() { scheduleSave(); if (typeof socGroupsChanged === "function") socGroupsChanged(); }
 function saveTontines() { scheduleSave(); }
 
 function upsertTx(tx, oldKey) {
@@ -1037,7 +1037,7 @@ function convertAll(R, to) {
   for (const x of Object.values(recs)) x.amount = r2(x.amount);
   for (const x of Object.values(goals)) { x.target = r2(x.target); if (x.initial) x.initial = r2(x.initial); }
   for (const x of Object.values(debts)) { x.amount = r2(x.amount); if (x.monthly) x.monthly = r2(x.monthly); for (const p of x.payments || []) p.amount = r2(p.amount); }
-  for (const g of Object.values(groups)) for (const e of Object.values(g.expenses || {})) e.amount = r2(e.amount);
+  for (const g of Object.values(groups)) for (const e of Object.values(g.expenses || {})) if (!e.deleted) { e.amount = r2(e.amount); e.updated = Date.now(); }
   for (const t of Object.values(tontines)) if (t.rate) t.rate = Math.round(Number(t.rate) / R * 1e6) / 1e6;   // taux = devise de la tontine pour 1 unité du budget
   for (const t of Object.values(trips)) { if (t.rate) t.rate = Math.round(t.rate * R * 1e4) / 1e4; if (t.amount) t.amount = r2(t.amount); }
   const fl = settings.fxLast || {}; for (const k of Object.keys(fl)) fl[k] = Math.round(fl[k] / R * 1e6) / 1e6;
@@ -1986,9 +1986,12 @@ function expShares(e) {
   if (e.owed && Object.keys(e.owed).length) return e.owed;
   return computeOwed(Number(e.amount) || 0, e.split || [], "equal", {});
 }
+function liveExp(g) { const o = {}; for (const [k, e] of Object.entries(g.expenses || {})) if (e && !e.deleted) o[k] = e; return o; }
+// Supprimer une dépense : dans un groupe partagé on garde une trace datée, pour que la suppression arrive chez les autres membres
+function dropExp(g, eid) { if (g.shared || (g.members || []).some(m => m.tag)) g.expenses[eid] = { deleted: true, updated: Date.now() }; else delete g.expenses[eid]; }
 function groupBalances(g) {
   const bal = {}; for (const m of g.members) bal[m.id] = 0;
-  for (const e of Object.values(g.expenses || {})) {
+  for (const e of Object.values(liveExp(g))) {
     const amt = Number(e.amount) || 0;
     if (e.kind === "transfer") { bal[e.from] = (bal[e.from] || 0) + amt; bal[e.to] = (bal[e.to] || 0) - amt; continue; }
     const split = (e.split || []).filter(id => id in bal); if (!split.length) continue;
@@ -2027,7 +2030,8 @@ function renderPartage() {
     const b = g.bal[g.me] || 0;
     html += `<button class="gar ${b > 0.004 ? "owed" : b < -0.004 ? "debt" : "done"}" data-open="${esc(g.id)}" style="text-align:left;width:100%;cursor:pointer;font:inherit;color:inherit">
       <div class="top"><span class="n">${esc(g.name)}</span><span class="st">${b > 0.004 ? "On te doit" : b < -0.004 ? "Tu dois" : "Équilibré"}</span></div>
-      <div class="top"><span class="amt num">${esc(eur(Math.abs(b)))}</span><span class="hint">${g.members.length} personnes · ${Object.values(g.expenses || {}).filter(e => e.kind !== "transfer").length} dépenses</span></div></button>`;
+      <div class="top"><span class="amt num">${esc(eur(Math.abs(b)))}</span><span class="hint">${g.members.length} personnes · ${Object.values(liveExp(g)).filter(e => e.kind !== "transfer").length} dépenses</span></div>
+      ${g.shared ? `<div class="hint" style="margin-top:4px">${g.owner && typeof SOC !== "undefined" && g.owner !== SOC.tag ? `<span>Partagé par</span> @${esc(g.owner)}` : "Partagé avec les membres Bourselle"}</div>` : ""}</button>`;
   }
   html += `<p class="hint" style="text-align:center;margin:4px 0 0">Le groupe est tenu dans ton app : partage le récap (bouton dans le groupe) pour que chacun sache où il en est.</p>`;
   view.innerHTML = html;
@@ -2035,7 +2039,7 @@ function renderPartage() {
 }
 function groupRecapText(g) {
   const bal = groupBalances(g), st = settle(bal);
-  const total = Object.values(g.expenses || {}).filter(e => e.kind !== "transfer").reduce((a, e) => a + Number(e.amount), 0);
+  const total = Object.values(liveExp(g)).filter(e => e.kind !== "transfer").reduce((a, e) => a + Number(e.amount), 0);
   return [`${g.name} — récap Bourselle`, `Dépenses du groupe : ${eur(total)}`, "",
     ...g.members.map(m => `${m.name} : ${bal[m.id] >= 0 ? "+" : ""}${eur(bal[m.id])}`), "",
     st.length ? "Pour équilibrer :" : "Tout est équilibré.",
@@ -2046,9 +2050,9 @@ function renderGroup(gid) {
   document.getElementById("periodLabel").textContent = g.name;
   document.getElementById("resCap").textContent = me >= 0 ? "Dans ce groupe, on te doit" : "Dans ce groupe, tu dois";
   const big = document.getElementById("resBig"); big.textContent = eur(Math.abs(me)); big.className = "big num " + (me > 0.004 ? "good" : me < -0.004 ? "bad" : "");
-  const total = Object.values(g.expenses || {}).filter(e => e.kind !== "transfer").reduce((a, e) => a + Number(e.amount), 0);
+  const total = Object.values(liveExp(g)).filter(e => e.kind !== "transfer").reduce((a, e) => a + Number(e.amount), 0);
   document.getElementById("resPill").innerHTML = `<span class="pill" style="background:rgba(255,255,255,.15);color:#fff">Total du groupe ${esc(eur(total, true))}</span>`;
-  const exps = Object.entries(g.expenses || {}).map(([id, e]) => ({ ...e, id })).sort((a, b) => b.date.localeCompare(a.date) || (b.created || 0) - (a.created || 0));
+  const exps = Object.entries(liveExp(g)).map(([id, e]) => ({ ...e, id })).sort((a, b) => b.date.localeCompare(a.date) || (b.created || 0) - (a.created || 0));
   let html = banner + `<button class="btn" id="gBack" style="align-self:flex-start">‹ Tous les groupes</button>
     <div class="card"><h2>Soldes</h2>${g.members.map(m => `<div class="fc-it" style="grid-template-columns:1fr auto"><span>${esc(mName(g, m.id))}</span><b class="num" style="color:${bal[m.id] > 0.004 ? "var(--good)" : bal[m.id] < -0.004 ? "var(--bad)" : "var(--muted)"}">${bal[m.id] > 0 ? "+" : ""}${esc(eur(bal[m.id]))}</b></div>`).join("")}</div>
     <div class="card"><h2>Qui doit à qui</h2>${st.length ? st.map((s, i) => `<div class="ndf-item"><div><div class="n">${esc(mName(g, s.from))} → ${esc(mName(g, s.to))}</div></div><div class="num" style="font-weight:700">${esc(eur(s.amount))}</div>
@@ -2067,13 +2071,14 @@ function renderGroup(gid) {
   };
   view.querySelectorAll("[data-settle]").forEach(b => b.onclick = () => {
     const s = st[Number(b.dataset.settle)];
-    g.expenses = g.expenses || {}; g.expenses[newId()] = { kind: "transfer", from: s.from, to: s.to, amount: s.amount, date: todayISO(), created: Date.now() };
+    g.expenses = g.expenses || {}; g.expenses[newId()] = { kind: "transfer", from: s.from, to: s.to, amount: s.amount, date: todayISO(), created: Date.now(), updated: Date.now() };
     saveGroups(); render(); toast("Remboursement enregistré");
   });
-  view.querySelectorAll("[data-del]").forEach(b => b.onclick = () => { delete g.expenses[b.dataset.del]; saveGroups(); render(); });
+  view.querySelectorAll("[data-del]").forEach(b => b.onclick = () => { dropExp(g, b.dataset.del); saveGroups(); render(); });
   view.querySelectorAll("[data-exp]").forEach(b => b.onclick = () => editGroupExpense(gid, b.dataset.exp));
 }
 function editGroup(id) {
+  if (id && groups[id] && groups[id].shared && groups[id].owner && typeof SOC !== "undefined" && groups[id].owner !== SOC.tag) { toast(`Seul @${groups[id].owner} peut modifier ce groupe`); return; }
   const g = id ? clone(groups[id]) : { name: "", members: [], me: "", expenses: {} };
   openForm(`<div class="f2"><h3>${id ? "Modifier le groupe" : "Nouveau groupe"}</h3>
     ${fld("grName", "Nom du groupe", `placeholder="ex. Maison, Vacances Bretagne, Coloc" value="${esc(g.name)}"`)}
@@ -2094,14 +2099,14 @@ function editGroup(id) {
       const meM = g.me && old.find(m => m.id === g.me) ? { ...old.find(m => m.id === g.me), name: meName } : reuse(meName);
       members.push(meM); for (const n of others) { const m = reuse(n); m.name = n; delete m.tag; if (!members.some(x => x.id === m.id)) members.push(m); }
       for (const t of tagged) { const m = old.find(x => x.tag === t.tag) || reuse(t.name); m.name = t.name; m.tag = t.tag; if (!members.some(x => x.id === m.id)) members.push(m); }
-      const used = new Set(Object.values(g.expenses || {}).flatMap(e => e.kind === "transfer" ? [e.from, e.to] : [e.paidBy, ...(e.split || [])]));
+      const used = new Set(Object.values(liveExp(g)).flatMap(e => e.kind === "transfer" ? [e.from, e.to] : [e.paidBy, ...(e.split || [])]));
       const lost = old.filter(m => used.has(m.id) && !members.some(x => x.id === m.id));
       if (lost.length) { toast(`${lost.map(m => m.name).join(", ")} a des dépenses dans le groupe : garde ce nom.`); return false; }
       const nid = id || newId();
       groups[nid] = { ...g, name: name.slice(0, 60), members, me: meM.id, created: g.created || Date.now() };
       saveGroups(); openGroup = nid; render(); toast(id ? "Groupe modifié" : "Groupe créé");
     },
-    id ? () => { delete groups[id]; openGroup = null; saveGroups(); render(); toast("Groupe supprimé"); } : null);
+    id ? () => { if (typeof socDeleteGroup === "function") socDeleteGroup(id, groups[id]); delete groups[id]; openGroup = null; saveGroups(); render(); toast("Groupe supprimé"); } : null);
   // Membres Bourselle : choisis parmi les contacts ou par recherche de tag
   const tagged = g.members.filter(m => m.id !== g.me && m.tag).map(m => ({ tag: m.tag, name: m.name }));
   const box = document.getElementById("grTags"), find = document.getElementById("grTagFind"), res = document.getElementById("grTagRes");
@@ -2154,13 +2159,13 @@ function editGroupExpense(gid, eid) {
       g.expenses = g.expenses || {};
       const order = g.members.map(m => m.id).filter(id => split.has(id));
       const owed = computeOwed(amount, order, mode, w), weights = {}; if (mode !== "equal") order.forEach(id => { weights[id] = Number(w[id]) || 0; });
-      g.expenses[eid || newId()] = { ...e, label: label.slice(0, 60), amount, date, paidBy, split: order, mode, weights: mode === "equal" ? undefined : weights, owed, created: e.created || Date.now() };
+      g.expenses[eid || newId()] = { ...e, label: label.slice(0, 60), amount, date, paidBy, split: order, mode, weights: mode === "equal" ? undefined : weights, owed, created: e.created || Date.now(), updated: Date.now() };
       if (!eid && paidBy === g.me && typeof socSendShares === "function") setTimeout(() => socSendShares(gid, label.slice(0, 60), amount, order, date, owed), 50);
       const mine = document.getElementById("geMine");
       if (mine && mine.checked && split.has(g.me)) addTx({ type: "depense", amount: owed[g.me] || 0, cat, date, note: `${g.name} : ${label}`.slice(0, 80), fixe: false });
       saveGroups(); render(); toast(eid ? "Dépense modifiée" : "Dépense ajoutée au groupe");
     },
-    eid ? () => { delete g.expenses[eid]; saveGroups(); render(); toast("Dépense supprimée"); } : null);
+    eid ? () => { dropExp(g, eid); saveGroups(); render(); toast("Dépense supprimée"); } : null);
   const share = () => {
     const a = parseAmount(val("geAmount")) || 0, ids = g.members.map(m => m.id).filter(id => split.has(id)), hint = document.getElementById("geShare");
     if (!ids.length) { hint.textContent = ""; return; }

@@ -38,6 +38,7 @@ async function socRefresh() {
     const j = await socApi("/claims");
     SOC.tag = j.tag || SOC.tag; SOC.in = j.in || []; SOC.out = j.out || []; SOC.loaded = true; SOC.err = "";
     const changed = socMerge();
+    try { await socPullGroups(); await socPushGroups(); } catch (e) {}
     if (!SOC.addChecked) { SOC.addChecked = true; socPendingAdd(); }
     const fresh = SOC.in.filter(c => c.status === "pending" && !socSeen.has(c.id));
     if (fresh.length) {
@@ -255,7 +256,7 @@ function socSendShares(gid, label, amount, order, date, owed) {
   const shareOf = id => owed && owed[id] != null ? owed[id] : Math.round(amount / order.length * 100) / 100;
   const targets = g.members.filter(m => m.tag && m.id !== g.me && order.includes(m.id) && shareOf(m.id) > 0);
   if (!targets.length) return;
-  if (!isPlus()) { toast("Envoyer les parts via Bourselle demande Bourselle Plus"); showPlus("claim"); return; }
+  if (!isPlus()) return;   // sans Plus : le groupe partagé suffit, les parts ne partent pas en dettes
   for (const m of targets) {
     const key = newId();
     debts[key] = { kind: "medoit", name: `${g.name} : ${label}`.slice(0, 60), who: m.name, amount: shareOf(m.id), due: "", note: `Partage « ${g.name} »`, payments: [], created: Date.now(),
@@ -264,6 +265,55 @@ function socSendShares(gid, label, amount, order, date, owed) {
   }
   saveDebts();
   toast(targets.length === 1 ? `Part envoyée à @${targets[0].tag}` : `Parts envoyées à ${targets.length} membres`);
+}
+// ---------- Groupes partagés ----------
+// Un groupe qui a des membres avec un tag est envoyé au serveur : ces membres le retrouvent dans leur onglet Partage
+// et peuvent y ajouter des dépenses. Seul le créateur change le nom et les membres.
+const socIsShared = g => !!g && (g.shared || (g.members || []).some(m => m.tag));
+const socIOwn = g => !g.owner || g.owner === SOC.tag;
+let socGTimer = null;
+function socGroupsChanged() { if (!socOn()) return; clearTimeout(socGTimer); socGTimer = setTimeout(socPushGroups, 800); }
+function socMergeGroup(id, r) {
+  const local = groups[id];
+  const me = socIOwn({ owner: r.owner }) && local ? local.me : ((r.members || []).find(m => m.tag && m.tag === SOC.tag) || {}).id;
+  if (!me) return false;
+  const exp = { ...(local ? local.expenses || {} : {}) };
+  for (const [eid, e] of Object.entries(r.expenses || {})) { const o = exp[eid]; if (!o || (Number(e.updated) || 0) >= (Number(o.updated) || 0)) exp[eid] = e; }
+  const next = { ...(local || {}), name: r.name, members: r.members, me, expenses: exp, shared: true, owner: r.owner, rev: r.rev, created: (local && local.created) || r.updated || Date.now() };
+  const changed = JSON.stringify(local || null) !== JSON.stringify(next);
+  groups[id] = next; return changed;
+}
+async function socPushGroups() {
+  if (!socOn()) return;
+  let changed = false;
+  for (const [id, g] of Object.entries(groups)) {
+    if (!socIsShared(g)) continue;
+    const sig = JSON.stringify([g.name, g.members, g.expenses]);
+    if (g._sent === sig) continue;
+    try {
+      const r = await socApi("/groups/" + id, { method: "POST", body: JSON.stringify({ group: { name: g.name, members: (g.members || []).map(m => ({ id: m.id, name: m.name, tag: m.tag || "" })), expenses: g.expenses || {} } }) });
+      if (r.deleted) { delete groups[id]; changed = true; continue; }
+      changed = socMergeGroup(id, r) || changed;
+      groups[id]._sent = JSON.stringify([groups[id].name, groups[id].members, groups[id].expenses]);
+    } catch (e) { if (e.status === 403) { delete groups[id]; changed = true; } }
+  }
+  if (changed) { scheduleSave(); if (tab === "partage") render(); }
+}
+async function socPullGroups() {
+  const j = await socApi("/groups");
+  const seen = new Set(); let changed = false;
+  for (const r of j.groups || []) {
+    seen.add(r.id);
+    if (r.deleted) { if (groups[r.id]) { toast(`Le groupe « ${groups[r.id].name} » a été supprimé par @${r.owner}`); delete groups[r.id]; changed = true; } continue; }
+    const isNew = !groups[r.id];
+    if (socMergeGroup(r.id, r)) { changed = true; groups[r.id]._sent = JSON.stringify([groups[r.id].name, groups[r.id].members, groups[r.id].expenses]); if (isNew) toast(`@${r.owner} t'a ajouté au groupe « ${r.name} »`); }
+  }
+  for (const [id, g] of Object.entries(groups)) if (g.shared && !socIOwn(g) && !seen.has(id)) { toast(`Tu ne fais plus partie du groupe « ${g.name} »`); delete groups[id]; changed = true; }
+  if (changed) { scheduleSave(); if (tab === "partage") render(); }
+}
+function socDeleteGroup(id, g) {
+  if (!socOn() || !socIsShared(g) || !socIOwn(g)) return;
+  socApi("/groups/" + id, { method: "POST", body: JSON.stringify({ deleted: true, group: { name: g.name, members: (g.members || []).map(m => ({ id: m.id, name: m.name, tag: m.tag || "" })) } }) }).catch(() => {});
 }
 async function socPay(id, p) {
   const d = debts[id]; if (!d || !d.claim || !socOn()) return;

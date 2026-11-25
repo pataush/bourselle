@@ -12,6 +12,8 @@
 
   // ---------- Textes fixes ----------
   const EXACT = {
+    "Partagé avec les membres Bourselle": "Shared with Bourselle members",
+    "Partagé par": "Shared by",
     "Bonjour !": "Hello!",
     "Pour qui": "For whom",
     "Répartition": "Split",
@@ -537,6 +539,10 @@
   // ---------- Textes avec des valeurs ({m} montant, {d} date, {n} nombre, {x} autre) ----------
   const s = n => (Number(String(n).replace(/[^\d.]/g, "")) > 1 ? "s" : "");
   const PATTERNS = [
+    ["Seul @{x} peut modifier ce groupe", "Only @{x} can edit this group"],
+    ["Le groupe « {x} » a été supprimé par @{x}", "The group “{x}” was deleted by @{x}"],
+    ["@{x} t'a ajouté au groupe « {x} »", "@{x} added you to the group “{x}”"],
+    ["Tu ne fais plus partie du groupe « {x} »", "You're no longer in the group “{x}”"],
     ["Reste {m} à répartir.", "{m} left to split."],
     ["{m} de trop.", "{m} too much."],
     ["Total : {x} % (il manque {x} %).", "Total: {x}% ({x}% missing)."],
