@@ -424,6 +424,104 @@ async function dealsAuth(req, env, url, cors, me, body) {
   throw new HttpErr(404, "introuvable");
 }
 
+
+// ---------- Gérer un paiement : un projet (ex. travaux) et les personnes à payer ----------
+// Le créateur doit de l'argent à chaque personne (une ligne chacune, avec une date convenue). Chaque bénéficiaire voit
+// seulement sa ligne. Le créateur paie (banque à banque) puis indique « envoyé » ; le bénéficiaire confirme la réception.
+// États : due (rouge, à payer) → sent (jaune, paiement envoyé) → ok (vert, réception confirmée).
+async function projLine(env, l) {
+  const to = String(l.to || "").trim().toLowerCase().replace(/^@/, ""), amount = num(l.amount);
+  if (!(amount > 0 && amount < 1e9)) throw new HttpErr(400, "montant invalide");
+  let toEmail = "";
+  if (to) { toEmail = TAG_RE.test(to) ? await env.CODES.get("tag:" + to) : ""; if (!toEmail) throw new HttpErr(404, `aucun utilisateur @${to}`); }
+  const name = String(l.name || (to ? "@" + to : "")).trim().slice(0, 40); if (!name) throw new HttpErr(400, "indique le nom de la personne");
+  return { toTag: to, toEmail, name, what: String(l.what || "").trim().slice(0, 60), amount, due: isoOk(l.due) ? l.due : "", status: "due", created: Date.now() };
+}
+const projStats = pj => { const L = Object.values(pj.lines || {}), sum = st => r2(L.filter(l => !st || l.status === st).reduce((a, l) => a + l.amount, 0)); return { total: sum(), due: sum("due"), sent: sum("sent"), ok: sum("ok"), n: L.length }; };
+async function projView(env, pj, me) {
+  const owner = pj.ownerEmail === me.email, lines = {};
+  for (const [lid, l] of Object.entries(pj.lines || {})) {
+    if (!owner && l.toEmail !== me.email) continue;
+    lines[lid] = { toTag: l.toTag, name: l.name, what: l.what, amount: l.amount, due: l.due, status: l.status, sentAt: l.sentAt || 0, okAt: l.okAt || 0, member: !!l.toEmail, mine: l.toEmail === me.email, invoice: l.invoice ? { name: l.invoice.name, pdf: l.invoice.pdf, by: l.invoice.by } : null };
+    if (owner && l.toEmail) { const p = await payOf(env, l.toEmail); if (p) lines[lid].pay = p; }
+  }
+  const o = { id: pj.id, title: pj.title, note: pj.note || "", cur: pj.cur, owner: pj.ownerTag, ownerName: pj.ownerName, role: owner ? "owner" : "payee", lines, created: pj.created, updated: pj.updated };
+  if (owner) o.stats = projStats(pj);
+  return o;
+}
+async function projectsApi(req, env, url, cors, me, body) {
+  const say = (emails, pj, fr, en) => notify(env, emails, lang => ({ title: pj.title, body: lang === "en" ? en(lang) : fr(lang), url: "./?pj=" + pj.id, tag: "pj-" + pj.id }));
+  if (url.pathname === "/projects" && req.method === "GET") {
+    const ids = await listOf(env, "pi:" + me.email), out = [];
+    for (const id of ids.slice(0, 80)) { const pj = await kvJ(env, "proj:" + id); if (pj && !pj.deleted && (pj.ownerEmail === me.email || Object.values(pj.lines || {}).some(l => l.toEmail === me.email))) out.push(await projView(env, pj, me)); }
+    return json({ projects: out }, 200, cors);
+  }
+  if (url.pathname === "/projects" && req.method === "POST") {
+    const title = String(body.title || "").trim().slice(0, 60); if (!title) throw new HttpErr(400, "donne un nom au paiement");
+    const day = iso(new Date()), rl = "rlp:" + me.email + ":" + day, n = Number(await env.CODES.get(rl) || 0);
+    if (n >= 30) throw new HttpErr(429, "trop de créations aujourd'hui");
+    const pj = { id: rid(12), title, note: String(body.note || "").slice(0, 300), cur: String(body.cur || "EUR").slice(0, 3).toUpperCase(), ownerEmail: me.email, ownerTag: await myTag(env, me), ownerName: String(body.ownerName || me.name || "").slice(0, 40), lines: {}, created: Date.now(), updated: Date.now() };
+    for (const l of (Array.isArray(body.lines) ? body.lines : []).slice(0, 50)) { const x = await projLine(env, l); if (x.toEmail === me.email) throw new HttpErr(400, "tu ne peux pas te payer toi-même"); pj.lines["l" + rid(8)] = x; }
+    await env.CODES.put(rl, String(n + 1), { expirationTtl: 90000 }); await kvP(env, "proj:" + pj.id, pj); await pushTo(env, "pi:" + me.email, pj.id);
+    for (const l of Object.values(pj.lines)) if (l.toEmail) { await pushTo(env, "pi:" + l.toEmail, pj.id); say([l.toEmail], pj, x => `${pj.ownerName || "@" + pj.ownerTag} te doit ${fmtMoney(l.amount, pj.cur, x)}${l.due ? ` · paiement prévu le ${l.due.split("-").reverse().join("/")}` : ""}`, x => `${pj.ownerName || "@" + pj.ownerTag} owes you ${fmtMoney(l.amount, pj.cur, x)}${l.due ? ` · payment due ${l.due.split("-").reverse().join("/")}` : ""}`); }
+    return json({ project: await projView(env, pj, me) }, 200, cors);
+  }
+  // Facture d'une ligne (photo ou PDF) : ajoutée et lue par le créateur ou par la personne payée
+  const fm = /^\/projects\/([a-z0-9]{8,16})\/file$/.exec(url.pathname);
+  if (fm) {
+    const pj = await kvJ(env, "proj:" + fm[1]); if (!pj || pj.deleted) throw new HttpErr(404, "paiement introuvable");
+    const lid = String(req.method === "GET" ? url.searchParams.get("l") : body.lid || ""), l = pj.lines[lid];
+    if (!l || (pj.ownerEmail !== me.email && l.toEmail !== me.email)) throw new HttpErr(403, "pas ta ligne");
+    if (req.method === "GET") { if (!l.invoice) throw new HttpErr(404, "pas de facture"); const d = await env.CODES.get("inv:" + pj.id + ":" + l.invoice.id); if (!d) throw new HttpErr(404, "facture introuvable"); return json({ data: d, name: l.invoice.name }, 200, cors); }
+    if (body.remove) { if (l.invoice) await env.CODES.delete("inv:" + pj.id + ":" + l.invoice.id); delete l.invoice; }
+    else {
+      const d = String(body.data || "");
+      if (!/^data:(image\/(jpeg|png|webp)|application\/pdf);base64,[A-Za-z0-9+/=]+$/.test(d)) throw new HttpErr(400, "photo ou PDF seulement");
+      if (d.length > 2900000) throw new HttpErr(413, "fichier trop lourd (2 Mo au plus)");
+      if (l.invoice) await env.CODES.delete("inv:" + pj.id + ":" + l.invoice.id);
+      l.invoice = { id: rid(10), name: String(body.name || "facture").slice(0, 60), pdf: d.startsWith("data:application/pdf"), by: pj.ownerEmail === me.email ? "owner" : "payee", at: Date.now() };
+      await env.CODES.put("inv:" + pj.id + ":" + l.invoice.id, d);
+      const other = pj.ownerEmail === me.email ? l.toEmail : pj.ownerEmail;
+      if (other) say([other], pj, () => `Facture ajoutée pour ${l.name} : ${l.invoice.name}`, () => `Invoice added for ${l.name}: ${l.invoice.name}`);
+    }
+    pj.updated = Date.now(); await kvP(env, "proj:" + pj.id, pj);
+    return json({ project: await projView(env, pj, me) }, 200, cors);
+  }
+  const m = /^\/projects\/([a-z0-9]{8,16})$/.exec(url.pathname);
+  if (!m || req.method !== "POST") throw new HttpErr(404, "introuvable");
+  const pj = await kvJ(env, "proj:" + m[1]); if (!pj || pj.deleted) throw new HttpErr(404, "paiement introuvable");
+  const owner = pj.ownerEmail === me.email, act = body.action, lid = String(body.lid || ""), l = pj.lines[lid];
+  if (act === "ok" || act === "notok") {
+    if (!l || (l.toEmail !== me.email && !(owner && !l.toEmail))) throw new HttpErr(403, "seul le bénéficiaire confirme la réception");
+    l.status = act === "ok" ? "ok" : (l.sentAt ? "sent" : "due"); l.okAt = act === "ok" ? Date.now() : 0;
+    if (act === "ok" && !owner) say([pj.ownerEmail], pj, x => `${l.name} a confirmé la réception de ${fmtMoney(l.amount, pj.cur, x)} ✓`, x => `${l.name} confirmed receipt of ${fmtMoney(l.amount, pj.cur, x)} ✓`);
+  } else {
+    if (!owner) throw new HttpErr(403, "réservé à la personne qui a créé le paiement");
+    if (act === "add") {
+      const x = await projLine(env, body.line || {}); if (x.toEmail === me.email) throw new HttpErr(400, "tu ne peux pas te payer toi-même");
+      if (Object.keys(pj.lines).length >= 50) throw new HttpErr(409, "50 personnes au plus");
+      pj.lines["l" + rid(8)] = x;
+      if (x.toEmail) { await pushTo(env, "pi:" + x.toEmail, pj.id); say([x.toEmail], pj, y => `${pj.ownerName || "@" + pj.ownerTag} te doit ${fmtMoney(x.amount, pj.cur, y)}${x.due ? ` · paiement prévu le ${x.due.split("-").reverse().join("/")}` : ""}`, y => `${pj.ownerName || "@" + pj.ownerTag} owes you ${fmtMoney(x.amount, pj.cur, y)}`); }
+    } else if (act === "edit") {
+      if (!l) throw new HttpErr(404, "ligne introuvable");
+      if (body.amount != null) { const a = num(body.amount); if (!(a > 0 && a < 1e9)) throw new HttpErr(400, "montant invalide"); l.amount = a; }
+      if (body.due != null) l.due = isoOk(body.due) ? body.due : "";
+      if (body.what != null) l.what = String(body.what).trim().slice(0, 60);
+      if (body.name != null && !l.toEmail) l.name = String(body.name).trim().slice(0, 40) || l.name;
+      if (l.toEmail) say([l.toEmail], pj, x => `Paiement mis à jour : ${fmtMoney(l.amount, pj.cur, x)}${l.due ? ` · prévu le ${l.due.split("-").reverse().join("/")}` : ""}`, x => `Payment updated: ${fmtMoney(l.amount, pj.cur, x)}`);
+    } else if (act === "remove") { if (!l) throw new HttpErr(404, "ligne introuvable"); delete pj.lines[lid]; }
+    else if (act === "sent" || act === "unsent") {
+      if (!l) throw new HttpErr(404, "ligne introuvable");
+      if (act === "sent") { l.status = l.status === "ok" ? "ok" : "sent"; l.sentAt = Date.now(); if (l.toEmail) say([l.toEmail], pj, x => `${pj.ownerName || "@" + pj.ownerTag} t'a envoyé ${fmtMoney(l.amount, pj.cur, x)} : confirme la réception quand tu l'as reçu`, x => `${pj.ownerName || "@" + pj.ownerTag} sent you ${fmtMoney(l.amount, pj.cur, x)}: confirm once you've received it`); }
+      else if (l.status !== "ok") { l.status = "due"; l.sentAt = 0; }
+    } else if (act === "title") { const t = String(body.title || "").trim().slice(0, 60); if (t) pj.title = t; pj.note = String(body.note ?? pj.note ?? "").slice(0, 300); }
+    else if (act === "delete") { pj.deleted = true; }
+    else throw new HttpErr(400, "action inconnue");
+  }
+  pj.updated = Date.now(); await kvP(env, "proj:" + pj.id, pj);
+  return json({ project: pj.deleted ? null : await projView(env, pj, me) }, 200, cors);
+}
+
 // ---------- Pages publiques (sans compte) : groupe partagé par lien, lien de paiement ----------
 const pubGroup = (g, pays) => ({ name: g.name, cur: g.cur || "EUR", owner: g.ownerTag || "", updated: g.updated,
   members: (g.members || []).map(m => ({ id: m.id, name: m.name, tag: m.tag || "" })), pays,
@@ -502,6 +600,7 @@ async function social(req, env, url, cors) {
   const body = req.method === "POST" ? await req.json().catch(() => ({})) : {};
   const path = url.pathname;
   if (path === "/deals") return dealsAuth(req, env, url, cors, me, body);
+  if (/^\/projects(\/|$)/.test(path)) return projectsApi(req, env, url, cors, me, body);
   if (path === "/me" && req.method === "GET") return json({ tag: await myTag(env, me) }, 200, cors);
   if (path === "/me/tag" && req.method === "POST") {
     const tag = String(body.tag || "").trim().toLowerCase().replace(/^@/, "");
@@ -576,35 +675,6 @@ async function social(req, env, url, cors) {
     await kvP(env, "claim:" + c.id, c); await pushTo(env, "out:" + me.email, c.id); await pushTo(env, "in:" + toEmail, c.id);
     notify(env, [toEmail], lang => ({ title: "Bourselle", body: lang === "en" ? `@${c.fromTag} is claiming ${fmtMoney(c.amount, c.cur, lang)} from you${c.name ? " · " + clip(c.name, 50) : ""}` : `@${c.fromTag} te réclame ${fmtMoney(c.amount, c.cur, lang)}${c.name ? " · " + clip(c.name, 50) : ""}`, url: "./?tab=dettes", tag: "c-" + c.id }));
     return json(pub(c), 200, cors);
-  }
-  // ---------- Paiement partagé : une dépense répartie entre plusieurs personnes (gratuit) ----------
-  // Chaque personne reçoit seulement sa part, sous forme de réclamation à accepter ; le créateur suit le total.
-  if (path === "/bills" && req.method === "POST") {
-    const title = String(body.title || "").trim().slice(0, 60); if (!title) throw new HttpErr(400, "indique ce qui a été payé");
-    const shares = (Array.isArray(body.shares) ? body.shares : []).slice(0, 30);
-    if (!shares.length) throw new HttpErr(400, "ajoute au moins une personne");
-    const day = iso(new Date()), rl = "rlc:" + me.email + ":" + day, n0 = Number(await env.CODES.get(rl) || 0);
-    if (n0 + shares.length > 60) throw new HttpErr(429, "trop de demandes aujourd'hui");
-    const myT = await myTag(env, me), cur = String(body.cur || "EUR").slice(0, 3).toUpperCase(), billId = "b" + rid(10), total = num(body.total) || 0;
-    const prepared = [];
-    for (const sh of shares) {
-      const to = String(sh.to || "").trim().toLowerCase().replace(/^@/, ""), amount = num(sh.amount);
-      const toEmail = TAG_RE.test(to) ? await env.CODES.get("tag:" + to) : null;
-      if (!toEmail) throw new HttpErr(404, `aucun utilisateur @${to}`);
-      if (toEmail === me.email) throw new HttpErr(400, "ne t'ajoute pas toi-même : coche « Je fais partie du partage »");
-      if (!(amount > 0 && amount < 1e9)) throw new HttpErr(400, "montant invalide pour @" + to);
-      prepared.push({ to, toEmail, amount });
-    }
-    const out = [];
-    for (const p of prepared) {
-      const c = { id: rid(12), fromEmail: me.email, fromTag: myT, fromName: me.name, toEmail: p.toEmail, toTag: p.to, amount: p.amount, cur, name: title, note: String(body.note || "").slice(0, 200),
-        date: isoOk(body.date) ? body.date : day, due: isoOk(body.due) ? body.due : "", status: "pending", payments: [], created: Date.now(), updated: Date.now(), bill: billId, billTotal: total, billN: prepared.length };
-      await kvP(env, "claim:" + c.id, c); await pushTo(env, "out:" + me.email, c.id); await pushTo(env, "in:" + p.toEmail, c.id);
-      notify(env, [p.toEmail], lang => ({ title: "Bourselle", body: lang === "en" ? `@${myT} shared “${clip(title, 50)}”: your share is ${fmtMoney(c.amount, cur, lang)}. Accept it to see it in your app.` : `@${myT} a partagé « ${clip(title, 50)} » : ta part est de ${fmtMoney(c.amount, cur, lang)}. Accepte-la pour la voir dans ton app.`, url: "./?tab=dettes", tag: "c-" + c.id }));
-      out.push(pub(c));
-    }
-    await env.CODES.put(rl, String(n0 + prepared.length), { expirationTtl: 90000 });
-    return json({ bill: billId, claims: out }, 200, cors);
   }
   // ---------- Groupes de partage synchronisés entre membres ----------
   // Un groupe partagé est gardé ici ; chaque membre qui a un tag le retrouve dans son app.
@@ -803,7 +873,7 @@ const WORKER = {
         try { return await publicApi(req, env, url, cors); }
         catch (e) { if (e instanceof HttpErr) return json({ error: e.message }, e.status, cors); throw e; }
       }
-      if (/^\/(me|tag|claims|search|groups|deals|bills)(\/|$)/.test(url.pathname)) {
+      if (/^\/(me|tag|claims|search|groups|deals|projects)(\/|$)/.test(url.pathname)) {
         try { return await social(req, env, url, cors); }
         catch (e) { if (e instanceof HttpErr) return json({ error: e.message }, e.status, cors); throw e; }
       }

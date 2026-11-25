@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "50";
+const APP_VERSION = "51";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -60,7 +60,7 @@ const MOIS_C = ["Jan","Fév","Mar","Avr","Mai","Juin","Juil","Août","Sep","Oct"
 // ---------- État ----------
 let settings = clone(DEFAULT_SETTINGS);
 let months = {};          // "2026-11" -> { items: { id: tx } }
-let tab = "accueil";
+let tab = "mois";
 const now = new Date();
 let cur = { y: now.getFullYear(), m: now.getMonth() + 1 };
 let store = null;         // adaptateur de stockage (voir storage.js)
@@ -249,6 +249,7 @@ function showProfileMenu() {
       <div><span class="lbl">Apparence</span><div class="seg2" id="pmTheme"><button type="button" data-th="light" aria-pressed="${theme === "light"}">☀︎ Clair</button><button type="button" data-th="dark" aria-pressed="${theme === "dark"}">☾ Sombre</button></div></div>
       <div><span class="lbl">Version</span><div class="seg2" id="pmMode"><button type="button" data-m="simple" aria-pressed="${isSimple()}">Simple</button><button type="button" data-m="complete" aria-pressed="${!isSimple()}">Complète</button></div></div></div>
     <div class="pm-list">
+      ${row("pmSettings", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>', "Paramètres", "Mon compte, budget, catégories, devise, exports")}
       ${soc && SOC.tag ? row("pmQr", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v7h-7"/></svg>', "Mon QR code", "Pour qu'on t'ajoute en contact") : ""}
       ${soc ? row("pmContacts", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.6.9 2.6 2.6 3 5.2"/></svg>', "Mes contacts", `${(settings.contacts || []).length} contact${(settings.contacts || []).length > 1 ? "s" : ""}`) : ""}
       ${soc ? row("pmPush", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/><circle cx="19" cy="5" r="2.5" fill="currentColor"/></svg>', "Notifications en direct", typeof pushOn === "function" && pushOn() ? "Activées sur cet appareil" : "Désactivées") : ""}
@@ -256,7 +257,6 @@ function showProfileMenu() {
       ${typeof showPlus === "function" ? row("pmPlus", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg>', "Bourselle Plus", typeof isPlus === "function" && isPlus() ? "Activé" : "Découvrir l'offre") : ""}
       ${row("pmLang", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9s1.3-6.3 3.8-9z"/></svg>', window.LANG === "en" ? "Français" : "English", window.LANG === "en" ? "Langue : anglais" : "Langue : français")}
       ${!local && store.folderUrl && store.folderUrl() ? row("pmFolder", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>', "Ouvrir mon dossier", store.label) : ""}
-      ${row("pmSettings", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>', "Tous les réglages", "Budget, catégories, devise, exports")}
       ${row("pmUpdate", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg>', "Charger la dernière version", "Version " + APP_VERSION)}
     </div></div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
@@ -282,6 +282,11 @@ function alertsList() {
     if (typeof SOC !== "undefined") add("dettes", "Réclamations de dettes reçues", SOC.in.filter(c => c.status === "pending").map(c => ({ t: `@${c.from} te réclame ${socMoney(c)}`, s: [c.name, c.due ? "avant le " + frDate(c.due) : ""].filter(Boolean).join(" · ") })));
     if (typeof DEALS !== "undefined") add("accueil", "Paiements à faire", DEALS.filter(d => d.you && d.you.pid && d.parts[d.you.pid] && !d.parts[d.you.pid].paid && d.status !== "cancelled" && (d.kind === "cagnotte" || d.stats.reached || d.status === "done"))
       .map(d => { const p = d.parts[d.you.pid]; return { t: d.title, s: `${dealMoney(d.kind === "achat" ? p.qty * d.price : p.amount, d.cur)} à payer à ${d.ownerName || "l'organisateur"}`, deal: d.id }; }), true);
+    if (typeof PROJECTS !== "undefined") {
+      const soon = addDays(todayISO(), 3);
+      add("accueil", "Paiements à confirmer", PROJECTS.filter(p => p.role === "payee").flatMap(p => Object.values(p.lines).filter(l => l.status === "sent").map(l => ({ t: `${p.ownerName || "@" + p.owner} t'a envoyé ${pjMoney(l.amount, p.cur)}`, s: p.title + " · confirme la réception", pj: p.id }))), true);
+      add("accueil", "Personnes à payer", PROJECTS.filter(p => p.role === "owner").flatMap(p => Object.values(p.lines).filter(l => l.status === "due" && l.due && l.due <= soon).map(l => ({ t: `${l.name} · ${pjMoney(l.amount, p.cur)}`, s: `${p.title} · ${l.due < todayISO() ? "en retard, prévu le" : "prévu le"} ${frDate(l.due)}`, pj: p.id }))), true);
+    }
     add("abos", "Abonnements à surveiller", Object.values(subs).filter(x => subStatus(x).st === "soon").map(x => ({ t: x.name, s: subStatus(x).why || "" })));
     add("garanties", "Garanties bientôt expirées", garItems().filter(x => garStatus(x.warranty) === "soon").map(x => ({ t: x.note || x.warranty.name || "Achat", s: "Garantie jusqu'au " + frDate(x.warranty.end) })));
     add("frais", "Notes de frais à rembourser", allItems().filter(x => x.type === "depense" && x.ndf && x.ndfStatus !== "rembourse").map(x => ({ t: x.note || "Note de frais", s: `${eur(x.amount)} · ${frDate(x.date)}` })));
@@ -302,6 +307,7 @@ function showAlerts() {
   f.querySelectorAll("[data-go]").forEach(b => b.onclick = () => {
     const a = L[Number(b.dataset.go)], x = b.dataset.j != null ? a.items[Number(b.dataset.j)] : null; closeForm();
     if (x && x.deal) return showDeal(x.deal);
+    if (x && x.pj) return showProject(x.pj);
     if (a.tab === "mois") homeMoreOpen(true); switchTab(a.tab);
   });
   f.querySelectorAll("[data-ev]").forEach(b => b.onclick = () => { const e = act[Number(b.dataset.ev)]; closeForm(); if (e.did) showDeal(e.did); else { openGroup = e.gid; switchTab("partage"); } });
@@ -699,7 +705,7 @@ function renderAnnee() {
 }
 
 function renderReglages() {
-  setHeader(`${MOIS[cur.m - 1]} ${cur.y}`, "Résultat du mois (rentrées − dépenses)", totals(itemsOf(cur.y, cur.m)).result);
+  setHeader(`${MOIS[cur.m - 1]} ${cur.y}`, "Résultat du mois (rentrées − dépenses)", totals(itemsOf(cur.y, cur.m)).result);   // (hero masqué dans Paramètres)
   const totalBud = settings.cats.reduce((s, c) => s + (Number(c.budget) || 0), 0);
   const u = store ? store.user() : { name: "", email: "" };
   let html = banner + `<div class="card"><h2>Mon compte<small>${esc(store ? store.label : "")}</small></h2>
@@ -871,7 +877,7 @@ const view = document.getElementById("view");
 // Ordre des suivis : d'abord un ordre par défaut (du plus courant au plus rare), puis il s'adapte à
 // ce que chaque personne ouvre le plus souvent sur son appareil. Recalculé à l'ouverture de l'app
 // seulement, pour que les onglets ne bougent pas pendant qu'on s'en sert.
-const SUBS_DEF = [["patrimoine", "Patrimoine"], ["abos", "Abonnements"], ["objectifs", "Objectifs"], ["economies", "Économies"], ["partage", "Partage"], ["dettes", "Dettes"], ["frais", "Frais"], ["garanties", "Garanties"]];
+const SUBS_DEF = [["patrimoine", "Patrimoine"], ["abos", "Abonnements"], ["objectifs", "Objectifs"], ["economies", "Économies"], ["dettes", "Dettes"], ["frais", "Frais"], ["garanties", "Garanties"]];
 const SUB_KEY = "bourselle-suivis";
 function subUse() { try { return JSON.parse(localStorage.getItem(SUB_KEY) || "{}") || {}; } catch (e) { return {}; } }
 function bumpSub(k) { try { const u = subUse(); u[k] = (u[k] || 0) + 1; localStorage.setItem(SUB_KEY, JSON.stringify(u)); } catch (e) {} }
@@ -882,7 +888,7 @@ function isSub(t) { return SUBS.some(([k]) => k === t); }
 // Simple : le budget du mois, l'année, puis dans Suivis le partage des frais, les dettes (je dois / on me doit),
 // le plan d'économies et les objectifs. Complète : tout.
 // Le choix est gardé dans les réglages (donc sur tous les appareils du compte) ; un lien « ?version=simple » le propose aux nouveaux.
-const SIMPLE_SUBS = ["partage", "dettes", "economies", "objectifs"];   // dans cet ordre
+const SIMPLE_SUBS = ["dettes", "economies", "objectifs"];   // dans cet ordre
 {
   const v = new URLSearchParams(location.search).get("version");
   if (v === "simple" || v === "complete") { try { localStorage.setItem("bourselle-mode", v); sessionStorage.setItem("bourselle-mode-url", v); } catch (e) {} history.replaceState(null, "", location.pathname + location.hash); }
@@ -905,6 +911,7 @@ function setMode(m) {
 function render() {
   if (!subAllowed(tab) || tab === "tontines") tab = "mois";
   document.body.classList.toggle("mode-simple", isSimple());
+  document.body.classList.toggle("tab-reglages", tab === "reglages");
   { const sb = document.querySelector("header .nm .sub"); if (sb) sb.textContent = isSimple() ? "Version simple" : ""; }
   {
     const u = store && store.user ? store.user() : {}, first = store && store.id === "local" ? "" : String((u && u.name) || "").trim().split(/[\s@]/)[0];
@@ -914,7 +921,7 @@ function render() {
     const n = alertsList().reduce((a, x) => a + x.n, 0); document.getElementById("bellDot").hidden = !n;
   }
   const arrows = !["accueil", "garanties", "abos", "dettes", "recherche", "objectifs", "economies", "partage", "tontines", "patrimoine"].includes(tab);
-  if (!document.getElementById("app").hidden) document.getElementById("fab").hidden = tab === "economies" || (tab === "accueil" && !!openDeal);
+  if (!document.getElementById("app").hidden) document.getElementById("fab").hidden = tab === "economies" || (tab === "accueil" && (!!openDeal || (typeof openProject !== "undefined" && !!openProject)));
   document.getElementById("prev").style.visibility = arrows ? "visible" : "hidden";
   document.getElementById("next").style.visibility = arrows ? "visible" : "hidden";
   if (tab === "accueil") renderAccueil(); else if (tab === "mois") renderMois(); else if (tab === "annee") renderAnnee(); else if (tab === "frais") renderFrais();
@@ -941,11 +948,11 @@ function switchTab(t) {
   if (!subAllowed(t)) t = SIMPLE_SUBS.includes(lastSub) ? lastSub : SIMPLE_SUBS[0];
   if (isSub(t)) { if (t !== tab) bumpSub(t); lastSub = t; }
   tab = t;
-  if (t !== "accueil" && typeof openDeal !== "undefined") { openDeal = null; dealState = null; }
-  document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === t || (b.dataset.tab === "suivis" && isSub(t)) || (b.dataset.tab === "mois" && t === "annee"))));
+  if (t !== "accueil" && typeof openDeal !== "undefined") { openDeal = null; dealState = null; if (typeof openProject !== "undefined") openProject = null; }
+  document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === t || (b.dataset.tab === "suivis" && isSub(t)) || (b.dataset.tab === "mois" && (t === "annee" || t === "recherche")))));
   render(); window.scrollTo(0, 0);
 }
-document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => { if (b.dataset.tab === "accueil" && typeof openDeal !== "undefined") { openDeal = null; dealState = null; } switchTab(b.dataset.tab); });
+document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => { if (b.dataset.tab === "accueil" && typeof openDeal !== "undefined") { openDeal = null; dealState = null; if (typeof openProject !== "undefined") openProject = null; } switchTab(b.dataset.tab); });
 function step(d) {
   if (tab === "annee" || tab === "frais") cur.y += d;
   else { cur.m += d; if (cur.m < 1) { cur.m = 12; cur.y--; } if (cur.m > 12) { cur.m = 1; cur.y++; } }
@@ -1591,7 +1598,6 @@ function renderDettes() {
     <div class="tile"><div class="k"><span class="sw" style="background:#3f8f68"></span>On me doit</div><div class="v num">${eur(owed, true)}</div></div>
     <div class="tile"><div class="k"><span class="sw" style="background:var(--accent)"></span>Mensualités</div><div class="v num">${eur(monthly, true)}</div></div></div>`;
   if (typeof socInboxHTML === "function") html += socInboxHTML();
-  if (typeof editBill === "function") html += `<button type="button" class="btn primary" id="billNew" style="width:100%">＋ Partager un paiement entre plusieurs personnes</button>`;
   const card = x => {
     const c = x.c, cls = c.done ? "done" : x.kind === "medoit" ? "owed" : "debt";
     const lab = c.done ? "Soldée" : DEBT_KINDS.find(k => k[0] === x.kind)[1];
@@ -1611,14 +1617,12 @@ function renderDettes() {
   else {
     html += section(open.filter(x => x.kind === "credit"), "Crédits et prêts", "var(--bad)");
     html += section(open.filter(x => x.kind === "dois"), "Je dois", "var(--bad)");
-    if (typeof billCardsHTML === "function" && list.some(x => x.bill)) html += `<div class="sec-h"><span class="sw" style="background:var(--gold)"></span>Paiements partagés</div><div class="gar-list">${billCardsHTML(list)}</div>`;
-    html += section(open.filter(x => x.kind === "medoit" && !x.bill), "On me doit", "#3f8f68");
-    html += section(list.filter(x => x.c.done && !x.bill), "Soldées", "var(--good)");
+    html += section(open.filter(x => x.kind === "medoit"), "On me doit", "#3f8f68");
+    html += section(list.filter(x => x.c.done), "Soldées", "var(--good)");
   }
   html += `<p class="hint" style="text-align:center;margin:4px 0 0">Pour un crédit, le reste dû est estimé à partir de la mensualité, du taux et des échéances passées. Le tableau d'amortissement de ta banque fait foi.</p>`;
   view.innerHTML = html;
   if (typeof socBindInbox === "function") socBindInbox();
-  { const b = document.getElementById("billNew"); if (b) b.onclick = () => editBill(); }
   view.querySelectorAll("[data-a]").forEach(b => b.onclick = () => {
     const x = list.find(i => i.id === b.dataset.id); if (!x) return;
     if (b.dataset.a === "edit") editDebt(x.id);

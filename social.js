@@ -41,7 +41,7 @@ async function socRefresh() {
     try { await socPullGroups(); await socPushGroups(); } catch (e) {}
     socLoadPay();
     if (!SOC.addChecked) { SOC.addChecked = true; socPendingAdd(); }
-    socOpenPending(); pushResync(); if (typeof dealsRefresh === "function") dealsRefresh();
+    socOpenPending(); pushResync(); if (typeof dealsRefresh === "function") dealsRefresh(); if (typeof projRefresh === "function") projRefresh();
     const fresh = SOC.in.filter(c => c.status === "pending" && !socSeen.has(c.id));
     if (fresh.length) {
       toast(fresh.length === 1 ? `@${fresh[0].from} te réclame ${socMoney(fresh[0])}` : `${fresh.length} nouvelles réclamations de dettes`);
@@ -201,12 +201,6 @@ function socInboxHTML() {
 // Relancer une réclamation refusée : une nouvelle réclamation part vers la même personne
 function socRelaunch(id) {
   const d = debts[id]; if (!d || !d.claimTo) return;
-  if (d.bill) {   // part d'un paiement partagé : gratuit, on renvoie seulement cette part
-    socApi("/bills", { method: "POST", body: JSON.stringify({ title: d.billTitle || d.name, total: d.billTotal || d.amount, cur: baseCurrency(), due: d.due || "", shares: [{ to: d.claimTo, amount: d.amount }] }) })
-      .then(r => { d.claim = r.claims[0].id; d.claimStatus = "pending"; SOC.out.unshift(r.claims[0]); saveDebts(); render(); toast(`Relance envoyée à @${d.claimTo}`); })
-      .catch(e => toast(e.message));
-    return;
-  }
   if (!isPlus()) return showPlus("claim");
   delete d.claim; d.claimStatus = ""; saveDebts();
   socSendClaim(id);
@@ -484,14 +478,15 @@ function pushBind() { const b = document.getElementById("pushTgl"); if (b) b.onc
 // Ouvrir ce que la notification montre : un groupe (?g=…) ou les dettes (?tab=dettes)
 function openFromUrl(u) {
   let p; try { p = new URL(u, location.href).searchParams; } catch (e) { return; }
-  const g = p.get("g"), t = p.get("tab"), dl = p.get("d");
+  const g = p.get("g"), t = p.get("tab"), dl = p.get("d"), pj = p.get("pj");
   if (dl && typeof showDeal === "function") { showDeal(dl); return; }
+  if (pj && typeof showProject === "function") { showProject(pj); return; }
   if (g) { if (groups[g]) { openGroup = g; switchTab("partage"); window.scrollTo(0, 0); } else SOC.openLater = g; }
   else if (t === "dettes") switchTab("dettes");
 }
 {
   const q = new URLSearchParams(location.search);
-  if (q.get("g") || q.get("tab") || q.get("d")) { try { sessionStorage.setItem("bourselle-open", location.search); } catch (e) {} history.replaceState(null, "", location.pathname + location.hash); }
+  if (q.get("g") || q.get("tab") || q.get("d") || q.get("pj")) { try { sessionStorage.setItem("bourselle-open", location.search); } catch (e) {} history.replaceState(null, "", location.pathname + location.hash); }
 }
 function socOpenPending() {
   let s = ""; try { s = sessionStorage.getItem("bourselle-open") || ""; sessionStorage.removeItem("bourselle-open"); } catch (e) {}
@@ -500,6 +495,6 @@ function socOpenPending() {
 }
 if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", ev => {
   const d = ev.data || {};
-  if (d.type === "bourselle-push") { socRefresh(); if (typeof openDeal !== "undefined" && openDeal && tab === "accueil") showDeal(openDeal); if (document.visibilityState === "visible" && d.data && d.data.body) toast(d.data.body.split("\n")[0]); }
+  if (d.type === "bourselle-push") { socRefresh(); if (typeof projRefresh === "function") projRefresh(); if (typeof openDeal !== "undefined" && openDeal && tab === "accueil") showDeal(openDeal); if (document.visibilityState === "visible" && d.data && d.data.body) toast(d.data.body.split("\n")[0]); }
   if (d.type === "bourselle-open") { socRefresh(); openFromUrl(d.url); }
 });
