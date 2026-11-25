@@ -41,6 +41,7 @@ async function socRefresh() {
     try { await socPullGroups(); await socPushGroups(); } catch (e) {}
     socLoadPay();
     if (!SOC.addChecked) { SOC.addChecked = true; socPendingAdd(); }
+    socOpenPending(); pushResync();
     const fresh = SOC.in.filter(c => c.status === "pending" && !socSeen.has(c.id));
     if (fresh.length) {
       toast(fresh.length === 1 ? `@${fresh[0].from} te réclame ${socMoney(fresh[0])}` : `${fresh.length} nouvelles réclamations de dettes`);
@@ -419,3 +420,77 @@ async function socPhotoGet(gid, pid) {
   const k = gid + ":" + pid; if (socPhotoCache[k]) return socPhotoCache[k];
   const j = await socApi("/groups/" + gid + "/photo/" + pid); socPhotoCache[k] = j.data; return j.data;
 }
+
+// ---------- Notifications en direct (Web Push) ----------
+// Un appareil s'abonne une fois ; le serveur prévient les membres quand une dépense est ajoutée, modifiée, supprimée ou commentée,
+// et pour les réclamations de dettes. Rien d'autre n'est envoyé.
+const PUSH_KEY = "bourselle-push";
+const pushSupported = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+const isIOS = () => /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const isStandalone = () => (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+const pushOn = () => { try { return localStorage.getItem(PUSH_KEY) === "1" && Notification.permission === "granted"; } catch (e) { return false; } };
+async function pushSub(create) {
+  const reg = await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub && create) {
+    const r = await fetch((PLUS_CFG.api || "") + "/p/key"), j = await r.json();
+    if (!j.key) throw new Error("Notifications indisponibles pour l'instant");
+    const raw = Uint8Array.from(atob(j.key.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((j.key.length + 3) % 4)), c => c.charCodeAt(0));
+    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: raw });
+  }
+  return sub;
+}
+async function enablePush() {
+  if (!socOn()) { toast("Connecte-toi avec Google ou Microsoft pour recevoir les notifications"); return; }
+  if (isIOS() && !isStandalone()) { toast("Sur iPhone, ajoute d'abord Bourselle à l'écran d'accueil (Partager › Sur l'écran d'accueil), puis ouvre-le depuis l'icône"); return; }
+  if (!pushSupported()) { toast("Ce navigateur ne permet pas les notifications"); return; }
+  const perm = await Notification.requestPermission();
+  if (perm !== "granted") { toast("Notifications refusées : tu peux les autoriser dans les réglages du navigateur"); return; }
+  try {
+    const sub = await pushSub(true);
+    await socApi("/me/push", { method: "POST", body: JSON.stringify({ sub: sub.toJSON(), lang: window.LANG === "en" ? "en" : "fr", test: true }) });
+    localStorage.setItem(PUSH_KEY, "1"); toast("Notifications activées"); render();
+  } catch (e) { toast(e.message || "Activation impossible"); }
+}
+async function disablePush() {
+  try {
+    const sub = pushSupported() ? await pushSub(false) : null;
+    if (sub) { if (socOn()) await socApi("/me/push", { method: "POST", body: JSON.stringify({ off: true, sub: { endpoint: sub.endpoint } }) }).catch(() => {}); await sub.unsubscribe().catch(() => {}); }
+  } catch (e) {}
+  try { localStorage.removeItem(PUSH_KEY); } catch (e) {}
+  toast("Notifications désactivées"); render();
+}
+// À chaque connexion : l'abonnement de cet appareil est rattaché au compte connecté (et à la langue choisie)
+async function pushResync() {
+  if (!pushOn() || !socOn() || !pushSupported() || SOC.pushSynced) return;
+  SOC.pushSynced = true;
+  try { const sub = await pushSub(true); await socApi("/me/push", { method: "POST", body: JSON.stringify({ sub: sub.toJSON(), lang: window.LANG === "en" ? "en" : "fr" }) }); } catch (e) {}
+}
+function pushCardHTML() {
+  if (!socOn()) return "";
+  const on = pushOn();
+  return `<div class="card"><h2>Notifications en direct</h2><p class="hint" style="margin:0 0 10px">${on ? "Activées sur cet appareil : tu es prévenu quand quelqu'un ajoute, modifie, supprime ou commente une dépense de tes groupes, et pour tes dettes." : "Sois prévenu dès que quelqu'un ajoute, modifie, supprime ou commente une dépense de tes groupes, et quand on te réclame une dette."}${!on && isIOS() && !isStandalone() ? " Sur iPhone, ajoute d'abord Bourselle à l'écran d'accueil." : ""}</p>
+    <button class="btn ${on ? "" : "primary"}" id="pushTgl">${on ? "Désactiver sur cet appareil" : "Activer les notifications"}</button></div>`;
+}
+function pushBind() { const b = document.getElementById("pushTgl"); if (b) b.onclick = () => (pushOn() ? disablePush() : enablePush()); }
+// Ouvrir ce que la notification montre : un groupe (?g=…) ou les dettes (?tab=dettes)
+function openFromUrl(u) {
+  let p; try { p = new URL(u, location.href).searchParams; } catch (e) { return; }
+  const g = p.get("g"), t = p.get("tab");
+  if (g) { if (groups[g]) { openGroup = g; switchTab("partage"); window.scrollTo(0, 0); } else SOC.openLater = g; }
+  else if (t === "dettes") switchTab("dettes");
+}
+{
+  const q = new URLSearchParams(location.search);
+  if (q.get("g") || q.get("tab")) { try { sessionStorage.setItem("bourselle-open", location.search); } catch (e) {} history.replaceState(null, "", location.pathname + location.hash); }
+}
+function socOpenPending() {
+  let s = ""; try { s = sessionStorage.getItem("bourselle-open") || ""; sessionStorage.removeItem("bourselle-open"); } catch (e) {}
+  if (s) openFromUrl(s);
+  else if (SOC.openLater && groups[SOC.openLater]) { const g = SOC.openLater; SOC.openLater = ""; openFromUrl("?g=" + g); }
+}
+if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("message", ev => {
+  const d = ev.data || {};
+  if (d.type === "bourselle-push") { socRefresh(); if (document.visibilityState === "visible" && d.data && d.data.body) toast(d.data.body.split("\n")[0]); }
+  if (d.type === "bourselle-open") { socRefresh(); openFromUrl(d.url); }
+});

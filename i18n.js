@@ -601,6 +601,16 @@
     "Connecte-toi avec Google ou Microsoft pour joindre un ticket": "Sign in with Google or Microsoft to attach a receipt", "Envoi du ticket…": "Uploading the receipt…", "Ticket ajouté": "Receipt added",
     "Envoi impossible": "Upload failed", "Commentaires": "Comments", "Aucun commentaire.": "No comments yet.", "Écrire un commentaire…": "Write a comment…", "ticket": "receipt",
     "Image illisible": "Unreadable image", "Image trop lourde": "Image too large",
+    // Notifications en direct
+    "Notifications en direct": "Live notifications", "Activées sur cet appareil": "On for this device", "Désactivées": "Off",
+    "Activer les notifications": "Turn on notifications", "Désactiver sur cet appareil": "Turn off on this device",
+    "Activées sur cet appareil : tu es prévenu quand quelqu'un ajoute, modifie, supprime ou commente une dépense de tes groupes, et pour tes dettes.": "On for this device: you're told when someone adds, edits, deletes or comments on an expense in your groups, and about your debts.",
+    "Sois prévenu dès que quelqu'un ajoute, modifie, supprime ou commente une dépense de tes groupes, et quand on te réclame une dette.": "Get told as soon as someone adds, edits, deletes or comments on an expense in your groups, and when someone claims a debt from you.",
+    "Sois prévenu dès que quelqu'un ajoute, modifie, supprime ou commente une dépense de tes groupes, et quand on te réclame une dette. Sur iPhone, ajoute d'abord Bourselle à l'écran d'accueil.": "Get told as soon as someone adds, edits, deletes or comments on an expense in your groups, and when someone claims a debt from you. On iPhone, first add Bourselle to your home screen.",
+    "Connecte-toi avec Google ou Microsoft pour recevoir les notifications": "Sign in with Google or Microsoft to get notifications",
+    "Sur iPhone, ajoute d'abord Bourselle à l'écran d'accueil (Partager › Sur l'écran d'accueil), puis ouvre-le depuis l'icône": "On iPhone, first add Bourselle to your home screen (Share › Add to Home Screen), then open it from the icon",
+    "Ce navigateur ne permet pas les notifications": "This browser doesn't support notifications", "Notifications refusées : tu peux les autoriser dans les réglages du navigateur": "Notifications blocked: you can allow them in your browser settings",
+    "Notifications activées": "Notifications on", "Notifications désactivées": "Notifications off", "Activation impossible": "Couldn't turn on", "Notifications indisponibles pour l'instant": "Notifications unavailable right now",
   };
 
   // ---------- Textes avec des valeurs ({m} montant, {d} date, {n} nombre, {x} autre) ----------
