@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "51";
+const APP_VERSION = "52";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -582,7 +582,7 @@ function renderMois() {
   const budCats = settings.cats.filter(c => (c.budget || 0) > 0 || t.byCat[c.id]);
   const fixPct = t.depense ? t.fixe / t.depense * 100 : 0;
 
-  let html = banner + budSeg() + tilesHTML(t) + (typeof accCardHTML === "function" ? accCardHTML(true) : "") + (typeof patriHomeHTML === "function" ? patriHomeHTML() : "") + bilanHTML() + forecastHTML(t);
+  let html = banner + budSeg() + tilesHTML(t) + (typeof askCardHTML === "function" && tab === "mois" ? askCardHTML() : "") + (typeof accCardHTML === "function" ? accCardHTML(true) : "") + (typeof patriHomeHTML === "function" ? patriHomeHTML() : "") + bilanHTML() + forecastHTML(t);
   const todoAll = allItems().filter(x => x.type === "depense" && x.ndf && x.ndfStatus !== "rembourse");
   if (todoAll.length && !isSimple()) {
     const sum = todoAll.reduce((s, x) => s + Number(x.amount), 0);
@@ -636,7 +636,7 @@ function renderMois() {
   const OPS_N = 6, showAll = window.__opsAll || list.length <= OPS_N + 2;
   html += `<div class="card"><h2>${showAll ? "Opérations" : "Dernières opérations"}<button class="linkbtn" id="impBtn">Importer un relevé</button></h2>${list.length ? txListHTML(showAll ? list : list.slice(0, OPS_N)) : `<div class="empty">Rien d'enregistré pour ${MOIS[cur.m - 1]}.</div>`}
     ${list.length > OPS_N + 2 ? `<button class="ops-more" id="opsMore">${showAll ? "Voir moins" : `Voir tout (${list.length})`}</button>` : ""}</div>`;
-  view.innerHTML = html; budSegBind();
+  view.innerHTML = html; budSegBind(); if (typeof askBind === "function") askBind();
   const om = document.getElementById("opsMore"); if (om) om.onclick = () => { window.__opsAll = !window.__opsAll; render(); };
   if (typeof accBindCard === "function") accBindCard();
   if (typeof patriBindHome === "function") patriBindHome();
@@ -1804,6 +1804,9 @@ function upcomingThisMonth() {
     const b = groupBalances(g)[g.me] || 0;
     if (b < -0.004) up.push({ date: "", name: `Partage « ${g.name} »`, amount: -b, type: "depense", src: "À rembourser" });
   }
+  // Personnes à payer (« Payer plusieurs personnes ») à une date convenue d'ici la fin du mois
+  if (typeof PROJECTS !== "undefined") for (const pj of PROJECTS) if (pj.role === "owner") for (const l of Object.values(pj.lines || {}))
+    if (l.status === "due" && l.due && l.due <= eom) up.push({ date: l.due, name: `${l.name} · ${pj.title}`, amount: l.amount, type: "depense", src: l.due < today ? "Paiement en retard" : "Paiement prévu" });
   // (tontines : application à part)
   return up.sort((a, b) => (a.date || "9").localeCompare(b.date || "9"));
 }
