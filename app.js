@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "43";
+const APP_VERSION = "44";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -72,6 +72,7 @@ let goals = {};           // objectifs d'épargne
 let groups = {};          // dépenses partagées
 let tontines = {};        // tontines
 let trips = {};           // déplacements (indemnités kilométriques) des notes de frais
+let patri = {};           // patrimoine : biens et historique du patrimoine net (voir patrimoine.js)
 let accounts = {};        // comptes (courant, épargne, espèces…) et leur solde de départ (voir accounts.js)
 
 function clone(o) { return JSON.parse(JSON.stringify(o)); }
@@ -322,9 +323,9 @@ function setSync(state, txt) {
   document.getElementById("syncTxt").textContent = txt;
 }
 let version = null, saveTimer = null, saving = false, dirty = false, lastError = null;
-function snapshot() { return { app: "bourselle", version: 1, savedAt: new Date().toISOString(), months, settings, subs, debts, recs, goals, groups, tontines, trips, accounts }; }
+function snapshot() { return { app: "bourselle", version: 1, savedAt: new Date().toISOString(), months, settings, subs, debts, recs, goals, groups, tontines, trips, accounts, patri }; }
 function applyData(d) {
-  months = (d && d.months) || {}; trips = (d && d.trips) || {}; accounts = (d && d.accounts) || {}; subs = (d && d.subs) || {}; debts = (d && d.debts) || {}; recs = (d && d.recs) || {}; goals = (d && d.goals) || {}; groups = (d && d.groups) || {}; tontines = (d && d.tontines) || {};
+  months = (d && d.months) || {}; trips = (d && d.trips) || {}; accounts = (d && d.accounts) || {}; patri = (d && d.patri) || {}; subs = (d && d.subs) || {}; debts = (d && d.debts) || {}; recs = (d && d.recs) || {}; goals = (d && d.goals) || {}; groups = (d && d.groups) || {}; tontines = (d && d.tontines) || {};
   settings = { ...clone(DEFAULT_SETTINGS), ...((d && d.settings) || {}) };
   if (!(d && d.settings) && window.LANG === "en" && window.T) {   // nouveau compte en anglais : catégories par défaut en anglais
     for (const c of settings.cats) c.name = T(c.name);
@@ -552,7 +553,7 @@ function renderMois() {
   const budCats = settings.cats.filter(c => (c.budget || 0) > 0 || t.byCat[c.id]);
   const fixPct = t.depense ? t.fixe / t.depense * 100 : 0;
 
-  let html = banner + tilesHTML(t) + (typeof accCardHTML === "function" ? accCardHTML(true) : "") + bilanHTML() + forecastHTML(t);
+  let html = banner + tilesHTML(t) + (typeof accCardHTML === "function" ? accCardHTML(true) : "") + (typeof patriHomeHTML === "function" ? patriHomeHTML() : "") + bilanHTML() + forecastHTML(t);
   const todoAll = allItems().filter(x => x.type === "depense" && x.ndf && x.ndfStatus !== "rembourse");
   if (todoAll.length && !isSimple()) {
     const sum = todoAll.reduce((s, x) => s + Number(x.amount), 0);
@@ -609,6 +610,7 @@ function renderMois() {
   view.innerHTML = html;
   const om = document.getElementById("opsMore"); if (om) om.onclick = () => { window.__opsAll = !window.__opsAll; render(); };
   if (typeof accBindCard === "function") accBindCard();
+  if (typeof patriBindHome === "function") patriBindHome();
   const mt = document.getElementById("moreToggle"); if (mt) mt.onclick = () => { homeMoreOpen(!homeMoreOpen()); render(); };
   const ib = document.getElementById("impBtn"); if (ib) ib.onclick = startImport;
   const gf = document.getElementById("goFrais"); if (gf) gf.onclick = () => switchTab("frais");
@@ -725,6 +727,7 @@ function renderReglages() {
   view.innerHTML = html;
   if (typeof socBindTagCard === "function") socBindTagCard();
   if (typeof accBindCard === "function") accBindCard();
+  if (typeof patriBindHome === "function") patriBindHome();
   document.querySelectorAll("#themeSeg [data-th]").forEach(b => b.onclick = () => { try { localStorage.setItem("bourselle-theme", b.dataset.th); } catch (e) {} applyTheme.cur = applyTheme(b.dataset.th); render(); });
   document.querySelectorAll("#modeSeg [data-m]").forEach(b => b.onclick = () => { if ((b.dataset.m === "simple") !== isSimple()) setMode(b.dataset.m); });
   const fu = document.getElementById("forceUpdate");
@@ -755,7 +758,7 @@ function renderReglages() {
   document.getElementById("dlAll").onclick = () => {
     const m = clone(months);
     for (const d of Object.values(m)) for (const t of Object.values(d.items || {})) delete t.files;
-    saveFile(`bourselle-sauvegarde-${todayISO()}.json`, JSON.stringify({ app: "bourselle", version: 1, exportedAt: new Date().toISOString(), months: m, settings, subs, debts, recs, goals, groups, tontines, trips, accounts }, null, 1));
+    saveFile(`bourselle-sauvegarde-${todayISO()}.json`, JSON.stringify({ app: "bourselle", version: 1, exportedAt: new Date().toISOString(), months: m, settings, subs, debts, recs, goals, groups, tontines, trips, accounts, patri }, null, 1));
   };
   document.getElementById("importFile").onchange = async e => {
     const f = e.target.files && e.target.files[0]; e.target.value = "";
@@ -818,6 +821,7 @@ function importData(d) {
   for (const [id, x] of Object.entries(d.tontines || {})) if (!tontines[id]) { tontines[id] = x; n++; }
   for (const [id, x] of Object.entries(d.trips || {})) if (!trips[id]) { trips[id] = x; n++; }
   for (const [id, x] of Object.entries(d.accounts || {})) if (!accounts[id]) { accounts[id] = x; n++; }
+  if (d.patri && d.patri.items) { if (!patri.items) patri.items = {}; if (!patri.hist) patri.hist = {}; for (const [id, x] of Object.entries(d.patri.items)) if (!patri.items[id]) { patri.items[id] = x; n++; } }
   if (d.settings && Array.isArray(d.settings.cats)) {
     for (const c of d.settings.cats) {
       const mine = settings.cats.find(x => x.id === c.id);
@@ -837,7 +841,7 @@ const view = document.getElementById("view");
 // Ordre des suivis : d'abord un ordre par défaut (du plus courant au plus rare), puis il s'adapte à
 // ce que chaque personne ouvre le plus souvent sur son appareil. Recalculé à l'ouverture de l'app
 // seulement, pour que les onglets ne bougent pas pendant qu'on s'en sert.
-const SUBS_DEF = [["abos", "Abonnements"], ["objectifs", "Objectifs"], ["economies", "Économies"], ["partage", "Partage"], ["dettes", "Dettes"], ["frais", "Frais"], ["garanties", "Garanties"]];
+const SUBS_DEF = [["patrimoine", "Patrimoine"], ["abos", "Abonnements"], ["objectifs", "Objectifs"], ["economies", "Économies"], ["partage", "Partage"], ["dettes", "Dettes"], ["frais", "Frais"], ["garanties", "Garanties"]];
 const SUB_KEY = "bourselle-suivis";
 function subUse() { try { return JSON.parse(localStorage.getItem(SUB_KEY) || "{}") || {}; } catch (e) { return {}; } }
 function bumpSub(k) { try { const u = subUse(); u[k] = (u[k] || 0) + 1; localStorage.setItem(SUB_KEY, JSON.stringify(u)); } catch (e) {} }
@@ -876,12 +880,12 @@ function render() {
     { const h = document.querySelector("header .nm .hello"); if (h) h.textContent = nm ? "Bonjour," : "Bonjour !"; }
     const n = alertsList().reduce((a, x) => a + x.n, 0); document.getElementById("bellDot").hidden = !n;
   }
-  const arrows = !["garanties", "abos", "dettes", "recherche", "objectifs", "economies", "partage", "tontines"].includes(tab);
+  const arrows = !["garanties", "abos", "dettes", "recherche", "objectifs", "economies", "partage", "tontines", "patrimoine"].includes(tab);
   if (!document.getElementById("app").hidden) document.getElementById("fab").hidden = tab === "economies";
   document.getElementById("prev").style.visibility = arrows ? "visible" : "hidden";
   document.getElementById("next").style.visibility = arrows ? "visible" : "hidden";
   if (tab === "mois") renderMois(); else if (tab === "annee") renderAnnee(); else if (tab === "frais") renderFrais();
-  else if (tab === "garanties") renderGaranties(); else if (tab === "abos") renderAbos(); else if (tab === "dettes") renderDettes(); else if (tab === "recherche") renderRecherche(); else if (tab === "objectifs") renderObjectifs(); else if (tab === "economies" && typeof renderEconomies === "function") renderEconomies(); else if (tab === "partage") renderPartage(); else if (tab === "tontines") renderTontines(); else renderReglages();
+  else if (tab === "garanties") renderGaranties(); else if (tab === "abos") renderAbos(); else if (tab === "dettes") renderDettes(); else if (tab === "recherche") renderRecherche(); else if (tab === "objectifs") renderObjectifs(); else if (tab === "economies" && typeof renderEconomies === "function") renderEconomies(); else if (tab === "partage") renderPartage(); else if (tab === "tontines") renderTontines(); else if (tab === "patrimoine") renderPatrimoine(); else renderReglages();
   const nGar = garItems().filter(x => garStatus(x.warranty) === "soon").length;
   const nAbo = Object.values(subs).filter(x => subStatus(x).st === "soon").length;
   const nFrais = allItems().filter(x => x.type === "depense" && x.ndf && x.ndfStatus !== "rembourse").length;
@@ -890,7 +894,7 @@ function render() {
   const sn = document.getElementById("subnav");
   sn.hidden = !isSub(tab);
   if (isSub(tab)) {
-    const c = { frais: nFrais, garanties: nGar, abos: nAbo, dettes: 0, objectifs: 0, economies: 0, partage: 0, tontines: nTon };
+    const c = { patrimoine: 0, frais: nFrais, garanties: nGar, abos: nAbo, dettes: 0, objectifs: 0, economies: 0, partage: 0, tontines: nTon };
     sn.innerHTML = `<div class="seg" role="tablist">${visibleSubs().map(([k, l]) => `<button type="button" role="tab" aria-pressed="${k === tab}" data-sub="${k}">${l}${c[k] ? `<span class="cnt">${c[k]}</span>` : ""}</button>`).join("")}</div>`;
     sn.querySelectorAll("[data-sub]").forEach(b => b.onclick = () => switchTab(b.dataset.sub));
     const act = sn.querySelector('[aria-pressed="true"]'); if (act) act.scrollIntoView({ inline: "center", block: "nearest" });
@@ -1048,7 +1052,9 @@ function convertAll(R, to) {
   for (const x of Object.values(debts)) { x.amount = r2(x.amount); if (x.monthly) x.monthly = r2(x.monthly); for (const p of x.payments || []) p.amount = r2(p.amount); }
   for (const g of Object.values(groups)) for (const e of Object.values(g.expenses || {})) if (!e.deleted) { e.amount = r2(e.amount); e.updated = Date.now(); }
   for (const t of Object.values(tontines)) if (t.rate) t.rate = Math.round(Number(t.rate) / R * 1e6) / 1e6;   // taux = devise de la tontine pour 1 unité du budget
-  for (const a of Object.values(accounts)) if (a.anchor) a.anchor.amount = r2(a.anchor.amount * R);
+  for (const a of Object.values(accounts)) if (a.anchor) a.anchor.amount = r2(a.anchor.amount);
+  for (const a of Object.values((patri && patri.items) || {})) for (const p of a.hist || []) p.v = r2(p.v);
+  if (patri && patri.hist) for (const k of Object.keys(patri.hist)) patri.hist[k] = r2(patri.hist[k]);
   for (const t of Object.values(trips)) { if (t.rate) t.rate = Math.round(t.rate * R * 1e4) / 1e4; if (t.amount) t.amount = r2(t.amount); }
   const fl = settings.fxLast || {}; for (const k of Object.keys(fl)) fl[k] = Math.round(fl[k] / R * 1e6) / 1e6;
 }
@@ -1221,7 +1227,7 @@ async function uploadPicked(picked) {
     f0.busy--; if (form === f0) drawFiles();
   }
 }
-document.getElementById("fab").onclick = () => tab === "abos" ? editSub(null) : tab === "dettes" ? editDebt(null) : tab === "objectifs" ? editGoal(null) : tab === "partage" ? (openGroup ? editGroupExpense(openGroup, null) : editGroup(null)) : tab === "tontines" ? editTontine(null) : openSheet(null);
+document.getElementById("fab").onclick = () => tab === "abos" ? editSub(null) : tab === "dettes" ? editDebt(null) : tab === "patrimoine" ? editAsset(null) : tab === "objectifs" ? editGoal(null) : tab === "partage" ? (openGroup ? editGroupExpense(openGroup, null) : editGroup(null)) : tab === "tontines" ? editTontine(null) : openSheet(null);
 document.getElementById("sheetBg").onclick = () => closeSheet(false);
 document.getElementById("fCancel").onclick = () => closeSheet(false);
 document.getElementById("fDelete").onclick = () => {

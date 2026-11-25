@@ -85,7 +85,7 @@ function editAccount(id) {
     const name = val("acName").trim(); if (!name) { toast("Donne un nom au compte"); return false; }
     const raw = val("acBal").trim(), bal = raw === "" ? null : parseAmount(raw.replace(/\s/g, ""));
     if (raw !== "" && !(bal != null && isFinite(bal))) { toast("Indique un solde valide"); return false; }
-    const key = id || "acc" + Date.now().toString(36);
+    const key = id || "acc" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     const o = { ...(accounts[key] || { created: Date.now() }), name: name.slice(0, 40), type };
     if (bal != null && bal !== cur0) o.anchor = { amount: bal, date: todayISO(), at: Date.now() };
     const arch = document.getElementById("acArch"); if (arch) o.archived = arch.checked && key !== settings.defaultAcc;

@@ -565,6 +565,21 @@
     "Taux du jour :": "Today's rate:", ". Tu peux le corriger.": ". You can correct it.", "Dernier taux connu (hors connexion).": "Last known rate (offline).",
     "En changeant de devise, tu peux convertir tous tes montants au taux du jour. Les tontines peuvent avoir leur propre devise, convertie dans celle-ci.": "When you change currency, you can convert all your amounts at today's rate. Savings circles can have their own currency, converted into this one.",
     "Non": "No", "Oui": "Yes", "Fixe": "Fixed", "Variable": "Variable", "Remboursées": "Reimbursed", "Opération": "Transaction",
+    // Patrimoine
+    "Patrimoine": "Net worth", "Ton patrimoine net": "Your net worth", "Patrimoine net": "Net worth",
+    "Comptes": "Accounts", "Biens": "Assets", "Immobilier": "Property", "Placements": "Investments", "Objets de valeur": "Valuables",
+    "Évolution": "Over time", "Ce que tu possèdes": "What you own", "Ce que tu dois": "What you owe", "+ Ajouter un bien": "+ Add an asset",
+    "Rien pour l'instant.": "Nothing yet.", "Indique le solde de tes comptes et ajoute tes biens : logement, voiture, placements…": "Enter your account balances and add your assets: home, car, investments…",
+    "Indiquer le solde de mon compte": "Enter my account balance", "Aucune dette en cours. Bravo !": "No debts right now. Well done!", "Dette": "Debt",
+    "Le patrimoine net, c'est ce que tu possèdes moins ce que tu dois. Mets à jour la valeur de tes biens de temps en temps (une estimation suffit).": "Net worth is what you own minus what you owe. Update the value of your assets from time to time (an estimate is fine).",
+    "La courbe apparaîtra dès le mois prochain : Bourselle note ton patrimoine net chaque mois.": "The chart will appear from next month: Bourselle records your net worth every month.",
+    "Évolution du patrimoine net": "Net worth over time", "décote auto": "auto depreciation",
+    "Modifier le bien": "Edit asset", "Nouveau bien": "New asset", "Décote automatique (≈ 15 % par an)": "Automatic depreciation (≈ 15% a year)",
+    "Ce que tu pourrais en tirer si tu le vendais. Une estimation suffit ; tu la mettras à jour quand tu veux.": "What you could get if you sold it. An estimate is fine; update it whenever you like.",
+    "Crédit associé": "Linked loan", "Pour voir la valeur du bien une fois le crédit déduit. Le crédit reste compté une seule fois dans tes dettes.": "To see the asset's value once the loan is deducted. The loan is still counted only once in your debts.",
+    "Bien vendu (le retirer du patrimoine)": "Sold (remove from net worth)", "Historique de la valeur": "Value history",
+    "Donne un nom au bien": "Give the asset a name", "Indique une valeur valide": "Enter a valid value", "Bien retiré": "Asset removed", "Bien modifié": "Asset updated", "Bien ajouté": "Asset added", "Bien supprimé": "Asset deleted",
+    "ex. Appartement, Clio, Assurance-vie, Montre": "e.g. Flat, Car, Life insurance, Watch", "ex. 180 000": "e.g. 180,000",
   };
 
   // ---------- Textes avec des valeurs ({m} montant, {d} date, {n} nombre, {x} autre) ----------
@@ -803,6 +818,15 @@
     ["pour le tour {n} du {d}.", "for turn {n} on {d}."], ["pour le période {n} du {d}.", "for period {n} on {d}."], ["Trésorier(e) : {x}", "Treasurer: {x}"],
     ["Tontine « {x} » – cotisations en retard :", "Savings circle “{x}” – late contributions:"], ["• {x} : {m} (tour {n}, {d})", "• {x}: {m} (turn {n}, {d})"], ["• {x} : {m} (période {n}, {d})", "• {x}: {m} (period {n}, {d})"],
     ["Merci de régulariser rapidement 🙏", "Please settle up soon 🙏"], ["· mis à jour le {d}.", "· updated on {d}."], ["1 {x} =", "1 {x} ="], ["payé par {x}", "paid by {x}"], ["pour {x}", "for {x}"], ["· reçu {m}", "· received {m}"], ["reçu {m}", "received {m}"], ["Pièce", "Ref."],
+    ["Tu possèdes {m} · tu dois {m}", "You own {m} · you owe {m}"],
+    ["{x} depuis {x}", "{1} since {2}"],
+    ["{x} · net de crédit {m}", "{x} · {m} after loan"],
+    ["{x} · décote auto · net de crédit {m}", "{x} · auto depreciation · {m} after loan"],
+    ["{x} · décote auto", "{x} · auto depreciation"],
+    ["Crédit · {m}/mois", "Loan · {m}/month"],
+    ["Je dois · {x}", "I owe · {x}"],
+    ["On me doit · {x}", "Owed to me · {x}"],
+    ["Valeur estimée aujourd'hui ({x})", "Estimated value today ({x})"],
   ];
   const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
   const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
