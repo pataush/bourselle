@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "76";
+const APP_VERSION = "77";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -815,8 +815,31 @@ function renderReglages() {
     <p class="hint">Importer ajoute les données du fichier (par exemple l'export de l'ancienne version) à celles que tu as déjà, sans rien effacer.</p></div>
     <div class="card"><h2>Installer sur ton téléphone</h2><p class="hint" style="margin:0">iPhone : dans Safari, bouton Partager puis « Sur l'écran d'accueil ». Android : dans Chrome, menu ⋮ puis « Ajouter à l'écran d'accueil ».</p>
 </div>
-  <div class="card"><h2>À propos</h2>
-    <p style="margin:0 0 8px"><b>Bourselle</b> : ton budget et tes partages, simplement. Chacun paie de banque à banque, sans connecter ton compte bancaire : l'argent ne passe jamais par Bourselle, et tes données restent dans ton propre cloud (Google Drive ou OneDrive).</p>
+  <div class="card about"><h2>À propos</h2>
+    <p style="margin:0 0 10px"><b>Bourselle</b> : ton budget et tes partages, simplement.</p>
+    <h3>Ce que tu peux faire</h3>
+    <ul>
+      <li><b>Ton budget</b> : dépenses, rentrées, épargne, budget par catégorie, prévision de fin de mois, et l'année d'un coup d'œil.</li>
+      <li><b>Partager entre proches</b> : groupes (coloc, couple, voyage, famille), qui doit quoi à qui, tickets en photo et commentaires.</li>
+      <li><b>Payer et te faire payer</b> : demander un paiement par QR code ou lien, payer plusieurs personnes, suivre chaque règlement (rouge, jaune, vert).</li>
+      <li><b>Cagnottes et achats groupés</b> : tontine avec ses tours et ses clauses, achats à plusieurs, même avec des amis sans l'appli.</li>
+      <li><b>Tes suivis</b> : dettes et crédits, abonnements, objectifs, plan d'économies, patrimoine, garanties, notes de frais.</li>
+    </ul>
+    <h3>Notre philosophie</h3>
+    <ul>
+      <li><b>Pas de connexion à ta banque.</b> Tu n'as jamais à donner tes identifiants bancaires.</li>
+      <li><b>L'argent ne passe jamais par Bourselle.</b> Chacun paie de banque à banque (virement, Revolut, Wero, PayPal, Mobile Money…) ; Bourselle suit seulement qui a payé.</li>
+      <li><b>Tes données restent dans ton propre cloud</b> (Google Drive ou OneDrive), dans un dossier « Bourselle » à ton nom. Bourselle n'a accès qu'à ce dossier.</li>
+      <li><b>Le strict nécessaire sur notre serveur</b> : ce que tu partages avec d'autres (groupes partagés, demandes de paiement, cagnottes, rappels) et ton tag, pour que l'autre le reçoive. Jamais ton budget.</li>
+      <li><b>Pas de publicité, pas de revente de données.</b></li>
+    </ul>
+    <h3>Ta sécurité</h3>
+    <ul>
+      <li>Connexion avec Google ou Microsoft, compatible avec les clés d'accès (Face ID, empreinte).</li>
+      <li>Verrouillage de l'appli par Face ID, empreinte ou code, et un seul appareil connecté à la fois.</li>
+    </ul>
+    <h3>Gratuit, et Bourselle Plus</h3>
+    <p style="margin:0">Le budget au quotidien est gratuit. Bourselle Plus débloque l'illimité (scan de tickets, imports, groupes, notes de frais, demandes de paiement), les exports comptables et le forfait famille.${typeof showPlus === "function" ? ` <button type="button" class="linkbtn" id="aboutPlus">Découvrir Plus</button>` : ""}</p>
     <div class="ver-row"><span class="hint">Version ${APP_VERSION}</span><button class="btn" id="forceUpdate">Charger la dernière version</button></div>
     <p class="hint" style="margin:10px 0 0"><a href="privacy.html" target="_blank" rel="noopener">Confidentialité</a> · <a href="conditions.html" target="_blank" rel="noopener">Conditions d'utilisation</a></p></div>`;
   view.innerHTML = html;
@@ -830,6 +853,7 @@ function renderReglages() {
   document.querySelectorAll("#modeSeg [data-m]").forEach(b => b.onclick = () => { if ((b.dataset.m === "simple") !== isSimple()) setMode(b.dataset.m); });
   const fu = document.getElementById("forceUpdate");
   if (fu) fu.onclick = () => forceUpdate();
+  { const ap = document.getElementById("aboutPlus"); if (ap) ap.onclick = () => showPlus(); }
   view.querySelectorAll("[data-f]").forEach(inp => inp.onchange = () => {
     const c = settings.cats[Number(inp.dataset.i)], f = inp.dataset.f;
     if (f === "budget") c.budget = parseAmount(inp.value) || 0;

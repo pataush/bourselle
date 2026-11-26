@@ -30,7 +30,7 @@ const PLUS_LIST = [
   ["Groupes partagés illimités", `gratuit : ${FREE.groups}`],
   ["Notes de frais illimitées", `gratuit : ${FREE.ndf} tickets par mois, illimité le premier mois`],
   ["Rappels avancés", "garanties et prélèvements dans ton agenda, notifications"],
-  ["Réclamer une dette", "avec le tag de la personne : elle la reçoit dans son app et vous suivez les remboursements"],
+  ["Demandes de paiement illimitées", "gratuit : 3 par mois vers un utilisateur Bourselle (QR code et lien : illimités)"],
   ["Exports comptables", "grand livre et synthèse mensuelle, prêts pour Excel"],
   ["Forfait famille", "un seul abonnement pour 5 comptes, chacun garde ses données"],
 ];

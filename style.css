@@ -832,3 +832,7 @@ html.locked #app, html.locked nav.tabs, html.locked .fab, html.locked .ask-fab, 
 .rq-qr .rq-big { font-size: 2rem; font-weight: 800; text-align: center; margin: 4px 0 8px; }
 
 .ver-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+
+.about h3 { font-size: .9rem; margin: 14px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.about ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: .88rem; line-height: 1.4; }
+.about .ver-row { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
