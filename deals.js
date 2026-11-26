@@ -77,13 +77,13 @@ function renderAccueil() {
     <button type="button" data-hub="pay">${hubIcon("pay")}<span>Me faire payer</span></button>
     <button type="button" data-hub="achat">${hubIcon("achat")}<span>Achat groupé</span></button>
     <button type="button" data-hub="cagnotte">${hubIcon("cagnotte")}<span>Cagnotte</span></button></div>`;
-  if (!soc) html += `<div class="card hub-intro"><h2>Partager sans compte bancaire connecté</h2><p class="hint" style="margin:0">Organise des achats groupés et des cagnottes, paie plusieurs personnes et suis chaque règlement, de banque à banque : l'argent ne passe jamais par Bourselle. Connecte-toi avec Google ou Microsoft (Profil) pour inviter tes amis par lien.</p></div>`;
+  if (!soc) html += `<div class="card hub-intro"><h2>Partager sans compte bancaire connecté</h2><p class="hint" style="margin:0">Organise des achats groupés et des cagnottes, paie plusieurs personnes et suis chaque règlement, de banque à banque : l'argent ne passe jamais par Bourselle. Connecte-toi avec Google ou Microsoft (Paramètres) pour inviter tes amis par lien.</p></div>`;
   if (typeof projHubHTML === "function") html += projHubHTML();
   // Achats groupés et cagnottes
   const ds = DEALS.slice().sort((a, b) => (a.status !== "open") - (b.status !== "open") || (b.updated || 0) - (a.updated || 0));
   html += `<div class="hub-sec"><span>Achats groupés et cagnottes</span>${ds.length ? `<small>${ds.filter(d => d.status === "open").length} en cours</small>` : ""}</div>`;
   html += ds.length ? `<div class="hub-deals">${ds.slice(0, 6).map(d => DEALUI.card(d, dealCtxBase())).join("")}</div>`
-    : `<div class="card"><div class="empty" style="padding:6px">Organise un achat groupé (une meule de fromage, des places de concert, un abonnement à plusieurs…) ou une cagnotte (un cadeau, un week-end). Tes amis rejoignent par un simple lien, sans compte.</div></div>`;
+    : `<div class="card"><div class="empty" style="padding:6px">Organise un achat groupé (une meule de fromage, des places de concert, un abonnement à plusieurs…) ou une cagnotte (une tontine : chacun cotise, et à chaque tour un membre reçoit le pot). Tes amis rejoignent par un simple lien, sans compte.</div></div>`;
   // Activité
   const act = hubActivity("deals");
   if (act.length) html += `<div class="hub-sec"><span>Activité récente</span></div><div class="card hub-act">${act.map((e, i) => `<button type="button" class="hub-ev" data-ev="${i}"><span class="hub-ei ${e.ic}">${e.ic === "comment" ? "💬" : hubIcon(e.ic === "group" ? "group" : e.ic)}</span><span><span class="hub-et">${esc(e.t)}</span><small>${esc(e.s)} · ${esc(agoText(e.at))}</small></span></button>`).join("")}</div>`;
@@ -98,9 +98,7 @@ function showAddMenu() {
   const gl = Object.entries(groups);
   const row = (id, icon, label, sub) => `<button type="button" class="pm-row" id="${id}"><span class="pm-ic" aria-hidden="true">${icon}</span><span class="pm-t"><b>${esc(label)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</span><span class="pm-chev" aria-hidden="true">›</span></button>`;
   const f = openForm(`<div class="f2 pm"><h3>Ajouter</h3><div class="pm-list">
-    ${gl.length ? row("amExp", hubIcon("group"), "Une dépense de groupe", gl.length === 1 ? gl[0][1].name : `${gl.length} groupes`) : ""}
     ${row("amProj", hubIcon("bill"), "Payer", "Une ou plusieurs personnes : qui, combien, quand")}
-    ${row("amGroup", hubIcon("group"), "Un nouveau groupe", "Coloc, voyage, couple…")}
     ${row("amAchat", hubIcon("achat"), "Un achat groupé", "Places, minimum, date limite")}
     ${row("amCag", hubIcon("cagnotte"), "Une cagnotte", "Chacun cotise, un membre reçoit le pot à chaque tour")}
     ${row("amTx", hubIcon("pay"), "Une opération de mon budget", "Dépense, rentrée, épargne")}</div></div>`, () => true);

@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "55";
+const APP_VERSION = "56";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -243,7 +243,7 @@ function showProfileMenu() {
   const row = (id, icon, label, sub) => `<button type="button" class="pm-row" id="${id}"><span class="pm-ic" aria-hidden="true">${icon}</span><span class="pm-t"><b>${esc(label)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</span><span class="pm-chev" aria-hidden="true">›</span></button>`;
   const f = openForm(`<div class="f2 pm">
     <div class="pm-head"><span class="avatar">${esc((document.getElementById("avatar").textContent || "B"))}</span>
-      <div><b>${esc(u.name || "Mon compte")}</b><div class="hint">${esc(u.email || (local ? "Mode démo, sur cet appareil" : ""))}</div><div class="hint">${esc(store.label || "")}${typeof isPlus === "function" && isPlus() ? " · Bourselle Plus" : ""}</div></div></div>
+      <div><b>${esc(u.name || "Mon compte")}</b><div class="hint">${esc(u.email || (local ? "Données gardées sur cet appareil" : ""))}</div><div class="hint">${local ? "" : esc(store.label || "")}${typeof isPlus === "function" && isPlus() ? " · Bourselle Plus" : ""}</div></div></div>
     ${soc && SOC.tag ? `<div class="pm-tag"><span class="hint">Mon tag</span> <b class="num">@${esc(SOC.tag)}</b><span style="flex:1"></span><button type="button" class="linkbtn" id="pmCopy">Copier</button></div>` : ""}
     <div class="pm-segs">
       <div><span class="lbl">Apparence</span><div class="seg2" id="pmTheme"><button type="button" data-th="light" aria-pressed="${theme === "light"}">☀︎ Clair</button><button type="button" data-th="dark" aria-pressed="${theme === "dark"}">☾ Sombre</button></div></div>
@@ -2094,11 +2094,11 @@ function renderPartage() {
   const list = Object.entries(groups).map(([id, g]) => ({ ...g, id, bal: groupBalances(g) }));
   const mine = list.reduce((a, g) => a + (g.bal[g.me] || 0), 0);
   document.getElementById("periodLabel").textContent = "Entre proches";
-  document.getElementById("resCap").textContent = mine >= 0 ? "Au total, on te doit" : "Au total, tu dois";
+  document.getElementById("resCap").textContent = mine > 0.004 ? "Au total, on te doit" : mine < -0.004 ? "Au total, tu dois" : "Tout le monde est quitte";
   const big = document.getElementById("resBig"); big.textContent = eur(Math.abs(mine)); big.className = "big num " + (mine > 0.004 ? "good" : mine < -0.004 ? "bad" : "");
   document.getElementById("resPill").innerHTML = "";
   let html = banner;
-  if (!list.length) html += `<div class="card"><div class="empty">Aucun groupe.<br>Appuie sur + pour créer un groupe (couple, colocation, vacances entre amis…) et savoir qui doit combien à qui.</div></div>`;
+  if (!list.length) html += `<div class="card"><div class="empty">Aucun groupe pour l'instant.</div></div>`;
   for (const g of list) {
     const b = g.bal[g.me] || 0;
     html += `<button class="gar ${b > 0.004 ? "owed" : b < -0.004 ? "debt" : "done"}" data-open="${esc(g.id)}" style="text-align:left;width:100%;cursor:pointer;font:inherit;color:inherit">
@@ -3003,7 +3003,7 @@ async function connect(id, interactive, existing) {
     await st.signIn(interactive);
     store = st; assets = st.canFiles ? st : null;
     localStorage.setItem("mb-provider", id);
-    banner = id === "local" ? `<div class="banner">Mode démo : tes données restent dans ce navigateur. Connecte-toi avec Google ou Microsoft (Réglages › Mon compte) pour les garder dans ton Drive : elles y seront transférées.</div>` : "";
+    banner = id === "local" ? `<div class="banner">Mode démo : tes données restent dans ce navigateur. Connecte-toi avec Google ou Microsoft (Paramètres › Mon compte) pour les garder dans ton Drive : elles y seront transférées.</div>` : "";
     setSync("", "Chargement…");
     const r = await st.load();
     version = r.version;

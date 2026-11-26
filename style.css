@@ -682,3 +682,8 @@ body.tab-reglages .hero { display: none; }
 .ton-paybox { grid-column: 1 / -1; margin-top: 8px; }
 
 .pj-l b + small, .ton-n b + small { margin-left: .35em; }
+
+/* Contenu jamais caché sous les boutons flottants ; libellés de la barre du bas qui tiennent */
+.app { padding-bottom: 200px; }
+nav.tabs button { font-size: .66rem; letter-spacing: -.01em; white-space: nowrap; }
+nav.tabs .in { gap: 2px; }

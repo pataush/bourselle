@@ -145,6 +145,7 @@ function showAssistant(first) {
   f.querySelector("#askGo").onclick = () => ask(inp.value);
   inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); ask(inp.value); } };
   if (first) ask(first);
+  setTimeout(() => { if (document.activeElement === inp) inp.blur(); }, 150);   // pas de clavier d'office : les questions proposées restent visibles
 }
 // Carte sur l'Accueil
 function askCardHTML() {
