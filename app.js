@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "79";
+const APP_VERSION = "80";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -1768,6 +1768,7 @@ function renderDettes() {
     <div class="tile"><div class="k"><span class="sw" style="background:var(--bad)"></span>Je dois</div><div class="v num">${eur(iOwe, true)}</div></div>
     <div class="tile"><div class="k"><span class="sw" style="background:#3f8f68"></span>On me doit</div><div class="v num">${eur(owed, true)}</div></div>
     <div class="tile"><div class="k"><span class="sw" style="background:var(--accent)"></span>Mensualités</div><div class="v num">${eur(monthly, true)}</div></div></div>`;
+  if (typeof pushNudgeHTML === "function") html += pushNudgeHTML("pour être prévenu tout de suite quand on te rembourse ou qu'on te demande de l'argent.");
   if (typeof socInboxHTML === "function") html += socInboxHTML();
   if (typeof projDebtsHTML === "function") html += projDebtsHTML();
   const card = x => {
@@ -1795,6 +1796,7 @@ function renderDettes() {
   html += `<p class="hint" style="text-align:center;margin:4px 0 0">Pour un crédit, le reste dû est estimé à partir de la mensualité, du taux et des échéances passées. Le tableau d'amortissement de ta banque fait foi.</p>`;
   view.innerHTML = html;
   if (typeof socBindInbox === "function") socBindInbox();
+  if (typeof pushNudgeBind === "function") pushNudgeBind(view);
   view.querySelectorAll("[data-pjopen]").forEach(b => b.onclick = () => showProject(b.dataset.pjopen));
   view.querySelectorAll("[data-a]").forEach(b => b.onclick = () => {
     const x = list.find(i => i.id === b.dataset.id); if (!x) return;

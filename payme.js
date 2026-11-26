@@ -21,6 +21,18 @@ const reqState = c => c.status === "settled" ? "ok" : ["cancelled", "declined"].
 const reqMoney = c => typeof fmtCur === "function" ? fmtCur(c.amount, c.cur) : eur(c.amount);
 const reqWho = c => c.to ? "@" + c.to : c.guest ? c.guest : "QR code / lien";
 
+// Sans « Notifications en direct », on n'est prévenu qu'en ouvrant l'appli : on le propose là où ça compte
+function pushNudgeHTML(why) {
+  if (typeof pushOn !== "function" || pushOn() || typeof socOn !== "function" || !socOn()) return "";
+  let off = false; try { off = localStorage.getItem("bourselle-push-nudge") === "off"; } catch (e) {}
+  if (off) return "";
+  return `<div class="push-nudge"><span>🔔</span><div><b>Active les notifications</b><small>${esc(why || "pour être prévenu tout de suite quand on te paie ou qu'on te demande de l'argent.")}</small></div>
+    <button type="button" class="btn primary" data-pushon>Activer</button><button type="button" class="push-x" data-pushx aria-label="Plus tard">✕</button></div>`;
+}
+function pushNudgeBind(root) {
+  root.querySelectorAll("[data-pushon]").forEach(b => b.onclick = async () => { await enablePush(); render(); const n = b.closest(".push-nudge"); if (n && pushOn()) n.remove(); });
+  root.querySelectorAll("[data-pushx]").forEach(b => b.onclick = () => { try { localStorage.setItem("bourselle-push-nudge", "off"); } catch (e) {} b.closest(".push-nudge").remove(); });
+}
 // Enregistre les moyens de paiement (on renvoie tout, en changeant seulement ce qui est passé)
 async function payPut(patch) {
   const p = { ...(SOC.pay || {}), ...patch };
@@ -45,7 +57,7 @@ async function editPay(opts) {
     return `<div class="rq-row ${st}"><div class="rq-l"><b>${esc(c.name || "Paiement")}</b><small>${esc(reqWho(c))} · ${esc(frDate(new Date(c.created).toISOString().slice(0, 10)))}</small></div>
       <div class="rq-r"><b class="num">${esc(reqMoney(c))}</b><span class="pj-st ${st === "off" ? "" : st}">${esc(st === "ok" ? "Reçu ✓" : st === "sent" ? (c.to ? "@" + c.to : c.guest || "Quelqu'un") + " dit avoir payé" : st === "off" ? (c.status === "declined" ? "Refusée" : "Annulée") : "En attente")}</span></div>
       ${st === "sent" || st === "due" ? `<div class="rq-acts">${st === "sent" ? `<button type="button" class="btn primary" data-rqok="${esc(c.id)}" data-pid="${esc(pend.id)}">J'ai bien reçu</button>` : ""}${c.open ? `<button type="button" class="btn" data-rqqr="${esc(c.id)}">QR code</button>` : `<button type="button" class="linkbtn" data-rqrem="${esc(c.id)}">🔔 Relancer</button>`}${st === "due" ? `<button type="button" class="linkbtn danger" data-rqx="${esc(c.id)}">Annuler</button>` : ""}</div>` : ""}</div>`; };
-  const f = openForm(`<div class="f2 pm2"><h3>Me faire payer</h3>
+  const f = openForm(`<div class="f2 pm2"><h3>Me faire payer</h3>${pushNudgeHTML()}
     <div class="pm-sec"><b>Demander un paiement</b></div>
     <div class="two"><div>${fld("rqAmt", `Montant (${esc(curSym())})`, `inputmode="decimal" placeholder="ex. 25" value="${opts.amount ? esc(String(opts.amount).replace(".", ",")) : ""}"`)}</div><div>${fld("rqNote", "Pour quoi ? (facultatif)", `maxlength="60" placeholder="ex. Resto samedi" value="${esc(opts.note || "")}"`)}</div></div>
     <span class="lbl">À qui ?</span>
@@ -59,6 +71,7 @@ async function editPay(opts) {
     <div class="pm-links">${PAY.methods(p, 0, baseCurrency()).length ? `<button type="button" class="linkbtn" id="pmPreview">👁 Ce que verra la personne</button>` : ""}${SOC.payToken ? `<button type="button" class="linkbtn" id="pyShare">Partager mon lien de paiement (sans montant)</button>` : ""}</div>
     ${reqs.length ? `<div class="pm-sec"><b>Mes demandes</b><small>${reqs.filter(c => reqState(c) !== "ok" && reqState(c) !== "off").length} en cours</small></div>${reqs.slice(0, 12).map(reqRow).join("")}` : ""}</div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
+  pushNudgeBind(f);
   const reopen = o => { closeForm(); setTimeout(() => editPay(o), 200); };
   const cur = () => ({ amount: parseAmount(val("rqAmt")) || 0, note: val("rqNote").trim(), to });
   // À qui : QR code ou une personne

@@ -845,3 +845,7 @@ html.locked #app, html.locked nav.tabs, html.locked .fab, html.locked .ask-fab, 
 .about-more { justify-self: start; margin-top: 6px; font-size: .8rem; font-weight: 700; color: color-mix(in srgb, var(--gold) 50%, var(--ink)); }
 .about-more::after { content: " ▾"; } .about-ndf[open] .about-more { display: none; }
 .about-ndf[open] summary { margin-bottom: 8px; } .about .about-ndf h3 { margin: 0; }
+
+.push-nudge { display: grid; grid-template-columns: auto 1fr auto auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 14px; background: color-mix(in srgb, var(--gold) 14%, var(--surface)); border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); margin: 0 0 10px; }
+.push-nudge > span { font-size: 1.3rem; } .push-nudge b { display: block; font-size: .9rem; } .push-nudge small { color: var(--muted); font-size: .78rem; }
+.push-nudge .btn { padding: 7px 12px; font-size: .82rem; } .push-x { border: 0; background: none; color: var(--muted); font: inherit; cursor: pointer; padding: 4px; }

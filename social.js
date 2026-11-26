@@ -63,6 +63,12 @@ async function socRefresh() {
     socLoadPay(); socLoadReminders();
     if (!SOC.addChecked) { SOC.addChecked = true; socPendingAdd(); if (typeof reqTakeFromUrl === "function") reqTakeFromUrl(); }
     socOpenPending(); pushResync(); if (typeof dealsRefresh === "function") dealsRefresh(); if (typeof projRefresh === "function") projRefresh();
+    { const paid = (SOC.out || []).filter(c => c.kind === "req").flatMap(c => (c.payments || []).filter(p => p.pend && !socSeen.has("pd:" + p.id)).map(p => ({ c, p })));
+      if (paid.length) {
+        const { c, p } = paid[0], who = c.to ? "@" + c.to : c.guest || "Quelqu'un";
+        setTimeout(() => toast(paid.length === 1 ? `💸 ${who} dit t'avoir payé ${socMoney({ ...c, amount: p.amount })} : confirme dans la cloche` : `💸 ${paid.length} paiements à confirmer : ouvre la cloche`), 900);
+        paid.forEach(x => socSeen.add("pd:" + x.p.id)); try { localStorage.setItem("bourselle-soc-seen", JSON.stringify([...socSeen].slice(-200))); } catch (e) {}
+      } }
     const fresh = SOC.in.filter(c => c.status === "pending" && !socSeen.has(c.id));
     if (fresh.length) {
       toast(fresh.length === 1 ? `@${fresh[0].from} te réclame ${socMoney(fresh[0])}` : `${fresh.length} nouvelles réclamations de dettes`);
