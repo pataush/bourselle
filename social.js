@@ -363,19 +363,25 @@ async function editPay() {
   let qrState = p.momo && p.momo.qr ? "keep" : "";
   const f = openForm(`<div class="f2"><h3>Me faire payer</h3>
     <p class="hint" style="margin:0 0 8px">Ceux qui te doivent de l'argent (membres de tes groupes, ton lien de paiement) verront ces informations pour te payer directement. Rien ne passe par Bourselle.</p>
-    ${fld("pyName", "Ton nom (titulaire du compte)", `placeholder="ex. Anne Martin" value="${esc(p.name || "")}"`)}
+    ${fld("pyName", "Ton nom", `placeholder="ex. Anne Martin" value="${esc(p.name || "")}"`)}
+    <div class="py-sec"><b>⚡ Paiement rapide</b><small>Le plus simple pour ceux qui te paient : un geste depuis leur appli.</small></div>
+    ${fld("pyRev", "Revolut (ton @identifiant revolut.me)", `placeholder="ex. annemartin" autocapitalize="off" value="${esc(p.revolut || "")}"`)}
+    ${fld("pyWero", "Wero (ton numéro de téléphone ou ton e-mail)", `placeholder="ex. +33 6 12 34 56 78" autocapitalize="off" value="${esc(p.wero || "")}"`)}
+    ${fld("pyPaypal", "PayPal.me", `placeholder="ex. annemartin" autocapitalize="off" value="${esc(p.paypal || "")}"`)}
+    ${fld("pyLink", "Autre lien de paiement", `placeholder="https://… (Lydia, Sumeria, Paylib…)" value="${esc(p.link || "")}"`)}
+    <div class="py-sec"><b>🏦 Virement bancaire (RIB)</b><small>Bourselle affiche un QR code de virement déjà rempli (montant et motif).</small></div>
     ${fld("pyIban", "IBAN", `placeholder="FR76 …" autocapitalize="characters" value="${esc(p.iban ? PAY.ibanFmt(p.iban) : "")}"`)}
-    <p class="hint" style="margin:4px 0 0">Avec ton IBAN, Bourselle affiche un QR code de virement déjà rempli (montant et motif).</p>
-    <span class="lbl">Mobile Money (facultatif)</span>
+    <div class="py-sec"><b>📱 Mobile Money</b><small>MTN MoMo, Orange Money, Wave…</small></div>
     <div class="two"><div><select class="field" id="pyMoOp">${["MTN MoMo", "Orange Money", "Wave", "Moov Money", "Airtel Money", "M-Pesa", "Free Money", "Autre"].map(o => `<option ${p.momo && p.momo.op === o ? "selected" : ""}>${o}</option>`).join("")}</select></div>
       <div><input class="field" id="pyMoNum" inputmode="tel" placeholder="+229 97 00 00 00" value="${esc(p.momo ? p.momo.num : "")}"></div></div>
     <div class="py-qr"><div id="pyQrPrev" class="py-qrprev"></div><div><label class="btn" style="cursor:pointer;display:inline-block">${p.momo && p.momo.qr ? "Remplacer" : "Ajouter"} mon QR code<input type="file" accept="image/*" id="pyQrIn" hidden></label>
       <button type="button" class="linkbtn danger" id="pyQrDel" ${p.momo && p.momo.qr ? "" : "hidden"}>Retirer</button>
       <p class="hint" style="margin:4px 0 0">Ouvre ton appli Mobile Money (MoMo, Orange Money, Wave…), affiche « Mon QR code », fais une capture d'écran et choisis-la ici.</p></div></div>
-    ${fld("pyPaypal", "PayPal.me (facultatif)", `placeholder="ex. annemartin" value="${esc(p.paypal || "")}"`)}
-    ${fld("pyLink", "Autre lien de paiement (facultatif)", `placeholder="https://… (Lydia, Wero, Revolut…)" value="${esc(p.link || "")}"`)}
     ${SOC.payToken ? `<button type="button" class="btn" id="pyShare" style="margin-top:12px;width:100%">Partager mon lien de paiement</button>` : ""}</div>`, () => {
     const iban = PAY.clean(val("pyIban")), name = val("pyName").trim(), paypal = val("pyPaypal").trim(), link = val("pyLink").trim();
+    const revolut = val("pyRev").trim().replace(/^@/, "").replace(/^https?:\/\/(www\.)?revolut\.me\//i, "").replace(/[/?#].*$/, ""), wero = val("pyWero").trim();
+    if (revolut && !/^[A-Za-z0-9._-]{2,40}$/.test(revolut)) { toast("Identifiant Revolut invalide (ex. annemartin)"); return false; }
+    if (wero && !(/^\+?[0-9]{8,15}$/.test(wero.replace(/[\s.-]/g, "")) || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(wero))) { toast("Wero : indique ton numéro de téléphone ou ton e-mail"); return false; }
     const moNum = val("pyMoNum").replace(/[\s.-]/g, ""), momo = moNum || (qrState && qrState !== "") ? { op: val("pyMoOp"), num: moNum, qr: qrState } : { op: val("pyMoOp"), num: "", qr: "" };
     if (moNum && !/^\+?[0-9]{8,15}$/.test(moNum)) { toast("Numéro Mobile Money invalide (ex. +229 97 00 00 00)"); return false; }
     if (iban && !PAY.ibanOk(iban)) { toast("IBAN invalide : vérifie-le"); return false; }
@@ -383,7 +389,7 @@ async function editPay() {
     if (link && !/^https:\/\/\S{4,}$/.test(link)) { toast("Le lien doit commencer par https://"); return false; }
     (async () => {
       try {
-        const j = await socApi("/me/pay", { method: "POST", body: JSON.stringify({ name, iban, paypal, link, momo }) });
+        const j = await socApi("/me/pay", { method: "POST", body: JSON.stringify({ name, iban, paypal, link, revolut, wero, momo }) });
         SOC.pay = j.pay; SOC.payToken = j.token || ""; SOC.payLoaded = true;
         toast(j.pay ? "Moyens de paiement enregistrés" : "Moyens de paiement retirés"); render();
         socPullGroups().catch(() => {});

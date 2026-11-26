@@ -732,3 +732,12 @@ html.ios nav.tabs { bottom: 0; transform: translateZ(0); }
 .ton-add { margin-top: 12px; } .ton-addres { display: grid; gap: 6px; margin-top: 6px; } .ton-addres .soc-contact { margin: 0; } .ton-addg { width: 100%; text-align: left; }
 .ton-inv { border: 2px solid var(--gold) !important; }
 .dc-st.inv { color: color-mix(in srgb, var(--gold) 60%, var(--ink)); }
+
+/* Me faire payer : paiements rapides d'abord, puis virement, puis Mobile Money */
+.py-sec { margin: 16px 0 2px; padding-top: 12px; border-top: 1px solid var(--line); } .py-sec b { display: block; font-size: .95rem; } .py-sec small { color: var(--muted); font-size: .78rem; }
+.pay-sec { font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 14px 0 6px; }
+.pay-box > .pay-sec:first-child, .pay-amt + .pay-sec { margin-top: 8px; }
+.pay-fastg { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; }
+.pay-fast { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 10px 12px; text-decoration: none; text-align: left; min-width: 0; }
+.pay-fast b { font-size: .95rem; } .pay-fast small { font-size: .72rem; opacity: .75; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pay-fast.rev { background: #191c1f; color: #fff; border-color: #191c1f; } .pay-fast.pp { background: #ffc439; color: #111; border-color: #ffc439; }

@@ -177,7 +177,7 @@ const grpPub = g => ({ id: g.id, name: g.name, owner: g.ownerTag, members: g.mem
 // ---------- Me faire payer ----------
 // Coordonnées que l'utilisateur choisit de montrer à ceux qui lui doivent de l'argent (membres de ses groupes, lien de paiement).
 const MOMO_OPS = ["MTN MoMo", "Orange Money", "Wave", "Moov Money", "Airtel Money", "M-Pesa", "Free Money", "Autre"];
-const payPub = p => p && (p.iban || p.paypal || p.link || (p.momo && (p.momo.num || p.momo.qr))) ? { name: p.name || "", iban: p.iban || "", paypal: p.paypal || "", link: p.link || "", momo: p.momo && (p.momo.num || p.momo.qr) ? { op: p.momo.op, num: p.momo.num || "", qr: p.momo.qr || "" } : null } : null;
+const payPub = p => p && (p.iban || p.paypal || p.link || p.revolut || p.wero || (p.momo && (p.momo.num || p.momo.qr))) ? { name: p.name || "", iban: p.iban || "", paypal: p.paypal || "", link: p.link || "", revolut: p.revolut || "", wero: p.wero || "", momo: p.momo && (p.momo.num || p.momo.qr) ? { op: p.momo.op, num: p.momo.num || "", qr: p.momo.qr || "" } : null } : null;
 async function payOf(env, email) { return email ? payPub(await kvJ(env, "pay:" + email)) : null; }
 function ibanOk(iban) {
   const s = String(iban || "").replace(/\s+/g, "").toUpperCase();
@@ -790,6 +790,12 @@ async function social(req, env, url, cors) {
     if (paypal && !/^[A-Za-z0-9]{1,40}$/.test(paypal)) throw new HttpErr(400, "nom PayPal.me invalide");
     if (link && !/^https:\/\/[^\s<>"]{4,200}$/.test(link)) throw new HttpErr(400, "le lien doit commencer par https://");
     if (iban && !name) throw new HttpErr(400, "indique le nom du titulaire du compte");
+    // Paiements rapides : Revolut (identifiant revolut.me) et Wero (numéro de téléphone ou e-mail)
+    const revolut = String(body.revolut || "").trim().replace(/^@/, "").replace(/^https?:\/\/(www\.)?revolut\.me\//i, "").replace(/[/?#].*$/, "");
+    if (revolut && !/^[A-Za-z0-9._-]{2,40}$/.test(revolut)) throw new HttpErr(400, "identifiant Revolut invalide");
+    let wero = String(body.wero || "").trim(); if (!wero.includes("@")) wero = wero.replace(/[\s.-]/g, "");
+    if (wero && !(/^\+?[0-9]{8,15}$/.test(wero) || okEmail(wero.toLowerCase()))) throw new HttpErr(400, "Wero : indique ton numéro de téléphone ou ton e-mail");
+    if (wero.includes("@")) wero = wero.toLowerCase();
     // Mobile Money : opérateur et numéro au format international
     const mnum = String((body.momo && body.momo.num) || "").replace(/[\s.-]/g, ""), mop = MOMO_OPS.includes(body.momo && body.momo.op) ? body.momo.op : "Autre";
     if (mnum && !/^\+?[0-9]{8,15}$/.test(mnum)) throw new HttpErr(400, "numéro Mobile Money invalide (ex. +229 97 00 00 00)");
@@ -804,8 +810,8 @@ async function social(req, env, url, cors) {
       qr = rid(16); await env.CODES.put("pqr:" + qr, q);
     }
     const momo = mnum || qr ? { op: mop, num: mnum, qr } : null;
-    if (!iban && !paypal && !link && !momo) { await env.CODES.delete("pay:" + me.email); if (old.token) await env.CODES.delete("ptk:" + old.token); return json({ pay: null, token: "" }, 200, cors); }
-    const p = { name, iban, paypal, link, momo, token: old.token || rid(14), updated: Date.now() };
+    if (!iban && !paypal && !link && !revolut && !wero && !momo) { await env.CODES.delete("pay:" + me.email); if (old.token) await env.CODES.delete("ptk:" + old.token); return json({ pay: null, token: "" }, 200, cors); }
+    const p = { name, iban, paypal, link, revolut, wero, momo, token: old.token || rid(14), updated: Date.now() };
     await kvP(env, "pay:" + me.email, p); if (!old.token) await env.CODES.put("ptk:" + p.token, me.email);
     return json({ pay: payPub(p), token: p.token }, 200, cors);
   }

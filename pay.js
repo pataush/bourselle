@@ -30,19 +30,38 @@ const PAY = {
     const eurOk = (cur || "EUR") === "EUR", qr = p.iban && eurOk && typeof QR !== "undefined" ? PAY.epc(p, amount, note) : "";
     let h = `<div class="pay-box">`;
     if (amount > 0) h += `<div class="pay-amt"><span>${esc2(t("À payer"))}</span><b>${esc2(money(amount))}</b></div>`;
-    if (qr) { let svg = ""; try { svg = QR.svg(qr, { px: 4 }); } catch (e) {}
-      if (svg) h += `<div class="pay-qr">${svg}<p>${esc2(t("Scanne ce QR code avec l'appli de ta banque : le virement est déjà rempli."))}</p></div>`; }
-    if (p.iban) h += `<div class="pay-row"><span>${esc2(t("Bénéficiaire"))}</span><b>${esc2(p.name)}</b></div>
+    const amtTxt = (Math.round(amount * 100) / 100).toFixed(2);
+    // 1. Paiements rapides : Revolut, Wero, PayPal, autre lien
+    const fast = [];
+    if (p.revolut) fast.push(`<a class="btn pay-fast rev" target="_blank" rel="noopener" href="https://revolut.me/${esc2(encodeURIComponent(p.revolut))}"><b>Revolut</b><small>@${esc2(p.revolut)}</small></a>`);
+    if (p.paypal) fast.push(`<a class="btn pay-fast pp" target="_blank" rel="noopener" href="${esc2(PAY.paypalUrl(p.paypal, amount, cur))}"><b>PayPal</b><small>paypal.me/${esc2(p.paypal)}</small></a>`);
+    if (p.link) fast.push(`<a class="btn pay-fast" target="_blank" rel="noopener noreferrer" href="${esc2(p.link)}"><b>${esc2(t("Lien de paiement"))}</b><small>${esc2(String(p.link).replace(/^https:\/\/(www\.)?/, "").slice(0, 28))}</small></a>`);
+    if (fast.length || p.wero) {
+      h += `<div class="pay-sec">${esc2(t("Paiement rapide"))}</div>`;
+      if (fast.length) h += `<div class="pay-fastg">${fast.join("")}</div>`;
+      if (p.wero) h += `<div class="pay-row pay-wero"><span>Wero</span><b class="mono">${esc2(p.wero)}</b><button type="button" class="linkbtn" data-copy="${esc2(p.wero)}">${esc2(t("Copier"))}</button></div>
+        <p class="pay-hint">${esc2(t("Dans l'appli de ta banque, ouvre Wero et envoie le montant à ce numéro ou cet e-mail."))}</p>`;
+      if (amount > 0 && !p.iban && !(p.momo && p.momo.num)) h += `<div class="pay-row"><span>${esc2(t("Montant"))}</span><b>${esc2(amtTxt)}</b><button type="button" class="linkbtn" data-copy="${amtTxt}">${esc2(t("Copier"))}</button></div>`;
+    }
+    // 2. Virement (RIB / IBAN, avec QR code pré-rempli)
+    if (p.iban) {
+      h += `<div class="pay-sec">${esc2(t("Virement bancaire"))}</div>`;
+      if (qr) { let svg = ""; try { svg = QR.svg(qr, { px: 4 }); } catch (e) {}
+        if (svg) h += `<div class="pay-qr">${svg}<p>${esc2(t("Scanne ce QR code avec l'appli de ta banque : le virement est déjà rempli."))}</p></div>`; }
+      h += `<div class="pay-row"><span>${esc2(t("Bénéficiaire"))}</span><b>${esc2(p.name)}</b></div>
       <div class="pay-row"><span>IBAN</span><b class="mono">${esc2(PAY.ibanFmt(p.iban))}</b><button type="button" class="linkbtn" data-copy="${esc2(PAY.clean(p.iban))}">${esc2(t("Copier"))}</button></div>`;
-    if (p.momo && p.momo.qr) h += `<div class="pay-momoqr"><img data-momoqr="${esc2(p.momo.qr)}" alt="QR ${esc2(p.momo.op)}"><p>${esc2(t("Scanne ce QR code avec ton appli {x}.").replace("{x}", p.momo.op))}</p></div>`;
-    if (p.momo && p.momo.num) h += `<div class="pay-row"><span>${esc2(t("Mobile Money"))}</span><b>${esc2(p.momo.op)} · <span class="mono">${esc2(p.momo.num)}</span></b><button type="button" class="linkbtn" data-copy="${esc2(p.momo.num)}">${esc2(t("Copier"))}</button></div>
+      if (amount > 0) h += `<div class="pay-row"><span>${esc2(t("Montant"))}</span><b>${esc2(amtTxt)}</b><button type="button" class="linkbtn" data-copy="${amtTxt}">${esc2(t("Copier"))}</button></div>`;
+      if (note) h += `<div class="pay-row"><span>${esc2(t("Motif"))}</span><b>${esc2(note)}</b></div>`;
+    }
+    // 3. Mobile Money
+    if (p.momo && (p.momo.num || p.momo.qr)) {
+      h += `<div class="pay-sec">${esc2(t("Mobile Money"))}</div>`;
+      if (p.momo.qr) h += `<div class="pay-momoqr"><img data-momoqr="${esc2(p.momo.qr)}" alt="QR ${esc2(p.momo.op)}"><p>${esc2(t("Scanne ce QR code avec ton appli {x}.").replace("{x}", p.momo.op))}</p></div>`;
+      if (p.momo.num) h += `<div class="pay-row"><span>${esc2(p.momo.op)}</span><b class="mono">${esc2(p.momo.num)}</b><button type="button" class="linkbtn" data-copy="${esc2(p.momo.num)}">${esc2(t("Copier"))}</button></div>
       ${!p.iban && p.name ? `<div class="pay-row"><span>${esc2(t("Bénéficiaire"))}</span><b>${esc2(p.name)}</b></div>` : ""}<p class="pay-hint">${esc2(t("Envoie le montant depuis ton appli {x} à ce numéro.").replace("{x}", p.momo.op))}</p>`;
-    if (amount > 0 && (p.iban || (p.momo && (p.momo.num || p.momo.qr)))) h += `<div class="pay-row"><span>${esc2(t("Montant"))}</span><b>${esc2((Math.round(amount * 100) / 100).toFixed(2))}</b><button type="button" class="linkbtn" data-copy="${(Math.round(amount * 100) / 100).toFixed(2)}">${esc2(t("Copier"))}</button></div>`;
-    if (note && (p.iban || (p.momo && p.momo.num))) h += `<div class="pay-row"><span>${esc2(t("Motif"))}</span><b>${esc2(note)}</b></div>`;
-    const btns = [];
-    if (p.paypal) btns.push(`<a class="btn primary" target="_blank" rel="noopener" href="${esc2(PAY.paypalUrl(p.paypal, amount, cur))}">${esc2(t("Payer avec PayPal"))}</a>`);
-    if (p.link) btns.push(`<a class="btn${p.paypal ? "" : " primary"}" target="_blank" rel="noopener noreferrer" href="${esc2(p.link)}">${esc2(t("Ouvrir son lien de paiement"))}</a>`);
-    if (btns.length) h += `<div class="pay-btns">${btns.join("")}</div>`;
+      if (amount > 0 && !p.iban) h += `<div class="pay-row"><span>${esc2(t("Montant"))}</span><b>${esc2(amtTxt)}</b><button type="button" class="linkbtn" data-copy="${amtTxt}">${esc2(t("Copier"))}</button></div>`;
+      if (note && !p.iban && p.momo.num) h += `<div class="pay-row"><span>${esc2(t("Motif"))}</span><b>${esc2(note)}</b></div>`;
+    }
     return h + `</div>`;
   },
   api: () => ((window.APP_CONFIG || {}).plus || {}).api || "",

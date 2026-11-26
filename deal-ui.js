@@ -366,6 +366,7 @@ DEALUI.warn = async function (d, ctx, pids, k) {
   if (notified.length) setTimeout(() => ctx.toast(t("Avertissement envoyé à {x}", notified.map(nm).join(", "))), toShare.length ? 1800 : 0);
 };
 Object.assign(DEAL_EN, {
+  "Paiement rapide": "Quick payment", "Virement bancaire": "Bank transfer", "Lien de paiement": "Payment link", "Dans l'appli de ta banque, ouvre Wero et envoie le montant à ce numéro ou cet e-mail.": "In your bank's app, open Wero and send the amount to this number or email.",
   "le jour du tour": "on the day of the round", "{x} jour après la date du tour": "{x} day after the round date", "{x} jours après la date du tour": "{x} days after the round date",
   "Payé ✓": "Paid ✓", "En retard": "Late", "Invitation": "Invitation", "{x} t'invite dans cette cagnotte. Accepte pour la suivre, commenter et voir les versements.": "{x} invited you to this money pot. Accept to follow it, comment and see payments.",
   "Refuser": "Decline", "Accepter": "Accept", "Gérée par {x}": "Managed by {x}", "Clauses de la cagnotte": "Money pot terms", "Date butoir de règlement": "Payment deadline",
