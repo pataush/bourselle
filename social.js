@@ -591,6 +591,7 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("mess
 
 // J'ajoute quelqu'un à mes proches : il est prévenu (notification et « Rappels reçus »), pour m'ajouter à son tour
 function socAdded(tag) {
+  if (tag && settings.prochesHidden) settings.prochesHidden = settings.prochesHidden.filter(k => k !== "@" + tag);
   if (!socOn() || !tag) return;
   const u = store && store.user ? store.user() : {}, nm = String((u && u.name) || "").trim().split(/\s/)[0];
   socApi("/me/added", { method: "POST", body: JSON.stringify({ tag, name: nm }) }).catch(() => {});

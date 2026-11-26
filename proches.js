@@ -61,7 +61,8 @@ function prochesList() {
   const pins = favPins(), now = Date.now();
   const list = [...P.values()].map(p => ({ ...p, owe: Math.round(p.owe * 100) / 100, due: Math.round(p.due * 100) / 100, pinned: pins.includes(p.key),
     rank: p.score + (p.last && now - p.last < 30 * 864e5 ? 3 : 0) + (p.owe || p.due ? 2 : 0) }));
-  return list.sort((a, b) => (b.pinned - a.pinned) || (a.pinned && b.pinned ? pins.indexOf(a.key) - pins.indexOf(b.key) : 0) || b.rank - a.rank || a.name.localeCompare(b.name));
+  const hid = settings.prochesHidden || [];
+  return list.filter(p => !(hid.includes(p.key) && !p.owe && !p.due)).sort((a, b) => (b.pinned - a.pinned) || (a.pinned && b.pinned ? pins.indexOf(a.key) - pins.indexOf(b.key) : 0) || b.rank - a.rank || a.name.localeCompare(b.name));
 }
 // Les proches qui ont Bourselle (pour choisir « À qui ? »)
 const prochesTagged = () => prochesList().filter(p => p.tag).map(p => ({ tag: p.tag, name: p.name.startsWith("@") ? "" : p.name }));
@@ -117,7 +118,8 @@ function favOpen(key) {
     ${p.tag && typeof dmOpen === "function" ? `<div class="fav-btns" style="margin:-4px 0 12px"><button type="button" class="btn primary" data-fa="dm">💬 Écrire à ${esc(favFirst(p.name))}${typeof dmUnread === "function" && dmUnread(p.tag) ? ` <i class="badge">${dmUnread(p.tag)}</i>` : ""}</button><button type="button" class="btn" data-fa="act">📅 Une activité ensemble</button></div>` : ""}
     ${p.items.length ? `<span class="lbl">Entre vous</span>${p.items.map((it, i) => `<button type="button" class="fav-it ${it.dir}" data-fi="${i}"><span>${esc(it.label)}<small>${esc(it.k === "g" ? "groupe" : it.k === "d" ? "dette" : it.pend ? "dit avoir payé : à confirmer" : "demande de paiement")}</small></span><b class="num">${it.dir === "in" ? "+" : "−"}${esc(money(it.amount, it.cur))}</b></button>`).join("")}` : `<p class="hint">Rien en cours entre vous.</p>`}
     ${groupsIn.length ? `<span class="lbl">Groupes en commun</span><div class="chips">${groupsIn.map(g => `<button type="button" class="chip" data-fg="${esc(g)}">${esc(groups[g].name)}</button>`).join("")}</div>` : ""}
-    <button type="button" class="linkbtn" id="favPin" style="margin-top:12px">${p.pinned ? "Retirer des favoris" : "⭐ Épingler en favori"}</button></div>`, () => true);
+    <button type="button" class="linkbtn" id="favPin" style="margin-top:12px">${p.pinned ? "Retirer des favoris" : "⭐ Épingler en favori"}</button>
+    <button type="button" class="linkbtn" id="favDel" style="margin-top:4px;color:var(--bad)">Retirer de mes proches</button></div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
   const go = fn => { closeForm(); setTimeout(fn, 220); };
   const openItem = it => {
@@ -128,6 +130,14 @@ function favOpen(key) {
   };
   f.querySelectorAll("[data-fi]").forEach(b => b.onclick = () => go(() => openItem(p.items[+b.dataset.fi])));
   f.querySelectorAll("[data-fg]").forEach(b => b.onclick = () => go(() => { openGroup = b.dataset.fg; switchTab("partage"); }));
+  f.querySelector("#favDel").onclick = e => {
+    const b = e.currentTarget; if (b.dataset.c !== "1") { b.dataset.c = "1"; b.textContent = `Retirer ${favFirst(p.name)} ? Touche encore pour confirmer`; setTimeout(() => { b.dataset.c = ""; b.textContent = "Retirer de mes proches"; }, 4000); return; }
+    if (p.tag) settings.contacts = socContacts().filter(c => c.tag !== p.tag);
+    const pins = favPins(), i = pins.indexOf(p.key); if (i >= 0) pins.splice(i, 1);
+    settings.prochesHidden = [...new Set([...(settings.prochesHidden || []), p.key])];
+    saveSettings(); closeForm(); render();
+    toast(p.owe || p.due ? `${favFirst(p.name)} reste affiché tant qu'il y a de l'argent en cours entre vous` : `${favFirst(p.name)} est retiré de tes proches`);
+  };
   f.querySelector("#favPin").onclick = () => { const pins = favPins(), i = pins.indexOf(p.key); if (i >= 0) pins.splice(i, 1); else pins.unshift(p.key); saveSettings(); closeForm(); render(); toast(i >= 0 ? "Retiré des favoris" : `${favFirst(p.name)} est en favori ⭐`); };
   f.querySelectorAll("[data-fa]").forEach(b => b.onclick = () => {
     const a = b.dataset.fa;
