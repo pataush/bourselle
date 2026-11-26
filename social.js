@@ -62,7 +62,7 @@ async function socRefresh() {
     try { await socPullGroups(); await socPushGroups(); } catch (e) {}
     socLoadPay(); socLoadReminders();
     if (!SOC.addChecked) { SOC.addChecked = true; socPendingAdd(); if (typeof reqTakeFromUrl === "function") reqTakeFromUrl(); }
-    socOpenPending(); pushResync(); if (typeof dealsRefresh === "function") dealsRefresh(); if (typeof projRefresh === "function") projRefresh(); if (typeof chalRefresh === "function") chalRefresh(); if (typeof ensRefresh === "function") ensRefresh();
+    socOpenPending(); pushResync(); if (typeof dealsRefresh === "function") dealsRefresh(); if (typeof projRefresh === "function") projRefresh(); if (typeof chalRefresh === "function") chalRefresh(); if (typeof ensRefresh === "function") ensRefresh(); if (typeof offRefresh === "function") offRefresh();
     { const paid = (SOC.out || []).flatMap(c => (c.payments || []).filter(p => p.pend && !socSeen.has("pd:" + p.id)).map(p => ({ c, p })));
       if (paid.length) {
         const { c, p } = paid[0], who = c.to ? "@" + c.to : c.guest || "Quelqu'un";

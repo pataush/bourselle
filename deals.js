@@ -85,6 +85,7 @@ function renderAccueil() {
     <button type="button" data-hub="achat">${hubIcon("achat")}<span>Achat groupé</span></button>
     <button type="button" data-hub="cagnotte">${hubIcon("cagnotte")}<span>Cagnotte</span></button></div>`;
   if (!soc) html += `<div class="card hub-intro"><h2>Partager sans compte bancaire connecté</h2><p class="hint" style="margin:0">Organise des achats groupés et des cagnottes, paie plusieurs personnes et suis chaque règlement, de banque à banque : l'argent ne passe jamais par Bourselle. Connecte-toi avec Google ou Microsoft (Paramètres) pour inviter tes amis par lien.</p></div>`;
+  if (typeof offHubHTML === "function") { html += offHubHTML(); if (!offLoaded && !offRefresh.busy) { offRefresh.busy = true; offRefresh(); } }
   if (typeof projHubHTML === "function") html += projHubHTML();
   // Achats groupés et cagnottes
   const ds = DEALS.slice().sort((a, b) => (a.status !== "open") - (b.status !== "open") || (b.updated || 0) - (a.updated || 0));
@@ -95,6 +96,7 @@ function renderAccueil() {
   const act = hubActivity("deals");
   if (act.length) html += actHead() + `<div class="card hub-act">${act.map((e, i) => `<button type="button" class="hub-ev" data-ev="${i}"><span class="hub-ei ${e.ic}">${e.ic === "comment" ? "💬" : hubIcon(e.ic === "group" ? "group" : e.ic)}</span><span><span class="hub-et">${esc(e.t)}</span><small>${esc(e.s)} · ${esc(agoText(e.at))}</small></span></button>`).join("")}</div>`;
   view.innerHTML = html;
+  if (typeof offHubBind === "function") offHubBind(view);
   view.querySelectorAll("[data-hub]").forEach(b => b.onclick = () => ({ proj: () => editProject(), group: () => editGroup(null), achat: () => editDeal(null, "achat"), cagnotte: () => editDeal(null, "cagnotte"), pay: () => editPay() })[b.dataset.hub]());
   view.querySelectorAll("[data-deal]").forEach(b => b.onclick = () => showDeal(b.dataset.deal));
   actBind(view);

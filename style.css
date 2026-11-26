@@ -964,3 +964,20 @@ i.badge { font-style: normal; background: var(--bad); color: #fff; border-radius
 .dm-add { padding: 6px 12px; font-size: .85rem; white-space: nowrap; }
 .dm-sys { align-self: center; text-align: center; font-size: .74rem; color: var(--muted); background: var(--surface); border-radius: 99px; padding: 3px 10px; max-width: 90%; }
 .dm-addform { display: flex; flex-direction: column; gap: 8px; padding: 12px; margin: 0 0 8px; }
+/* Bons plans partenaires */
+.off-card { display: block; padding: 14px 16px; cursor: default; }
+.off-card[data-oopen] { cursor: pointer; } .off-card.feat { border: 1.5px solid var(--accent); } .off-card.flash { box-shadow: 0 0 0 3px var(--accent); }
+.off-top { display: flex; align-items: center; gap: 10px; } .off-tt { flex: 1; min-width: 0; } .off-tt b { display: block; } .off-tt small { color: var(--muted); font-size: .76rem; }
+.off-tag { display: inline-block; font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); border: 1px solid var(--line); border-radius: 6px; padding: 0 5px; margin-right: 4px; }
+.off-desc { margin: 10px 0 0; font-size: .9rem; white-space: pre-wrap; }
+.off-tiers { display: flex; gap: 6px; margin: 12px 0 8px; } .off-tiers span { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 6px 4px; border-radius: 12px; background: var(--bg); color: var(--muted); }
+.off-tiers span.on { background: var(--good-soft); color: var(--good); } .off-tiers b { font-size: .95rem; } .off-tiers small { font-size: .7rem; }
+.off-st { margin: 6px 0 10px; font-size: .84rem; color: var(--muted); }
+.off-code { display: flex; align-items: center; gap: 10px; padding: 10px 12px; margin: 10px 0; border: 1.5px dashed var(--good); border-radius: 12px; background: var(--good-soft); }
+.off-code span { font-size: .76rem; color: var(--muted); } .off-code b { flex: 1; font-size: 1.1rem; letter-spacing: .06em; }
+.off-card .btn.primary { width: 100%; margin-top: 4px; } .off-card > .linkbtn { display: block; margin: 6px auto 0; }
+.off-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; } .off-legal { font-size: .74rem; margin: 14px 0 0; text-align: center; }
+.off-lead { padding: 10px 12px; margin-bottom: 8px; } .off-lead small { display: block; color: var(--muted); font-size: .76rem; } .off-lead p { margin: 6px 0; font-size: .88rem; white-space: pre-wrap; }
+.off-trow { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 6px; margin-bottom: 6px; }
+.chk { display: flex; align-items: center; gap: 8px; font-size: .88rem; margin: 6px 0; }
+#oeKind { grid-template-columns: 1fr 1fr; margin-bottom: 8px; }
