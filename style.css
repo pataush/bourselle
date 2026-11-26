@@ -981,3 +981,6 @@ i.badge { font-style: normal; background: var(--bad); color: #fff; border-radius
 .off-trow { display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 6px; margin-bottom: 6px; }
 .chk { display: flex; align-items: center; gap: 8px; font-size: .88rem; margin: 6px 0; }
 #oeKind { grid-template-columns: 1fr 1fr; margin-bottom: 8px; }
+.off-where { display: block; width: 100%; text-align: left; margin: 0 0 8px; padding: 9px 12px; border: 1px dashed var(--line); border-radius: 12px; background: none; font: inherit; font-size: .86rem; color: inherit; cursor: pointer; }
+.off-sheet .off-where { margin: 0 0 10px; }
+.off-city.near { color: var(--good); font-weight: 700; }

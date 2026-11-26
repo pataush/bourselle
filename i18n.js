@@ -12,6 +12,20 @@
 
   // ---------- Textes fixes ----------
   const EXACT = {
+    "📍 Ta ville": "📍 Your city",
+    "Pour te montrer les bons plans des commerces près de chez toi. Ta ville reste sur ton appareil : elle n'est envoyée à personne.": "To show you deals from shops near you. Your city stays on your device: it isn't sent to anyone.",
+    "Ville": "City",
+    "ex. Lyon": "e.g. Lyon",
+    "Ne plus utiliser de ville": "Stop using a city",
+    "Enregistrer": "Save",
+    "Voir les bons plans près de chez toi ›": "See deals near you ›",
+    "Indique ta ville pour les bons plans près de chez toi ›": "Enter your city for deals near you ›",
+    "Près de moi": "Near me",
+    "Toutes les villes": "All cities",
+    "Voir aussi les bons plans des autres villes ›": "Also see deals in other cities ›",
+    "Ville (vide = partout, en ligne)": "City (empty = everywhere, online)",
+    "ex. Resto, Sport…": "e.g. Restaurant, Sport…",
+    "Ville (si vous avez une boutique)": "City (if you have a shop)",
     "Bons plans partenaires": "Partner deals",
     "Voir tout ›": "See all ›",
     "Gérer ›": "Manage ›",
@@ -933,6 +947,8 @@
   // ---------- Textes avec des valeurs ({m} montant, {d} date, {n} nombre, {x} autre) ----------
   const s = n => (Number(String(n).replace(/[^\d.]/g, "")) > 1 ? "s" : "");
   const PATTERNS = [
+    ["Près de chez toi : {x} · changer", "Near you: {x} · change"],
+    ["Pas encore de bon plan à {x}. Tu connais un commerce ? Envoie-lui la page « Devenir partenaire » !", "No deals in {x} yet. Know a shop? Send them the “Become a partner” page!"],
     ["Offres ({n})", "Offers ({n})"],
     ["Demandes des marques ({n})", "Brand requests ({n})"],
     ["Jusqu'à -{n} %", "Up to -{n}%"],

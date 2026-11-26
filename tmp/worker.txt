@@ -990,7 +990,7 @@ const offerCode = s => String(s || "").replace(/[^A-Za-z0-9_-]/g, "").slice(0, 3
 function offerTier(o) { const n = Object.keys(o.joins || {}).length, tiers = (o.tiers || []).slice().sort((a, b) => a.n - b.n); let cur = null; for (const t of tiers) if (n >= t.n) cur = t; return { n, cur, next: tiers.find(t => n < t.n) || null }; }
 function offerView(o, email, admin) {
   const joined = !!(email && (o.joins || {})[email]), t = offerTier(o);
-  const v = { id: o.id, partner: o.partner, emoji: o.emoji, title: o.title, desc: o.desc, cat: o.cat, kind: o.kind, url: o.url, until: o.until, featured: !!o.featured, status: o.status,
+  const v = { id: o.id, partner: o.partner, emoji: o.emoji, title: o.title, desc: o.desc, cat: o.cat, city: o.city || "", kind: o.kind, url: o.url, until: o.until, featured: !!o.featured, status: o.status,
     tiers: (o.tiers || []).map(x => ({ n: x.n, pct: x.pct, label: x.label || "" })), count: t.n, joined, unlocked: t.cur ? { n: t.cur.n, pct: t.cur.pct, label: t.cur.label || "" } : null, next: t.next ? { n: t.next.n, pct: t.next.pct } : null };
   if (o.kind === "promo") v.code = o.code || "";
   else if (joined && t.cur) v.code = t.cur.code || o.code || "";
@@ -1005,7 +1005,7 @@ async function offersApi(req, env, url, cors) {
   // Une marque propose un partenariat (sans compte)
   if (path === "/offers/lead" && req.method === "POST") {
     const n = Number(await env.CODES.get("olead:" + today) || 0); if (n >= 50) throw new HttpErr(429, "trop de demandes aujourd'hui, réessaie demain");
-    const lead = { id: rid(10), company: dmTxt(b.company).slice(0, 80), contact: dmTxt(b.contact).slice(0, 80), email: String(b.email || "").trim().slice(0, 120), site: dmTxt(b.site).slice(0, 200), offer: dmTxt(b.offer).slice(0, 1000), group: !!b.group, at: Date.now() };
+    const lead = { id: rid(10), company: dmTxt(b.company).slice(0, 80), contact: dmTxt(b.contact).slice(0, 80), email: String(b.email || "").trim().slice(0, 120), site: dmTxt(b.site).slice(0, 200), city: dmTxt(b.city).slice(0, 60), offer: dmTxt(b.offer).slice(0, 1000), group: !!b.group, at: Date.now() };
     if (!lead.company || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(lead.email) || !lead.offer) throw new HttpErr(400, "indique ta marque, ton e-mail et ton offre");
     const l = await listOf(env, "oleads"); l.unshift(lead); await kvP(env, "oleads", l.slice(0, 300)); await env.CODES.put("olead:" + today, String(n + 1), { expirationTtl: 90000 });
     return json({ ok: true }, 200, cors);
@@ -1022,7 +1022,7 @@ async function offersApi(req, env, url, cors) {
     if (b.delete) { o.deleted = true; await kvP(env, "offer:" + id, o); await kvP(env, "offers", ids.filter(x => x !== id)); return json({ ok: true }, 200, cors); }
     if (b.leadDone) { await kvP(env, "oleads", (await listOf(env, "oleads")).filter(x => x.id !== b.leadDone)); return json({ ok: true }, 200, cors); }
     o.partner = dmTxt(b.partner).slice(0, 60); o.title = dmTxt(b.title).slice(0, 100); o.desc = dmTxt(b.desc).slice(0, 800); o.emoji = String(b.emoji || "🎁").slice(0, 4);
-    o.cat = dmTxt(b.cat).slice(0, 30); o.kind = b.kind === "group" ? "group" : "promo"; o.code = offerCode(b.code); o.until = isoOk(b.until) ? b.until : ""; o.featured = !!b.featured; o.status = b.status === "off" ? "off" : "on";
+    o.cat = dmTxt(b.cat).slice(0, 30); o.city = dmTxt(b.city).slice(0, 60); o.kind = b.kind === "group" ? "group" : "promo"; o.code = offerCode(b.code); o.until = isoOk(b.until) ? b.until : ""; o.featured = !!b.featured; o.status = b.status === "off" ? "off" : "on";
     let u = String(b.url || "").trim(); if (u && !/^https:\/\//i.test(u)) throw new HttpErr(400, "le lien doit commencer par https://"); o.url = u.slice(0, 500);
     o.tiers = (Array.isArray(b.tiers) ? b.tiers : []).slice(0, 6).map(t => ({ n: Math.max(2, Math.min(10000, parseInt(t.n, 10) || 0)), pct: Math.max(0, Math.min(90, num(t.pct) || 0)), code: offerCode(t.code), label: dmTxt(t.label).slice(0, 60) })).filter(t => t.n >= 2);
     if (!o.partner || !o.title) throw new HttpErr(400, "indique le partenaire et le titre");
