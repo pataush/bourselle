@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "67";
+const APP_VERSION = "68";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -337,7 +337,7 @@ function showAlerts(openIds) {
       ${a.items.length > 12 ? `<p class="hint">+ ${a.items.length - 12} autres</p>` : ""}
       <div class="al-foot"><button type="button" class="linkbtn" data-go="${i}">Tout voir ›</button>${a.n > 1 ? `<button type="button" class="linkbtn al-alloff" data-alloff="${i}">Tout supprimer</button>` : ""}</div></div></div>`).join("")
     : `<p class="hint">Rien à surveiller pour l'instant.</p>`}
-    ${act.length ? `<span class="lbl" style="margin-top:14px">Activité récente</span>${act.map((e, k) => `<button type="button" class="al-it" data-ev="${k}"><b>${esc(e.t)}</b><small>${esc(e.s)} · ${esc(agoText(e.at))}</small></button>`).join("")}` : ""}</div>`, () => true);
+    ${act.length ? `<div class="al-acth"><span class="lbl">Activité récente <small>(30 derniers jours)</small></span><button type="button" class="linkbtn" id="alActClear">Effacer</button></div>${act.map((e, k) => `<button type="button" class="al-it" data-ev="${k}"><b>${esc(e.t)}</b><small>${esc(e.s)} · ${esc(agoText(e.at))}</small></button>`).join("")}` : ""}</div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
   const openNow = () => [...f.querySelectorAll(".al-box.open")].map(b => b.dataset.box);
   const redraw = msg => { saveSettings(); refreshBell(); const o = openNow(); closeForm(); showAlerts(o); if (msg) toast(msg); };
@@ -347,6 +347,7 @@ function showAlerts(openIds) {
   const del = async items => { for (const x of items) { if (x.rem) await socDelReminder(x.rem); else alertsOff()[x.k] = Date.now(); } };
   f.querySelectorAll("[data-off]").forEach(b => b.onclick = async () => { const x = L.flatMap(a => a.items).find(y => y.k === b.dataset.off); if (x) await del([x]); redraw("Notification supprimée"); });
   f.querySelectorAll("[data-alloff]").forEach(b => b.onclick = async () => { const a = L[Number(b.dataset.alloff)]; await del(a.items); redraw(`${a.n} notifications supprimées`); });
+  { const c = f.querySelector("#alActClear"); if (c) c.onclick = () => { settings.actCleared = Date.now(); saveSettings(); const o = openNow(); closeForm(); showAlerts(o); toast("Activité récente effacée"); }; }
   f.querySelectorAll("[data-ev]").forEach(b => b.onclick = () => { const e = act[Number(b.dataset.ev)]; closeForm(); if (e.did) showDeal(e.did); else { openGroup = e.gid; switchTab("partage"); } });
 }
 function refreshBell() { const d = document.getElementById("bellDot"); if (d) d.hidden = !alertsList().reduce((a, x) => a + x.n, 0); }
@@ -2177,11 +2178,12 @@ function renderPartage() {
   if (list.length) html = html.replace(banner, banner + `<div class="hub-sec"><span>Dépenses partagées</span><button class="linkbtn" id="grNew">+ Nouveau groupe</button></div>`);
   else html += `<button class="btn primary" id="grNew" style="width:100%">+ Créer un groupe</button>`;
   const act = typeof hubActivity === "function" ? hubActivity("groups") : [];
-  if (act.length) html += `<div class="hub-sec"><span>Activité récente</span></div><div class="card hub-act">${act.map((e, i) => `<button type="button" class="hub-ev" data-ev="${i}"><span class="hub-ei">${e.ic === "comment" ? "💬" : hubIcon("group")}</span><span><span class="hub-et">${esc(e.t)}</span><small>${esc(e.s)} · ${esc(agoText(e.at))}</small></span></button>`).join("")}</div>`;
+  if (act.length) html += actHead() + `<div class="card hub-act">${act.map((e, i) => `<button type="button" class="hub-ev" data-ev="${i}"><span class="hub-ei">${e.ic === "comment" ? "💬" : hubIcon("group")}</span><span><span class="hub-et">${esc(e.t)}</span><small>${esc(e.s)} · ${esc(agoText(e.at))}</small></span></button>`).join("")}</div>`;
   html += `<p class="hint" style="text-align:center;margin:4px 0 0">Couple, colocation, voyage, famille : chacun ajoute ses dépenses, Bourselle calcule qui doit combien à qui.</p>`;
   view.innerHTML = html;
   view.querySelectorAll("[data-open]").forEach(b => b.onclick = () => { openGroup = b.dataset.open; render(); window.scrollTo(0, 0); });
   { const n = document.getElementById("grNew"); if (n) n.onclick = () => editGroup(null); }
+  actBind(view);
   view.querySelectorAll("[data-grem]").forEach(b => b.onclick = () => { const g = groups[b.dataset.grem]; groupRemind(b.dataset.grem, settle(groupBalances(g)).filter(x => x.to === g.me)); });
   view.querySelectorAll("[data-ev]").forEach(b => b.onclick = () => { const e = act[Number(b.dataset.ev)]; if (e && e.gid) { openGroup = e.gid; render(); window.scrollTo(0, 0); } });
 }

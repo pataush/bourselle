@@ -56,8 +56,15 @@ function hubActivity(which) {
     for (const p of Object.values(d.parts || {})) ev.push({ at: p.at, did: d.id, ic: d.kind, t: `${p.name} participe${d.kind === "achat" ? ` · ${p.qty} place${p.qty > 1 ? "s" : ""}` : ` · ${dealMoney(p.amount, d.cur)}`}`, s: d.title });
     for (const c of Object.values(d.comments || {})) ev.push({ at: c.at, did: d.id, ic: "comment", t: `${c.name} : ${c.text.length > 70 ? c.text.slice(0, 69) + "…" : c.text}`, s: d.title });
   }
-  return ev.filter(x => x.at).sort((a, b) => b.at - a.at).slice(0, 8);
+  // 30 derniers jours seulement, et rien d'avant le dernier « Effacer »
+  const from = Math.max(Date.now() - ACT_DAYS * 864e5, Number(settings.actCleared) || 0);
+  return ev.filter(x => x.at && x.at > from).sort((a, b) => b.at - a.at).slice(0, 8);
 }
+const ACT_DAYS = 30;
+// « Effacer » l'activité récente : on garde l'heure, ce qui est plus ancien n'est plus affiché (sur tous les appareils)
+function actClear() { settings.actCleared = Date.now(); saveSettings(); render(); toast("Activité récente effacée"); }
+const actHead = () => `<div class="hub-sec"><span>Activité récente</span><button type="button" class="linkbtn act-clear" data-actclear>Effacer</button></div>`;
+const actBind = root => root.querySelectorAll("[data-actclear]").forEach(b => b.onclick = actClear);
 function agoText(at) {
   const s = Math.max(0, (Date.now() - at) / 1000);
   if (s < 90) return "à l'instant"; if (s < 3600) return `il y a ${Math.round(s / 60)} min`; if (s < 86400) return `il y a ${Math.round(s / 3600)} h`;
@@ -86,10 +93,11 @@ function renderAccueil() {
     : `<div class="card"><div class="empty" style="padding:6px">Organise un achat groupé (une meule de fromage, des places de concert, un abonnement à plusieurs…) ou une cagnotte (une tontine : chacun cotise, et à chaque tour un membre reçoit le pot). Tes amis rejoignent par un simple lien, sans compte.</div></div>`;
   // Activité
   const act = hubActivity("deals");
-  if (act.length) html += `<div class="hub-sec"><span>Activité récente</span></div><div class="card hub-act">${act.map((e, i) => `<button type="button" class="hub-ev" data-ev="${i}"><span class="hub-ei ${e.ic}">${e.ic === "comment" ? "💬" : hubIcon(e.ic === "group" ? "group" : e.ic)}</span><span><span class="hub-et">${esc(e.t)}</span><small>${esc(e.s)} · ${esc(agoText(e.at))}</small></span></button>`).join("")}</div>`;
+  if (act.length) html += actHead() + `<div class="card hub-act">${act.map((e, i) => `<button type="button" class="hub-ev" data-ev="${i}"><span class="hub-ei ${e.ic}">${e.ic === "comment" ? "💬" : hubIcon(e.ic === "group" ? "group" : e.ic)}</span><span><span class="hub-et">${esc(e.t)}</span><small>${esc(e.s)} · ${esc(agoText(e.at))}</small></span></button>`).join("")}</div>`;
   view.innerHTML = html;
   view.querySelectorAll("[data-hub]").forEach(b => b.onclick = () => ({ proj: () => editProject(), group: () => editGroup(null), achat: () => editDeal(null, "achat"), cagnotte: () => editDeal(null, "cagnotte"), pay: () => editPay() })[b.dataset.hub]());
   view.querySelectorAll("[data-deal]").forEach(b => b.onclick = () => showDeal(b.dataset.deal));
+  actBind(view);
   if (typeof projBindHub === "function") projBindHub();
   view.querySelectorAll("[data-ev]").forEach(b => b.onclick = () => { const e = act[Number(b.dataset.ev)]; if (e.did) showDeal(e.did); else { openGroup = e.gid; switchTab("partage"); } });
 }

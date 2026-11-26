@@ -793,3 +793,6 @@ html.ios nav.tabs { bottom: 0; transform: translateZ(0); }
 .al-x:hover { color: var(--bad); border-color: var(--bad); }
 .al-foot { display: flex; justify-content: space-between; gap: 10px; margin-top: 6px; } .al-alloff { color: var(--muted); }
 .al-restore { display: block; margin: 12px auto 0; color: var(--muted); }
+
+.hub-sec .act-clear { margin-left: auto; font-size: .78rem; color: var(--muted); }
+.al-acth { display: flex; align-items: baseline; justify-content: space-between; margin-top: 14px; } .al-acth .lbl { margin: 0; } .al-acth small { font-weight: 400; color: var(--muted); } .al-acth .linkbtn { color: var(--muted); font-size: .8rem; }
