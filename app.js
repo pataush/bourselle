@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "58";
+const APP_VERSION = "59";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -2177,9 +2177,12 @@ function renderGroup(gid) {
 function editGroup(id) {
   if (id && groups[id] && groups[id].shared && groups[id].owner && typeof SOC !== "undefined" && groups[id].owner !== SOC.tag) { toast(`Seul @${groups[id].owner} peut modifier ce groupe`); return; }
   const g = id ? clone(groups[id]) : { name: "", members: [], me: "", expenses: {} };
+  // Mon profil proposé d'office (à cocher), ou un autre nom pour moi dans ce groupe
+  const profName = (() => { const u = store && store.id !== "local" && store.user ? store.user() : {}; const f = String((u && u.name) || "").trim().split(/[\s@._]/)[0]; return f ? f.charAt(0).toUpperCase() + f.slice(1) : ""; })();
   openForm(`<div class="f2"><h3>${id ? "Modifier le groupe" : "Nouveau groupe"}</h3>
     ${fld("grName", "Nom du groupe", `placeholder="ex. Maison, Vacances Bretagne, Coloc" value="${esc(g.name)}"`)}
-    ${fld("grMe", "Ton prénom", `placeholder="ex. Marie" value="${esc(id ? (g.members.find(m => m.id === g.me) || {}).name || "" : "")}"`)}
+    ${!id && profName ? `<label class="toggle gr-me" for="grMeUse"><span><span>Moi :</span> <b>${esc(profName)}</b>${typeof SOC !== "undefined" && SOC.tag ? ` <small class="hint">@${esc(SOC.tag)}</small>` : ""}</span><input type="checkbox" id="grMeUse" checked></label>` : ""}
+    <div id="grMeWrap" ${!id && profName ? "hidden" : ""}>${fld("grMe", !id && profName ? "Autre nom pour moi dans ce groupe" : "Ton prénom", `placeholder="ex. Marie" value="${esc(id ? (g.members.find(m => m.id === g.me) || {}).name || "" : "")}"`)}</div>
     ${fld("grOthers", "Les autres membres (séparés par des virgules)", `placeholder="ex. Paul, Léa, Hugo" value="${esc(id ? g.members.filter(m => m.id !== g.me && !m.tag).map(m => m.name).join(", ") : "")}"`)}
     ${typeof socOn === "function" && socOn() ? `<span class="lbl">Membres avec Bourselle (facultatif)</span>
       <div class="chips" id="grTags"></div>
@@ -2187,7 +2190,7 @@ function editGroup(id) {
       <div id="grTagRes"></div>
       <p class="hint" style="margin:6px 0 0">Quand tu paies une dépense du groupe, leur part leur est envoyée : elle arrive dans leurs dettes (Bourselle Plus).</p>` : ""}</div>`,
     () => {
-      const name = val("grName"), meName = val("grMe");
+      const useMe = document.getElementById("grMeUse"), name = val("grName"), meName = useMe && useMe.checked ? profName : val("grMe").trim();
       const others = val("grOthers").split(",").map(s => s.trim()).filter(Boolean).filter(n => !tagged.some(t => t.name.toLowerCase() === n.toLowerCase()));
       if (!name) { toast("Donne un nom au groupe"); return false; }
       if (!meName || !(others.length + tagged.length)) { toast("Indique ton prénom et au moins un autre membre"); return false; }
@@ -2206,6 +2209,7 @@ function editGroup(id) {
     id ? () => { if (typeof socDeleteGroup === "function") socDeleteGroup(id, groups[id]); delete groups[id]; openGroup = null; saveGroups(); render(); toast("Groupe supprimé"); } : null);
   // Membres Bourselle : choisis parmi les contacts ou par recherche de tag
   const tagged = g.members.filter(m => m.id !== g.me && m.tag).map(m => ({ tag: m.tag, name: m.name }));
+  { const c = document.getElementById("grMeUse"); if (c) c.onchange = () => { const w = document.getElementById("grMeWrap"); w.hidden = c.checked; if (!c.checked) setTimeout(() => document.getElementById("grMe").focus(), 50); }; }
   const box = document.getElementById("grTags"), find = document.getElementById("grTagFind"), res = document.getElementById("grTagRes");
   if (!box) return;
   const drawTags = () => {
