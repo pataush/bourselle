@@ -38,8 +38,17 @@ async function lockDisable() { if (!await lockVerify()) { toast("Déverrouillage
 
 // Écran de verrouillage
 let lockShown = false, lockHiddenAt = 0;
+// Dernier moment où l'appli était ouverte et déverrouillée : fermer puis rouvrir (ou une mise à jour) dans le délai choisi ne reverrouille pas
+const LOCK_LAST = "bourselle-lock-last";
+function lockMark(upd) { if (lockOn() && !lockShown) try { localStorage.setItem(LOCK_LAST, String(Date.now())); if (upd === true) sessionStorage.setItem("bourselle-lock-upd", String(Date.now())); } catch (e) {} }
+function lockRecent() {
+  // Rechargement demandé par l'appli elle-même (mise à jour) juste après un déverrouillage : pas de nouveau verrou
+  try { const u = Number(sessionStorage.getItem("bourselle-lock-upd")) || 0; sessionStorage.removeItem("bourselle-lock-upd"); if (u && Date.now() - u < 30000) return true; } catch (e) {}
+  const c = lockCfg(); if (!c || !c.delay) return false; let t = 0; try { t = Number(localStorage.getItem(LOCK_LAST)) || 0; } catch (e) {} return t > 0 && Date.now() - t < c.delay * 1000; }
+let lockFirst = true;
 function lockShow() {
   if (!lockOn() || lockShown) return;
+  const atStart = lockFirst; lockFirst = false;
   lockShown = true; document.documentElement.classList.add("locked");
   let el = document.getElementById("lockScreen");
   if (!el) { el = document.createElement("div"); el.id = "lockScreen"; el.className = "lock-screen"; document.body.appendChild(el); }
@@ -49,20 +58,23 @@ function lockShow() {
     <button type="button" class="linkbtn" id="lockOut">Se déconnecter</button></div>`;
   el.hidden = false;
   if (window.T) el.querySelectorAll("h2,p,button").forEach(n => { n.textContent = window.T(n.textContent); });
-  const go = async () => { const b = el.querySelector("#lockGo"); b.disabled = true; const ok = await lockVerify(); b.disabled = false; if (ok) lockHide(); else toast("Pas déverrouillé : réessaie"); };
-  el.querySelector("#lockGo").onclick = go;
+  const go = async auto => { const b = el.querySelector("#lockGo"); b.disabled = true; const ok = await lockVerify(); b.disabled = false; if (ok) lockHide(); else if (auto !== true) toast("Pas déverrouillé : réessaie"); };
+  el.querySelector("#lockGo").onclick = () => go();
   el.querySelector("#lockOut").onclick = () => { lockHide(); lockSave(null); if (typeof signOut === "function") signOut(); };
-  // Sur ordinateur et Android, on peut lancer la demande tout de suite ; sur iPhone, Safari exige un toucher
-  if (!/iP(hone|ad|od)/.test(navigator.userAgent)) setTimeout(go, 300);
+  // Sur ordinateur et Android, on lance Face ID / l'empreinte tout de suite. Sur iPhone, Safari l'autorise une fois à l'ouverture
+  // de l'appli (ensuite il exige un toucher) : on en profite, et le bouton reste là si iOS refuse.
+  if (!/iP(hone|ad|od)/.test(navigator.userAgent) || atStart) setTimeout(() => go(true), 300);
 }
 function lockHide() { lockShown = false; document.documentElement.classList.remove("locked"); const el = document.getElementById("lockScreen"); if (el) el.hidden = true; }
 document.addEventListener("visibilitychange", () => {
   if (!lockOn()) return;
-  if (document.visibilityState === "hidden") lockHiddenAt = Date.now();
+  if (document.visibilityState === "hidden") { lockHiddenAt = Date.now(); lockMark(); }
   else if (lockHiddenAt && Date.now() - lockHiddenAt >= (lockCfg().delay || 0) * 1000) lockShow();
 });
 // Au démarrage : verrouillé d'emblée (avant même d'afficher les données)
-if (lockOn()) { document.documentElement.classList.add("locked"); document.addEventListener("DOMContentLoaded", lockShow); if (document.readyState !== "loading") lockShow(); }
+addEventListener("pagehide", lockMark);
+if (lockOn() && lockRecent()) lockFirst = false;
+else if (lockOn()) { document.documentElement.classList.add("locked"); document.addEventListener("DOMContentLoaded", lockShow); if (document.readyState !== "loading") lockShow(); }
 
 // Carte dans Paramètres
 function lockCardHTML() {

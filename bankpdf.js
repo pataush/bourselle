@@ -1,6 +1,18 @@
 // Lecture des relevés bancaires en PDF (Crédit Agricole, et la plupart des banques françaises).
 // Tout se passe sur le téléphone : le fichier n'est envoyé nulle part. pdf.js (lib/) n'est chargé qu'à la première lecture.
 let PDFJS = null;
+// Safari (iPhone) ne sait pas parcourir un ReadableStream avec « for await » : pdf.js en a besoin pour lire le texte
+if (typeof ReadableStream !== "undefined" && !ReadableStream.prototype[Symbol.asyncIterator]) {
+  ReadableStream.prototype.values = function ({ preventCancel = false } = {}) {
+    const reader = this.getReader();
+    return {
+      async next() { const r = await reader.read(); if (r.done) reader.releaseLock(); return r; },
+      async return(v) { if (!preventCancel) { const p = reader.cancel(v); reader.releaseLock(); await p; } else reader.releaseLock(); return { done: true, value: v }; },
+      [Symbol.asyncIterator]() { return this; }
+    };
+  };
+  ReadableStream.prototype[Symbol.asyncIterator] = ReadableStream.prototype.values;
+}
 async function pdfLib() {
   if (PDFJS) return PDFJS;
   const base = new URL("lib/", document.baseURI).href;

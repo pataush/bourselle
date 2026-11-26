@@ -6,10 +6,11 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "104";
+const APP_VERSION = "105";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
+  try { if (typeof lockMark === "function") lockMark(true); } catch (e) {}
   try { const r = await navigator.serviceWorker?.getRegistration(); if (r) await r.update(); } catch (e) {}
   try { for (const k of await caches.keys()) await caches.delete(k); } catch (e) {}
   setTimeout(() => location.reload(), 400);
@@ -254,6 +255,7 @@ function showProfileMenu() {
       ${soc ? row("pmPush", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/><circle cx="19" cy="5" r="2.5" fill="currentColor"/></svg>', "Notifications en direct", typeof pushOn === "function" && pushOn() ? "Activées sur cet appareil" : "Désactivées") : ""}
       ${soc ? row("pmPay", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>', "Me faire payer", "IBAN, PayPal.me, lien de paiement") : ""}
       ${typeof showPlus === "function" && !(typeof PLUS_HIDDEN !== "undefined" && PLUS_HIDDEN && !isPlus()) ? row("pmPlus", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg>', "Bourselle Plus", typeof isPlus === "function" && isPlus() ? "Activé" : "Découvrir l'offre") : ""}
+      ${row("pmFb", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>', "Une idée, un souci ?", "Écrire à l'équipe Bourselle")}
       ${row("pmLang", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9s1.3-6.3 3.8-9z"/></svg>', window.LANG === "en" ? "Français" : "English", window.LANG === "en" ? "Langue : anglais" : "Langue : français")}
       ${!local && store.folderUrl && store.folderUrl() ? row("pmFolder", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>', "Ouvrir mon dossier", store.label) : ""}
       ${row("pmSettings", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>', "Paramètres", "Mon compte, budget, catégories, devise, exports")}
@@ -271,6 +273,7 @@ function showProfileMenu() {
   on("pmLang", () => { closeForm(); if (typeof setLang === "function") setLang(window.LANG === "en" ? "fr" : "en"); });
   on("pmFolder", () => { window.open(store.folderUrl(), "_blank", "noopener"); });
   on("pmSettings", () => { closeForm(); switchTab("reglages"); });
+  on("pmFb", () => { closeForm(); setTimeout(() => fbOpen(), 250); });
 }
 // Alertes regroupées derrière la cloche.
 // Chaque alerte a une clé stable (k) : « Gérer » emmène à l'endroit concerné ; ✕ la masque (choix gardé dans les réglages,
@@ -812,6 +815,7 @@ function renderReglages() {
   <div class="card"><h2>Apparence</h2>
     <div class="seg2" id="themeSeg" style="grid-template-columns:repeat(3,1fr)">${[["auto", "Automatique"], ["light", "Clair"], ["dark", "Sombre"]].map(([k, l]) => `<button type="button" data-th="${k}" aria-pressed="${applyTheme.cur === k}">${l}</button>`).join("")}</div>
     <p class="hint" style="margin:8px 0 0">Automatique suit le réglage de ton téléphone.</p></div>
+  ${typeof fbCardHTML === "function" ? fbCardHTML() : ""}
   <div class="card"><h2>Version de l'app</h2>
     <div class="seg2" id="modeSeg"><button type="button" data-m="simple" aria-pressed="${isSimple()}">Simple</button><button type="button" data-m="complete" aria-pressed="${!isSimple()}">Complète</button></div>
     <p class="hint" style="margin:8px 0 0">${isSimple() ? "Simple : le budget du mois, l'année, le partage des frais, je dois / on me doit, les abonnements, les garanties, le plan d'économies et les objectifs. Passe à la version complète pour le patrimoine et les notes de frais."
@@ -895,6 +899,7 @@ function renderReglages() {
   document.querySelectorAll("#modeSeg [data-m]").forEach(b => b.onclick = () => { if ((b.dataset.m === "simple") !== isSimple()) setMode(b.dataset.m); });
   const fu = document.getElementById("forceUpdate");
   if (fu) fu.onclick = () => forceUpdate();
+  if (typeof fbBind === "function") fbBind();
   { const ap = document.getElementById("aboutPlus"); if (ap) ap.onclick = () => showPlus(); }
   { const an = document.getElementById("aboutNdf"); if (an) an.onclick = () => { if (isSimple()) setMode("complete"); switchTab("frais"); }; }
   view.querySelectorAll("[data-f]").forEach(inp => inp.onchange = () => {
