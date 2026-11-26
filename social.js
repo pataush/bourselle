@@ -168,7 +168,7 @@ function socContactsCardHTML() {
       : `<p class="hint" style="margin:8px 0 0">Ajoute tes proches pour leur réclamer une dette en deux clics.</p>`}</div>`;
 }
 function socBindTagCard() {
-  const msg = () => `Mon tag Bourselle : @${SOC.tag}\nhttps://pataush.github.io/bourselle/`;
+  const msg = () => `Mon tag Bourselle : @${SOC.tag}\n${appBase()}`;
   const cp = document.getElementById("socCopy"); if (cp) cp.onclick = () => { navigator.clipboard?.writeText("@" + SOC.tag).then(() => toast("Tag copié")).catch(() => toast("@" + SOC.tag)); };
   const sh = document.getElementById("socShare"); if (sh) sh.onclick = () => navigator.share({ text: msg() }).catch(() => {});
   const qb = document.getElementById("socQr"); if (qb) qb.onclick = socShowQr;
