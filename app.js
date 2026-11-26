@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "65";
+const APP_VERSION = "66";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -274,46 +274,80 @@ function showProfileMenu() {
   on("pmSettings", () => { closeForm(); switchTab("reglages"); });
   on("pmUpdate", () => { closeForm(); forceUpdate(); });
 }
-// Alertes regroupées derrière la cloche
-function alertsList() {
-  // Chaque alerte garde le détail de ce qu'elle signale (items) pour pouvoir le déplier dans la cloche
-  const L = [], add = (tab, label, items, open) => { if (items.length && (subAllowed(tab) || open)) L.push({ tab, label, n: items.length, items, open }); };
+// Alertes regroupées derrière la cloche.
+// Chaque alerte a une clé stable (k) : « Gérer » emmène à l'endroit concerné ; ✕ la masque (choix gardé dans les réglages,
+// donc sur tous les appareils). Une alerte disparaît d'elle-même quand le problème est réglé (dette acceptée, cotisation
+// versée, budget revu…). Les alertes masquées qui n'existent plus sont oubliées.
+const alertsOff = () => (settings.alertsOff = settings.alertsOff && typeof settings.alertsOff === "object" ? settings.alertsOff : {});
+function alertsAll() {
+  const L = [], add = (id, tab, label, items, open) => { if (items.length && (subAllowed(tab) || open)) L.push({ id, tab, label, items, open }); };
   try {
-    if (typeof SOC !== "undefined") add("dettes", "Réclamations de dettes reçues", SOC.in.filter(c => c.status === "pending").map(c => ({ t: `@${c.from} te réclame ${socMoney(c)}`, s: [c.name, c.due ? "avant le " + frDate(c.due) : ""].filter(Boolean).join(" · ") })));
-    if (typeof DEALS !== "undefined") add("accueil", "Cotisations à verser", DEALS.filter(d => d.ton && d.started && d.you && d.you.pid).flatMap(d => (d.rounds || []).filter(r => r.date <= addDays(todayISO(), 3) && r.ben !== d.you.pid && !((d.pays || {})[r.k + "|" + d.you.pid] || {}).st)
-      .map(r => ({ t: `${d.title} · tour ${r.k + 1}`, s: `${dealMoney(d.amount, d.cur)} à verser à ${(d.parts[r.ben] || {}).name || "?"} · ${frDate(r.date)}`, deal: d.id }))), true);
-    if (typeof DEALS !== "undefined") add("accueil", "Paiements à faire", DEALS.filter(d => !d.ton && d.you && d.you.pid && d.parts[d.you.pid] && !d.parts[d.you.pid].paid && d.status !== "cancelled" && (d.kind === "cagnotte" || d.stats.reached || d.status === "done"))
-      .map(d => { const p = d.parts[d.you.pid]; return { t: d.title, s: `${dealMoney(d.kind === "achat" ? p.qty * d.price : p.amount, d.cur)} à payer à ${d.ownerName || "l'organisateur"}`, deal: d.id }; }), true);
+    const mk = cur.y + "-" + String(cur.m).padStart(2, "0");
+    if (typeof SOC !== "undefined") add("claims", "dettes", "Réclamations de dettes reçues", SOC.in.filter(c => c.status === "pending").map(c => ({ k: "claim:" + c.id, t: `@${c.from} te réclame ${socMoney(c)}`, s: [c.name, c.due ? "avant le " + frDate(c.due) : ""].filter(Boolean).join(" · "), go: "Répondre", claim: c.id })));
+    if (typeof DEALS !== "undefined") add("ton", "accueil", "Cotisations à verser", DEALS.filter(d => d.ton && d.started && d.you && d.you.pid).flatMap(d => (d.rounds || []).filter(r => r.date <= addDays(todayISO(), 3) && r.ben !== d.you.pid && !((d.pays || {})[r.k + "|" + d.you.pid] || {}).st)
+      .map(r => ({ k: `ton:${d.id}:${r.k}`, t: `${d.title} · tour ${r.k + 1}`, s: `${dealMoney(d.amount, d.cur)} à verser à ${(d.parts[r.ben] || {}).name || "?"} · ${frDate(r.date)}`, deal: d.id, go: "Payer" }))), true);
+    if (typeof DEALS !== "undefined") add("tinv", "accueil", "Invitations à une cagnotte", DEALS.filter(d => d.ton && d.you && d.you.pid && (d.parts[d.you.pid] || {}).inv).map(d => ({ k: "tinv:" + d.id, t: d.title, s: `${d.ownerName || "Quelqu'un"} t'invite`, deal: d.id, go: "Répondre" })), true);
+    if (typeof DEALS !== "undefined") add("dpay", "accueil", "Paiements à faire", DEALS.filter(d => !d.ton && d.you && d.you.pid && d.parts[d.you.pid] && !d.parts[d.you.pid].paid && d.status !== "cancelled" && (d.kind === "cagnotte" || d.stats.reached || d.status === "done"))
+      .map(d => { const p = d.parts[d.you.pid]; return { k: "deal:" + d.id, t: d.title, s: `${dealMoney(d.kind === "achat" ? p.qty * d.price : p.amount, d.cur)} à payer à ${d.ownerName || "l'organisateur"}`, deal: d.id, go: "Payer" }; }), true);
     if (typeof PROJECTS !== "undefined") {
       const soon = addDays(todayISO(), 3);
-      add("accueil", "Paiements à confirmer", PROJECTS.filter(p => p.role === "payee").flatMap(p => Object.values(p.lines).filter(l => l.status === "sent").map(l => ({ t: `${p.ownerName || "@" + p.owner} t'a envoyé ${pjMoney(l.amount, p.cur)}`, s: p.title + " · confirme la réception", pj: p.id }))), true);
-      add("accueil", "Personnes à payer", PROJECTS.filter(p => p.role === "owner").flatMap(p => Object.values(p.lines).filter(l => l.status === "due" && l.due && l.due <= soon).map(l => ({ t: `${l.name} · ${pjMoney(l.amount, p.cur)}`, s: `${p.title} · ${l.due < todayISO() ? "en retard, prévu le" : "prévu le"} ${frDate(l.due)}`, pj: p.id }))), true);
+      add("pjc", "accueil", "Paiements à confirmer", PROJECTS.filter(p => p.role === "payee").flatMap(p => Object.entries(p.lines).filter(([, l]) => l.status === "sent").map(([lid, l]) => ({ k: `pjc:${p.id}:${lid}`, t: `${p.ownerName || "@" + p.owner} t'a envoyé ${pjMoney(l.amount, p.cur)}`, s: p.title + " · confirme la réception", pj: p.id, go: "Confirmer" }))), true);
+      add("pjd", "accueil", "Personnes à payer", PROJECTS.filter(p => p.role === "owner").flatMap(p => Object.entries(p.lines).filter(([, l]) => l.status === "due" && l.due && l.due <= soon).map(([lid, l]) => ({ k: `pjd:${p.id}:${lid}`, t: `${l.name} · ${pjMoney(l.amount, p.cur)}`, s: `${p.title} · ${l.due < todayISO() ? "en retard, prévu le" : "prévu le"} ${frDate(l.due)}`, pj: p.id, go: "Payer" }))), true);
     }
-    add("abos", "Abonnements à surveiller", Object.values(subs).filter(x => subStatus(x).st === "soon").map(x => ({ t: x.name, s: subStatus(x).why || "" })));
-    add("garanties", "Garanties bientôt expirées", garItems().filter(x => garStatus(x.warranty) === "soon").map(x => ({ t: x.note || x.warranty.name || "Achat", s: "Garantie jusqu'au " + frDate(x.warranty.end) })));
-    add("frais", "Notes de frais à rembourser", allItems().filter(x => x.type === "depense" && x.ndf && x.ndfStatus !== "rembourse").map(x => ({ t: x.note || "Note de frais", s: `${eur(x.amount)} · ${frDate(x.date)}` })));
+    add("abos", "abos", "Abonnements à surveiller", Object.entries(subs).filter(([, x]) => subStatus(x).st === "soon").map(([id, x]) => ({ k: `abo:${id}:${subStatus(x).why || ""}`, t: x.name, s: subStatus(x).why || "", sub: id, go: "Gérer" })));
+    add("gar", "garanties", "Garanties bientôt expirées", garItems().filter(x => garStatus(x.warranty) === "soon").map(x => ({ k: `gar:${x.id}:${x.warranty.end}`, t: x.note || x.warranty.name || "Achat", s: "Garantie jusqu'au " + frDate(x.warranty.end), tx: x, go: "Voir l'achat" })));
+    add("ndf", "frais", "Notes de frais à rembourser", allItems().filter(x => x.type === "depense" && x.ndf && x.ndfStatus !== "rembourse").map(x => ({ k: "ndf:" + x.id, t: x.note || "Note de frais", s: `${eur(x.amount)} · ${frDate(x.date)}`, tx: x, go: "Gérer" })));
     const t = totals(itemsOf(cur.y, cur.m));
-    add("mois", "Budgets dépassés ce mois-ci", settings.cats.filter(c => c.budget && (t.byCat[c.id] || 0) > c.budget).map(c => ({ t: c.name, s: `${eur(t.byCat[c.id])} dépensés sur ${eur(c.budget)}` })));
+    add("bud", "mois", "Budgets dépassés ce mois-ci", settings.cats.filter(c => c.budget && (t.byCat[c.id] || 0) > c.budget).map(c => ({ k: `bud:${c.id}:${mk}`, t: c.name, s: `${eur(t.byCat[c.id])} dépensés sur ${eur(c.budget)}`, cat: c.id, go: "Ajuster le budget" })));
   } catch (e) {}
   return L;
 }
-function showAlerts() {
-  const L = alertsList(), act = typeof hubActivity === "function" ? hubActivity().slice(0, 6) : [];
-  const f = openForm(`<div class="f2"><h3>Alertes</h3>${L.length ? L.map((a, i) => `<div class="al-box${i === 0 ? " open" : ""}"><button type="button" class="alert-row" data-al="${i}"><b>${esc(a.label)}</b><span class="n">${a.n}</span><span class="al-chev" aria-hidden="true">⌄</span></button>
-      <div class="al-items">${a.items.slice(0, 12).map((x, j) => `<button type="button" class="al-it" data-go="${i}" data-j="${j}"><b>${esc(x.t)}</b>${x.s ? `<small>${esc(x.s)}</small>` : ""}</button>`).join("")}
-      ${a.items.length > 12 ? `<p class="hint">+ ${a.items.length - 12} autres</p>` : ""}<button type="button" class="linkbtn" data-go="${i}">Tout voir ›</button></div></div>`).join("")
-    : `<p class="hint">Rien à surveiller pour l'instant.</p>`}
-    ${act.length ? `<span class="lbl" style="margin-top:14px">Activité récente</span>${act.map((e, k) => `<button type="button" class="al-it" data-ev="${k}"><b>${esc(e.t)}</b><small>${esc(e.s)} · ${esc(agoText(e.at))}</small></button>`).join("")}` : ""}</div>`, () => true);
-  f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
-  f.querySelectorAll("[data-al]").forEach(b => b.onclick = () => b.parentElement.classList.toggle("open"));
-  f.querySelectorAll("[data-go]").forEach(b => b.onclick = () => {
-    const a = L[Number(b.dataset.go)], x = b.dataset.j != null ? a.items[Number(b.dataset.j)] : null; closeForm();
+function alertsList() {
+  const off = alertsOff();
+  return alertsAll().map(a => { const items = a.items.filter(x => !off[x.k]); return { ...a, items, n: items.length, hidden: a.items.length - items.length }; }).filter(a => a.n);
+}
+function alertsPrune() {
+  // Les alertes masquées qui n'existent plus (problème réglé) sont oubliées
+  const off = alertsOff(), live = new Set(alertsAll().flatMap(a => a.items.map(x => x.k)));
+  let ch = false; for (const k of Object.keys(off)) if (!live.has(k)) { delete off[k]; ch = true; }
+  if (ch) saveSettings();
+}
+// « Gérer » : aller à l'endroit concerné
+function alertGo(a, x) {
+  closeForm();
+  setTimeout(() => {
     if (x && x.deal) return showDeal(x.deal);
     if (x && x.pj) return showProject(x.pj);
+    if (x && x.sub) { switchTab("abos"); return editSub(x.sub); }
+    if (x && x.tx) { const { key, ...tx } = x.tx; switchTab(a.tab); return openSheet(tx); }
+    if (x && x.cat) return typeof pfGoto === "function" ? pfGoto("Budget mensuel par catégorie") : switchTab("reglages");
+    if (x && x.claim) { switchTab("dettes"); return setTimeout(() => { const el = document.querySelector(".soc-in"); if (el) { el.scrollIntoView({ block: "start", behavior: "smooth" }); el.classList.add("pf-flash"); } }, 120); }
     if (a.tab === "mois") homeMoreOpen(true); switchTab(a.tab);
-  });
+  }, 200);
+}
+function showAlerts(openIds) {
+  alertsPrune();
+  const L = alertsList(), off = alertsOff(), nOff = Object.keys(off).length, act = typeof hubActivity === "function" ? hubActivity().slice(0, 6) : [];
+  const open = new Set(openIds || (L[0] ? [L[0].id] : []));
+  const f = openForm(`<div class="f2"><h3>Alertes</h3>${L.length ? L.map((a, i) => `<div class="al-box${open.has(a.id) ? " open" : ""}" data-box="${a.id}"><button type="button" class="alert-row" data-al="${i}"><b>${esc(a.label)}</b><span class="n">${a.n}</span><span class="al-chev" aria-hidden="true">⌄</span></button>
+      <div class="al-items">${a.items.slice(0, 12).map((x, j) => `<div class="al-it2"><div class="al-tx"><b>${esc(x.t)}</b>${x.s ? `<small>${esc(x.s)}</small>` : ""}</div>
+        <button type="button" class="btn al-go" data-go="${i}" data-j="${j}">${esc(x.go || "Gérer")} ›</button><button type="button" class="al-x" data-off="${esc(x.k)}" data-box="${a.id}" aria-label="Masquer cette alerte" title="Masquer">✕</button></div>`).join("")}
+      ${a.items.length > 12 ? `<p class="hint">+ ${a.items.length - 12} autres</p>` : ""}
+      <div class="al-foot"><button type="button" class="linkbtn" data-go="${i}">Tout voir ›</button>${a.n > 1 ? `<button type="button" class="linkbtn al-alloff" data-alloff="${i}">Tout masquer</button>` : ""}</div></div></div>`).join("")
+    : `<p class="hint">Rien à surveiller pour l'instant.</p>`}
+    ${nOff ? `<button type="button" class="linkbtn al-restore" id="alRestore">Réafficher les alertes masquées (${nOff})</button>` : ""}
+    ${act.length ? `<span class="lbl" style="margin-top:14px">Activité récente</span>${act.map((e, k) => `<button type="button" class="al-it" data-ev="${k}"><b>${esc(e.t)}</b><small>${esc(e.s)} · ${esc(agoText(e.at))}</small></button>`).join("")}` : ""}</div>`, () => true);
+  f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
+  const openNow = () => [...f.querySelectorAll(".al-box.open")].map(b => b.dataset.box);
+  const redraw = msg => { saveSettings(); refreshBell(); const o = openNow(); closeForm(); showAlerts(o); if (msg) toast(msg); };
+  f.querySelectorAll("[data-al]").forEach(b => b.onclick = () => b.parentElement.classList.toggle("open"));
+  f.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { const a = L[Number(b.dataset.go)]; alertGo(a, b.dataset.j != null ? a.items[Number(b.dataset.j)] : null); });
+  f.querySelectorAll("[data-off]").forEach(b => b.onclick = () => { alertsOff()[b.dataset.off] = Date.now(); redraw("Alerte masquée"); });
+  f.querySelectorAll("[data-alloff]").forEach(b => b.onclick = () => { const a = L[Number(b.dataset.alloff)]; for (const x of a.items) alertsOff()[x.k] = Date.now(); redraw(`${a.n} alertes masquées`); });
+  { const r = f.querySelector("#alRestore"); if (r) r.onclick = () => { settings.alertsOff = {}; redraw("Alertes réaffichées"); }; }
   f.querySelectorAll("[data-ev]").forEach(b => b.onclick = () => { const e = act[Number(b.dataset.ev)]; closeForm(); if (e.did) showDeal(e.did); else { openGroup = e.gid; switchTab("partage"); } });
 }
+function refreshBell() { const d = document.getElementById("bellDot"); if (d) d.hidden = !alertsList().reduce((a, x) => a + x.n, 0); }
 // Thème : automatique (selon le téléphone), clair ou sombre
 function applyTheme(v) {
   v = v || (() => { try { return localStorage.getItem("bourselle-theme") || "auto"; } catch (e) { return "auto"; } })();
