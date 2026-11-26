@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "71";
+const APP_VERSION = "72";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -775,6 +775,7 @@ function renderReglages() {
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="payEdit">${SOC.pay ? "Modifier" : "Ajouter mes moyens de paiement"}</button>${SOC.payToken ? `<button class="btn" id="payShare">Partager mon lien de paiement</button>` : ""}</div></div>` : ""}
   ${typeof pushCardHTML === "function" ? pushCardHTML() : ""}
   ${typeof socContactsCardHTML === "function" ? socContactsCardHTML() : ""}
+  ${typeof lockCardHTML === "function" ? lockCardHTML() : ""}
   <div class="card"><h2>Apparence</h2>
     <div class="seg2" id="themeSeg" style="grid-template-columns:repeat(3,1fr)">${[["auto", "Automatique"], ["light", "Clair"], ["dark", "Sombre"]].map(([k, l]) => `<button type="button" data-th="${k}" aria-pressed="${applyTheme.cur === k}">${l}</button>`).join("")}</div>
     <p class="hint" style="margin:8px 0 0">Automatique suit le réglage de ton téléphone.</p></div>
@@ -815,6 +816,7 @@ function renderReglages() {
   view.innerHTML = html;
   if (typeof socBindTagCard === "function") socBindTagCard();
   if (typeof accBindCard === "function") accBindCard();
+  if (typeof lockBind === "function") lockBind(view);
   if (typeof patriBindHome === "function") patriBindHome();
   if (typeof pushBind === "function") pushBind();
   { const b = document.getElementById("payEdit"); if (b) b.onclick = editPay; const sh = document.getElementById("payShare"); if (sh) sh.onclick = () => shareText("Pour me payer :", payLinkUrl(0, "")); }

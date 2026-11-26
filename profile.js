@@ -4,7 +4,7 @@
 const PF_GROUPS = [
   ["Argent et partage", ["Mes comptes", "Combien as-tu vraiment ?", "Me faire payer", "Mes contacts Bourselle", "Notifications en direct", "Bourselle Plus"]],
   ["Budget", ["Budget mensuel par catégorie", "Opérations automatiques", "Importer un relevé bancaire", "Listes de choix", "Rappel des garanties"]],
-  ["Application", ["Apparence", "Langue et devise", "Version de l'app", "Installer sur ton téléphone"]],
+  ["Application", ["Verrouillage et clé d'accès", "Apparence", "Langue et devise", "Version de l'app", "Installer sur ton téléphone"]],
   ["Mes données", ["Exporter mes données"]],
 ];
 const PF_KEY = "bourselle-profil-ouvert";
