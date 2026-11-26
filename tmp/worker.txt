@@ -272,10 +272,12 @@ function dealStats(d) {
 // Ce que tout le monde voit (sans adresses e-mail ni clés)
 function dealPub(d, viewer) {
   const parts = {};
-  for (const [pid, p] of Object.entries(d.parts || {})) parts[pid] = { name: p.name, qty: p.qty || 0, amount: p.amount || 0, at: p.at, paid: !!p.paid, ok: !!p.ok, member: !!p.email };
+  const own = viewer && viewer.role === "owner";
+  for (const [pid, p] of Object.entries(d.parts || {})) parts[pid] = { name: p.name, qty: p.qty || 0, amount: p.amount || 0, at: p.at, paid: !!p.paid, ok: !!p.ok, member: !!p.email,
+    ...(p.inv ? { inv: true } : {}), ...(p.tag ? { tag: p.tag } : {}), ...(own && p.lk ? { lk: p.lk } : {}) };
   return { id: d.id, kind: d.kind, title: d.title, desc: d.desc, cur: d.cur, price: d.price, places: d.places, min: d.min, target: d.target, suggested: d.suggested,
     deadline: d.deadline, photo: d.photo || "", status: d.status,
-    ...(d.ton ? { ton: true, amount: d.amount, freq: d.freq, start: d.start, order: d.order || [], pays: d.pays || {}, started: !!d.started, rounds: tonRounds(d) } : {}), owner: d.ownerTag, ownerName: d.ownerName, created: d.created, updated: d.updated,
+    ...(d.ton ? { ton: true, amount: d.amount, freq: d.freq, start: d.start, due: d.due || 0, rules: d.rules || "", order: d.order || [], pays: d.pays || {}, warns: d.warns || {}, started: !!d.started, rounds: tonRounds(d) } : {}), owner: d.ownerTag, ownerName: d.ownerName, created: d.created, updated: d.updated,
     parts, comments: d.comments || {}, reacts: d.reacts || {}, stats: dealStats(d), you: viewer || null };
 }
 function dealFields(b, d, isNew) {
@@ -295,6 +297,9 @@ function dealFields(b, d, isNew) {
     o.amount = num(b.amount ?? d.amount); if (!(o.amount > 0 && o.amount < 1e7)) throw new HttpErr(400, "indique la cotisation par personne");
     o.freq = ["semaine", "mois", "an"].includes(b.freq ?? d.freq) ? (b.freq ?? d.freq) : "mois";
     o.start = isoOk(b.start ?? d.start) ? (b.start ?? d.start) : ""; if (!o.start) throw new HttpErr(400, "indique la date du premier tour");
+    // Clauses : date butoir de règlement (jours après la date de chaque tour) et règles libres
+    o.due = Math.max(0, Math.min(60, parseInt(b.due ?? d.due ?? 3, 10) || 0));
+    o.rules = String(b.rules ?? d.rules ?? "").trim().slice(0, 1500);
   } else {
     o.target = Math.max(0, num(b.target ?? d.target ?? 0) || 0); o.suggested = Math.max(0, num(b.suggested ?? d.suggested ?? 0) || 0);
   }
@@ -307,7 +312,8 @@ function tonDate(d, k) {
   else return iso(addMonths(x, d.freq === "an" ? 12 * k : k));
   return iso(x);
 }
-const tonRounds = d => (d.order || []).map((ben, k) => ({ k, date: tonDate(d, k), ben }));
+const tonRounds = d => (d.order || []).map((ben, k) => { const date = tonDate(d, k), x = new Date(date + "T12:00:00Z"); x.setUTCDate(x.getUTCDate() + (d.due || 0)); return { k, date, due: iso(x), ben }; });
+const fdFr = s => s.split("-").reverse().join("/");
 const dealEmails = (d, except) => [d.ownerEmail, ...Object.values(d.parts || {}).map(p => p.email)].filter(e => e && e !== except);
 const dealUrl = d => "./?d=" + d.id;
 const dealMsg = (d, fr, en) => lang => ({ title: d.title, body: lang === "en" ? en(lang) : fr(lang), url: dealUrl(d), tag: "d-" + d.id });
@@ -372,17 +378,24 @@ async function dealApi(req, env, url, cors) {
   if (m[2] === "me") {
     if (!a.pid) throw new HttpErr(403, "tu ne participes pas");
     const p = d.parts[a.pid];
+    if (b.action === "accept" || b.action === "decline") {
+      if (!p.inv) throw new HttpErr(409, "invitation déjà traitée");
+      if (b.action === "accept") { delete p.inv; await save(); notify(env, [d.ownerEmail], dealMsg(d, () => `${p.name} a accepté de rejoindre la cagnotte`, () => `${p.name} accepted to join the money pot`)); }
+      else { delete d.parts[a.pid]; if (d.order) d.order = d.order.filter(x => x !== a.pid); await save(); notify(env, [d.ownerEmail], dealMsg(d, () => `${p.name} a refusé l'invitation`, () => `${p.name} declined the invitation`)); a.pid = ""; a.role = "guest"; }
+      return out();
+    }
+    if (p.inv) throw new HttpErr(409, "accepte d'abord l'invitation");
     if (b.action === "remind") {
       // Relancer un membre : notification s'il a un compte (une fois toutes les 6 h au plus pour le même versement)
       const who = String(b.pid || ""), tp = d.parts[who]; if (!tp) throw new HttpErr(404, "membre inconnu");
       const k = d.ton ? parseInt(b.k, 10) : -1, rnd = d.ton ? tonRounds(d)[k] : null;
-      if (d.ton) { if (!rnd || (rnd.ben !== a.pid && a.role !== "owner")) throw new HttpErr(403, "seul celui qui reçoit le pot (ou l'organisateur) relance"); }
-      else if (a.role !== "owner") throw new HttpErr(403, "réservé à l'organisateur");
+      if (a.role !== "owner") throw new HttpErr(403, "seul le gérant de la cagnotte relance");
+      if (d.ton && !rnd) throw new HttpErr(400, "tour inconnu");
       d.reminded = d.reminded || {}; const rk = (d.ton ? k + "|" : "") + who, last = d.reminded[rk] || 0;
       let sent = false;
       if (tp.email && Date.now() - last > 6 * 3600 * 1000) {
         const amt = d.ton ? d.amount : d.kind === "achat" ? (tp.qty || 0) * d.price : tp.amount || 0, to = d.ton ? (d.parts[rnd.ben] || {}).name : d.ownerName;
-        notify(env, [tp.email], dealMsg(d, l => `Petit rappel : ${fmtMoney(amt, d.cur, l)} à verser à ${to}${d.ton ? ` (tour ${k + 1}, le ${rnd.date.split("-").reverse().join("/")})` : ""}`, l => `Friendly reminder: ${fmtMoney(amt, d.cur, l)} to pay to ${to}${d.ton ? ` (round ${k + 1}, ${rnd.date.split("-").reverse().join("/")})` : ""}`));
+        notify(env, [tp.email], dealMsg(d, l => `Petit rappel : ${fmtMoney(amt, d.cur, l)} à verser à ${to}${d.ton ? ` (tour ${k + 1}, au plus tard le ${fdFr(rnd.due)})` : ""}`, l => `Friendly reminder: ${fmtMoney(amt, d.cur, l)} to pay to ${to}${d.ton ? ` (round ${k + 1}, by ${fdFr(rnd.due)})` : ""}`));
         d.reminded[rk] = Date.now(); await save(); sent = true;
       }
       return out({ notified: sent, member: !!tp.email });
@@ -421,6 +434,7 @@ async function dealApi(req, env, url, cors) {
   }
   if (m[2] === "comment") {
     if (a.role === "guest") throw new HttpErr(403, "participe d'abord pour commenter");
+    if (a.pid && (d.parts[a.pid] || {}).inv) throw new HttpErr(403, "accepte d'abord l'invitation");
     const text = String(b.text || "").trim().slice(0, 500); if (!text) throw new HttpErr(400, "commentaire vide");
     d.comments = d.comments || {}; const cid = "dc" + rid(10), by = a.role === "owner" ? "owner" : a.pid;
     const re = d.comments[String(b.re || "")] ? String(b.re) : "";
@@ -451,7 +465,61 @@ async function dealApi(req, env, url, cors) {
     const act = b.action, p = b.pid ? d.parts[b.pid] : null;
     if (act === "edit") Object.assign(d, dealFields(b, d, false));
     else if (act === "confirm" || act === "unconfirm") { if (!p) throw new HttpErr(404, "participant introuvable"); p.ok = act === "confirm"; if (p.ok) p.paid = true; }
-    else if (act === "remove") { if (!p) throw new HttpErr(404, "participant introuvable"); if (d.ton && b.pid === a.pid) throw new HttpErr(409, "l'organisateur reste membre"); delete d.parts[b.pid]; if (d.order) d.order = d.order.filter(x => x !== b.pid); }
+    else if (act === "remove") {
+      if (!p) throw new HttpErr(404, "participant introuvable"); if (d.ton && b.pid === a.pid) throw new HttpErr(409, "l'organisateur reste membre");
+      if (d.ton && d.started) {
+        // Cagnotte commencée : on ne retire que quelqu'un qui n'a pas encore reçu le pot ; les tours suivants avancent d'un cran.
+        const idx = d.order.indexOf(b.pid), cur = dealStats(d).round;
+        if (idx <= cur) throw new HttpErr(409, `${p.name} a déjà reçu le pot ou c'est son tour : impossible de le retirer`);
+        const np = {};
+        for (const [key, x] of Object.entries(d.pays || {})) { const [k, pid] = key.split("|"); const kk = +k; if (pid === b.pid || kk === idx) continue; np[(kk > idx ? kk - 1 : kk) + "|" + pid] = x; }
+        d.pays = np;
+        if (d.warns) { const nw = {}; for (const [key, x] of Object.entries(d.warns)) { const [k, pid] = key.split("|"); const kk = +k; if (pid === b.pid || kk === idx) continue; nw[(kk > idx ? kk - 1 : kk) + "|" + pid] = x; } d.warns = nw; }
+      }
+      delete d.parts[b.pid]; if (d.order) d.order = d.order.filter(x => x !== b.pid);
+      if (p.email && p.email !== a.email) notify(env, [p.email], dealMsg(d, () => `${d.ownerName || "Le gérant"} t'a retiré de la cagnotte`, () => `${d.ownerName || "The manager"} removed you from the money pot`));
+    }
+    else if ((act === "add" || act === "invite") && d.ton) {
+      if (d.started) throw new HttpErr(409, "la cagnotte a commencé : on ne peut plus ajouter de membre");
+      if (Object.keys(d.parts).length >= 200) throw new HttpErr(409, "trop de membres");
+      const pid = "p" + rid(9);
+      if (act === "add") {
+        // Quelqu'un sans l'appli : il suivra la cagnotte avec son lien personnel
+        const name = String(b.name || "").trim().slice(0, 40); if (!name) throw new HttpErr(400, "indique son prénom");
+        const lk = rid(20); d.parts[pid] = { name, qty: 1, at: Date.now(), key: await sha(lk), lk };
+      } else {
+        // Quelqu'un qui a l'appli : il reçoit l'invitation dans son appli et l'accepte
+        const tag = String(b.tag || "").trim().toLowerCase().replace(/^@/, ""); if (!TAG_RE.test(tag)) throw new HttpErr(400, "tag invalide");
+        const em = await env.CODES.get("tag:" + tag); if (!em) throw new HttpErr(404, "@" + tag + " introuvable");
+        if (em === a.email || Object.values(d.parts).some(x => x.email === em)) throw new HttpErr(409, "@" + tag + " fait déjà partie de la cagnotte");
+        const meta = ((await env.CODES.list({ prefix: "tag:" + tag, limit: 1 })).keys || [])[0];
+        const name = String(b.name || (meta && meta.metadata && meta.metadata.n) || tag).trim().slice(0, 40);
+        d.parts[pid] = { name, qty: 1, at: Date.now(), email: em, tag, inv: true };
+        await pushTo(env, "di:" + em, d.id);
+        notify(env, [em], dealMsg(d, l => `${d.ownerName || "Quelqu'un"} t'invite dans sa cagnotte : ${fmtMoney(d.amount, d.cur, l)} ${d.freq === "semaine" ? "par semaine" : d.freq === "an" ? "par an" : "par mois"}. Ouvre-la pour accepter.`, l => `${d.ownerName || "Someone"} invited you to their money pot: ${fmtMoney(d.amount, d.cur, l)} ${d.freq === "semaine" ? "a week" : d.freq === "an" ? "a year" : "a month"}. Open it to accept.`));
+      }
+      d.order = d.order || []; d.order.push(pid);
+      await save(); return out({ added: pid, link: act === "add" ? pid + "." + d.parts[pid].lk : "" });
+    }
+    else if (act === "link" && d.ton) {
+      if (!p || p.email) throw new HttpErr(400, "lien personnel réservé aux membres sans l'appli");
+      if (!p.lk) { p.lk = rid(20); p.key = await sha(p.lk); }
+      await save(); return out({ link: b.pid + "." + p.lk });
+    }
+    else if (act === "warn" && d.ton) {
+      // Avertissement : seulement quand la date butoir du tour est dépassée et que le versement n'est pas confirmé
+      const k = parseInt(b.k, 10), rnd = tonRounds(d)[k];
+      if (!rnd || !p || b.pid === rnd.ben) throw new HttpErr(400, "membre ou tour inconnu");
+      if (((d.pays || {})[k + "|" + b.pid] || {}).st === "ok") throw new HttpErr(409, "ce versement est déjà confirmé");
+      if (iso(new Date()) <= rnd.due) throw new HttpErr(409, `la date butoir (${fdFr(rnd.due)}) n'est pas encore passée`);
+      d.warns = d.warns || {}; const wk = k + "|" + b.pid, w = d.warns[wk] || { n: 0, at: 0 };
+      let notified = false;
+      if (Date.now() - w.at > 6 * 3600 * 1000) {
+        d.warns[wk] = { n: w.n + 1, at: Date.now() };
+        if (p.email) { notify(env, [p.email], dealMsg(d, l => `⚠️ Avertissement : ta cotisation de ${fmtMoney(d.amount, d.cur, l)} (tour ${k + 1}, pour ${(d.parts[rnd.ben] || {}).name || ""}) devait être réglée au plus tard le ${fdFr(rnd.due)}.`, l => `⚠️ Warning: your ${fmtMoney(d.amount, d.cur, l)} contribution (round ${k + 1}, to ${(d.parts[rnd.ben] || {}).name || ""}) was due by ${fdFr(rnd.due)}.`)); notified = true; }
+      }
+      await save(); return out({ notified, member: !!p.email, n: (d.warns[wk] || w).n });
+    }
     else if (act === "order" && d.ton) {
       if (d.started) throw new HttpErr(409, "l'ordre est fixé une fois la cagnotte commencée");
       const o = Array.isArray(b.order) ? b.order.map(String) : [];
@@ -462,6 +530,8 @@ async function dealApi(req, env, url, cors) {
       const o = (d.order || []).slice(); for (let i = o.length - 1; i > 0; i--) { const j = crypto.getRandomValues(new Uint32Array(1))[0] % (i + 1); [o[i], o[j]] = [o[j], o[i]]; } d.order = o;
     } else if (act === "start" && d.ton) {
       if ((d.order || []).length < 2) throw new HttpErr(409, "il faut au moins 2 membres");
+      const waiting = d.order.filter(x => (d.parts[x] || {}).inv).map(x => d.parts[x].name);
+      if (waiting.length) throw new HttpErr(409, `en attente d'acceptation : ${waiting.join(", ")}`);
       d.started = true;
       notify(env, dealEmails(d, a.email), dealMsg(d, l => `C'est parti : ${d.order.length} membres, ${fmtMoney(d.amount, d.cur, l)} par tour. Tour 1 le ${tonDate(d, 0).split("-").reverse().join("/")} pour ${d.parts[d.order[0]].name}.`, l => `It's on: ${d.order.length} members, ${fmtMoney(d.amount, d.cur, l)} per round. Round 1 on ${tonDate(d, 0).split("-").reverse().join("/")} for ${d.parts[d.order[0]].name}.`));
     }

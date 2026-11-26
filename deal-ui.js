@@ -191,10 +191,11 @@ const TON_FREQ_EN = { semaine: "every week", mois: "every month", an: "every yea
 DEALUI.tonCard = function (d, ctx) {
   const t = ctx.t, m = v => ctx.money(v, d.cur), st = d.stats || {}, n = (d.order || []).length;
   const fr = (window.LANG === "en" ? TON_FREQ_EN : TON_FREQ_FR)[d.freq] || "";
-  const badge = d.status === "cancelled" ? t("Annulé") : st.done ? t("Terminée") : d.started ? t("Tour {x}", Math.max(1, st.round + 1)) + "/" + n : t("Inscriptions ouvertes");
+  const inv = d.you && d.you.pid && (d.parts[d.you.pid] || {}).inv;
+  const badge = inv ? "✉️ " + t("Invitation à accepter") : d.status === "cancelled" ? t("Annulé") : st.done ? t("Terminée") : d.started ? t("Tour {x}", Math.max(1, st.round + 1)) + "/" + n : t("Inscriptions ouvertes");
   const pct = st.need ? Math.min(100, st.paid / st.need * 100) : 0;
   return `<button type="button" class="deal-card" data-deal="${hesc(d.id)}">
-    <div class="dc-top"><span class="dc-kind cagnotte">${hesc(t("Cagnotte"))}</span><span class="dc-st${d.started ? " ok" : ""}">${hesc(badge)}</span></div>
+    <div class="dc-top"><span class="dc-kind cagnotte">${hesc(t("Cagnotte"))}</span><span class="dc-st${inv ? " inv" : d.started ? " ok" : ""}">${hesc(badge)}</span></div>
     <b class="dc-t">${hesc(d.title)}</b><div class="dc-bar"><i style="width:${pct.toFixed(1)}%"></i></div>
     <div class="dc-s">${hesc(m(d.amount) + " " + t("par personne") + " · " + fr + " · " + t(n === 1 ? "{x} membre" : "{x} membres", n) + " · " + t("pot de {x}", m(st.sum)))}</div></button>`;
 };
@@ -212,65 +213,125 @@ DEALUI.remind = async function (d, ctx, pids, k) {
     const who = toShare.map(nm).join(", ");
     const txt = d.ton ? t("Petit rappel 🙂 {x} : ta cotisation de {m} pour « {t} » (tour {k}, le {d}) est à verser à {b}. Pour payer :", who).replace("{m}", m(d.amount)).replace("{t}", d.title).replace("{k}", k + 1).replace("{d}", ctx.fdate(r.date)).replace("{b}", nm(r.ben))
       : t("Petit rappel 🙂 {x} : ta part de {m} pour « {t} » est à régler à {b}. Pour payer :", who).replace("{m}", m(amt(toShare[0]))).replace("{t}", d.title).replace("{b}", d.ownerName || "");
-    await ctx.share(txt, ctx.url);
+    const lk = d.ton && toShare.length === 1 && (d.parts[toShare[0]] || {}).lk;
+    await ctx.share(txt, lk ? DEALUI.tonPersonalLink(ctx, toShare[0] + "." + lk) : ctx.url);
   }
   if (notified.length) setTimeout(() => ctx.toast(t("Rappel envoyé à {x}", notified.map(nm).join(", "))), toShare.length ? 1800 : 0);
 };
+// Statut d'un versement : reçu, versé (à confirmer), à verser, en retard (date butoir dépassée)
+DEALUI.tonStatus = function (d, r, pid, today) {
+  const st = ((d.pays || {})[r.k + "|" + pid] || {}).st;
+  return st === "ok" ? "ok" : st === "sent" ? "sent" : r.due && today > r.due ? "late" : "due";
+};
+DEALUI.tonPersonalLink = (ctx, link) => ctx.url + "&m=" + link;
 DEALUI.renderTon = function (root, S, ctx) {
   const d = S.deal, t = ctx.t, m = v => ctx.money(v, d.cur), st = d.stats || {}, you = d.you || {};
   const owner = you.role === "owner", me = you.pid || "", isMember = me && (d.order || []).includes(me), n = (d.order || []).length;
+  const invited = isMember && (d.parts[me] || {}).inv;
   const name = pid => (d.parts[pid] || {}).name || "?", today = new Date().toISOString().slice(0, 10);
   const fr = (window.LANG === "en" ? TON_FREQ_EN : TON_FREQ_FR)[d.freq] || "";
-  const pinfo = S.payinfo || {};
-  let h = `<div class="card deal-hero">${d.photo ? `<div class="dh-ph" id="dhPh"></div>` : ""}
+  const pinfo = S.payinfo || {}, warns = d.warns || {};
+  const dueTxt = !d.due ? t("le jour du tour") : t(d.due === 1 ? "{x} jour après la date du tour" : "{x} jours après la date du tour", d.due);
+  const stLabel = s => ({ ok: t("Payé ✓"), sent: t("Versé, à confirmer"), late: t("En retard"), due: t("À verser") })[s];
+  let h = "";
+  if (invited) h += `<div class="card ton-inv"><h2>${hesc(t("Invitation"))}</h2><p class="hint" style="margin:0 0 10px">${hesc(t("{x} t'invite dans cette cagnotte. Accepte pour la suivre, commenter et voir les versements.", d.ownerName || ""))}</p>
+    <div class="acts"><button type="button" class="btn" id="tDecl">${hesc(t("Refuser"))}</button><button type="button" class="btn primary" id="tAcc">${hesc(t("Accepter"))}</button></div></div>`;
+  h += `<div class="card deal-hero">${d.photo ? `<div class="dh-ph" id="dhPh"></div>` : ""}
     <div class="dc-top"><span class="dc-kind cagnotte">${hesc(t("Cagnotte"))}</span>${d.started ? `<span class="dc-st ok">${hesc(st.done ? t("Terminée") : t("En cours"))}</span>` : `<span class="dc-st">${hesc(t("Inscriptions ouvertes"))}</span>`}</div>
-    <h2 class="dh-t">${hesc(d.title)}</h2><div class="hint">${hesc(t("Organisé par {x}", (d.ownerName || "") + (d.owner ? " (@" + d.owner + ")" : "")))}</div>
+    <h2 class="dh-t">${hesc(d.title)}</h2><div class="hint">${hesc(t("Gérée par {x}", (d.ownerName || "") + (d.owner ? " (@" + d.owner + ")" : "")))}</div>
     ${d.desc ? `<p class="dh-d">${hesc(d.desc)}</p>` : ""}
     <div class="dh-big"><b>${hesc(m(d.amount))}</b> <span>${hesc(t("par personne") + ", " + fr)}</span></div>
     <div class="dh-s">${hesc(t(n === 1 ? "{x} membre" : "{x} membres", n) + " · " + t("chaque tour, un membre reçoit le pot de {x}", m(st.sum)))}</div>
     <div class="dh-s">${hesc(t("1er tour le {x}", ctx.fdate(d.start)))}</div>
+    <div class="ton-clauses"><b>${hesc(t("Clauses de la cagnotte"))}</b><p>⏰ ${hesc(t("Date butoir de règlement"))} : ${hesc(dueTxt)}.</p>${d.rules ? `<p class="ton-rules">${hesc(d.rules)}</p>` : ""}</div>
     ${!d.started ? `<p class="dh-note">${hesc(t("Les inscriptions sont ouvertes. L'ordre des tours (qui reçoit le pot, et quand) sera fixé au démarrage."))}</p>` : ""}
-    <button type="button" class="btn" id="dShare" style="margin-top:10px;width:100%">${hesc(t("Inviter des amis"))}</button></div>`;
-  if (!isMember && !d.started && d.status === "open") h += `<div class="card"><h2>${hesc(t("Rejoindre la cagnotte"))}</h2>${ctx.needName ? `<label class="lbl" for="djName">${hesc(t("Ton prénom"))}</label><input class="field" id="djName" maxlength="40" value="${hesc(ctx.defaultName || "")}">` : ""}
+    ${owner || !d.started ? `<button type="button" class="btn" id="dShare" style="margin-top:10px;width:100%">${hesc(owner ? t("Partager le lien de la cagnotte") : t("Inviter des amis"))}</button>` : ""}</div>`;
+  if (!isMember && !d.started && d.status === "open" && !owner) h += `<div class="card"><h2>${hesc(t("Rejoindre la cagnotte"))}</h2>${ctx.needName ? `<label class="lbl" for="djName">${hesc(t("Ton prénom"))}</label><input class="field" id="djName" maxlength="40" value="${hesc(ctx.defaultName || "")}">` : ""}
     <button type="button" class="btn primary" id="djGo" style="margin-top:12px;width:100%">${hesc(t("Je participe"))}</button></div>`;
+  // La période en cours : qui a payé, qui est en retard (visible par tous)
+  const cur = d.started && st.round >= 0 && !st.done ? d.rounds[st.round] : null;
+  if (cur) {
+    const payers = d.order.filter(pid => pid !== cur.ben), ok = payers.filter(pid => DEALUI.tonStatus(d, cur, pid, today) === "ok").length;
+    const per = { semaine: t("Cette semaine"), mois: t("Ce mois-ci"), an: t("Cette année") }[d.freq] || t("Tour en cours");
+    const lateL = payers.filter(pid => DEALUI.tonStatus(d, cur, pid, today) === "late");
+    h += `<div class="card ton-now"><h2>${hesc(per)}<small>${ok}/${payers.length}</small></h2>
+      <p class="hint" style="margin:0 0 4px">${hesc(t("Tour {x}", cur.k + 1) + " · " + t("{x} reçoit le pot", name(cur.ben)) + " · " + t("à régler au plus tard le {x}", ctx.fdate(cur.due)))}</p>
+      ${payers.map(pid => { const s = DEALUI.tonStatus(d, cur, pid, today), w = (warns[cur.k + "|" + pid] || {}).n || 0;
+        return `<div class="ton-st ${s}"><span class="ton-dot"></span><span class="ton-sn"><b>${hesc(name(pid))}</b>${pid === me ? ` <small>(${hesc(t("moi"))})</small>` : ""}${w ? `<small class="ton-w">⚠️ ${hesc(t(w === 1 ? "averti 1 fois" : "averti {x} fois", w))}</small>` : ""}</span>
+        <span class="pj-st ${s === "late" ? "late" : s}">${hesc(stLabel(s))}</span>
+        ${owner && s !== "ok" && pid !== me ? `<span class="ton-oa"><button type="button" class="linkbtn" data-trem="${cur.k}" data-pid="${hesc(pid)}">🔔 ${hesc(t("Relancer"))}</button>${s === "late" ? `<button type="button" class="linkbtn danger" data-twarn="${cur.k}" data-pid="${hesc(pid)}">⚠️ ${hesc(t("Avertir"))}</button>` : ""}</span>` : ""}</div>`; }).join("")}
+      ${owner && lateL.length > 1 ? `<button type="button" class="btn ton-all danger-soft" data-twall="${cur.k}">⚠️ ${hesc(t("Avertir tous les retardataires ({x})", lateL.length))}</button>` : ""}
+      ${owner && payers.filter(pid => pid !== me && DEALUI.tonStatus(d, cur, pid, today) === "due").length > 1 ? `<button type="button" class="btn ton-all" data-tall="${cur.k}">🔔 ${hesc(t("Relancer ceux qui n'ont pas versé"))}</button>` : ""}</div>`;
+  }
   // Membres et ordre des tours
-  h += `<div class="card"><h2>${hesc(t("Ordre des tours"))}<small>${n}</small></h2>${(d.order || []).map((pid, k) => `<div class="ton-m${pid === me ? " me" : ""}"><span class="ton-k">${k + 1}</span><span class="ton-n"><b>${hesc(name(pid))}</b>${pid === me ? ` <small>(${hesc(t("moi"))})</small>` : ""}<small>${hesc(t("reçoit le pot le {x}", ctx.fdate(d.rounds[k].date)))}</small></span>
-      ${owner && !d.started ? `<span class="ton-mv"><button type="button" class="linkbtn" data-up="${k}" ${k ? "" : "disabled"}>↑</button><button type="button" class="linkbtn" data-dn="${k}" ${k < n - 1 ? "" : "disabled"}>↓</button>${pid !== me ? `<button type="button" class="linkbtn danger" data-own="remove" data-pid="${hesc(pid)}">✕</button>` : ""}</span>` : ""}</div>`).join("")}
-    ${owner && !d.started ? `<div class="acts" style="margin-top:10px"><button type="button" class="btn" data-own="shuffle">${hesc(t("Tirer au sort"))}</button><button type="button" class="btn primary" data-own="start" ${n < 2 ? "disabled" : ""}>${hesc(t("Démarrer la cagnotte"))}</button></div>` : ""}
-    ${isMember && !owner && !d.started ? `<div class="acts" style="margin-top:10px"><button type="button" class="btn danger" id="dLeave">${hesc(t("Me retirer"))}</button></div>` : ""}</div>`;
+  const curK = d.started ? st.round : -1;
+  h += `<div class="card"><h2>${hesc(t(d.started ? "Ordre des tours" : "Membres et ordre des tours"))}<small>${n}</small></h2>${(d.order || []).map((pid, k) => { const p = d.parts[pid] || {};
+      const badge = p.inv ? t("invitation envoyée") : !p.member ? t("sans l'appli") : "";
+      return `<div class="ton-m${pid === me ? " me" : ""}"><span class="ton-k">${k + 1}</span><span class="ton-n"><b>${hesc(name(pid))}</b>${pid === me ? ` <small>(${hesc(t("moi"))})</small>` : ""}${badge ? ` <span class="ton-b${p.inv ? " inv" : ""}">${hesc(badge)}</span>` : ""}<small>${hesc(t("reçoit le pot le {x}", ctx.fdate(d.rounds[k].date)))}</small></span>
+      ${owner ? `<span class="ton-mv">${!p.member && pid !== me ? `<button type="button" class="linkbtn" data-tlink="${hesc(pid)}" title="${hesc(t("Envoyer son lien"))}">🔗</button>` : ""}${!d.started ? `<button type="button" class="linkbtn" data-up="${k}" ${k ? "" : "disabled"}>↑</button><button type="button" class="linkbtn" data-dn="${k}" ${k < n - 1 ? "" : "disabled"}>↓</button>` : ""}${pid !== me && (!d.started || k > curK) ? `<button type="button" class="linkbtn danger" data-own="remove" data-pid="${hesc(pid)}" title="${hesc(t("Retirer"))}">✕</button>` : ""}</span>` : ""}</div>`; }).join("")}
+    ${owner && !d.started ? `<div class="ton-add"><label class="lbl" for="tAdd">${hesc(t("Ajouter un membre"))}</label>
+      <input class="field" id="tAdd" maxlength="40" autocomplete="off" autocapitalize="words" placeholder="${hesc(ctx.search ? t("Prénom, ou @tag d'un utilisateur Bourselle") : t("Prénom"))}"><div id="tAddRes" class="ton-addres"></div>
+      <p class="hint" style="margin:6px 0 0">${hesc(t("Avec l'appli : il reçoit l'invitation dans Bourselle et l'accepte. Sans l'appli : tu lui envoies son lien pour suivre la cagnotte, payer et commenter."))}</p></div>
+      <div class="acts" style="margin-top:10px"><button type="button" class="btn" data-own="shuffle">${hesc(t("Tirer au sort"))}</button><button type="button" class="btn primary" data-own="start" ${n < 2 ? "disabled" : ""}>${hesc(t("Démarrer la cagnotte"))}</button></div>` : ""}
+    ${isMember && !owner && !d.started && !invited ? `<div class="acts" style="margin-top:10px"><button type="button" class="btn danger" id="dLeave">${hesc(t("Me retirer"))}</button></div>` : ""}</div>`;
   // Les tours
   if (d.started) {
     h += `<div class="hub-sec"><span>${hesc(t("Les tours"))}</span></div>`;
     for (const r of d.rounds) {
       const payers = d.order.filter(pid => pid !== r.ben), got = payers.filter(pid => ((d.pays || {})[r.k + "|" + pid] || {}).st === "ok").length;
-      const isCur = r.k === st.round, past = r.date < today && !isCur, mineBen = r.ben === me;
+      const isCur = r.k === st.round, mineBen = r.ben === me;
       h += `<div class="card ton-r${isCur ? " cur" : ""}${got === payers.length ? " done" : ""}"><div class="ton-rh"><b>${hesc(t("Tour {x}", r.k + 1))}</b><span>${hesc(ctx.fdate(r.date))}</span>${isCur ? `<span class="dc-st ok">${hesc(t("en cours"))}</span>` : ""}</div>
-        <div class="hint">${hesc(t("{x} reçoit le pot", name(r.ben)) + " · " + got + "/" + payers.length + " " + t("versements reçus"))}</div>
-        ${(mineBen || owner) && r.date <= addDaysISO(today, 7) && payers.filter(pid => pid !== me && !((d.pays || {})[r.k + "|" + pid] || {}).st).length > 1 ? `<button type="button" class="btn ton-all" data-tall="${r.k}">🔔 ${hesc(t("Relancer ceux qui n'ont pas versé"))}</button>` : ""}
-        ${payers.map(pid => { const s = ((d.pays || {})[r.k + "|" + pid] || {}).st || "due"; return `<div class="pj-line ${s === "due" ? "due" : s}"><div class="pj-l"><b>${hesc(name(pid))}</b>${pid === me ? ` <small>(${hesc(t("moi"))})</small>` : ""}<small>${hesc(t("verse {x} à {y}", m(d.amount)).replace("{y}", name(r.ben)))}</small></div>
-          <div class="pj-r"><span class="pj-st ${s}">${hesc(s === "ok" ? t("Reçu ✓") : s === "sent" ? t("Versé, à confirmer") : t("À verser"))}</span></div>
-          <div class="pj-acts">${pid === me && s === "due" ? `<button type="button" class="btn primary" data-tpay="${r.k}">${hesc(t("Payer {x}", name(r.ben)))}</button>` : ""}${(mineBen || owner) && s === "due" && pid !== me && r.date <= addDaysISO(today, 7) ? `<button type="button" class="linkbtn ton-rem" data-trem="${r.k}" data-pid="${hesc(pid)}">${hesc(t("Relancer"))}</button>` : ""}${(mineBen || (owner && !(d.parts[r.ben] || {}).member)) && s !== "ok" && pid !== me ? `<button type="button" class="btn ${s === "sent" ? "primary" : ""}" data-trec="${r.k}" data-pid="${hesc(pid)}">${hesc(t("Confirmer la réception"))}</button>` : ""}</div>
-          ${pid === me && s === "due" ? `<div class="ton-paybox" id="tpb${r.k}" hidden></div>` : ""}</div>`; }).join("")}</div>`;
+        <div class="hint">${hesc(t("{x} reçoit le pot", name(r.ben)) + " · " + got + "/" + payers.length + " " + t("versements reçus") + " · " + t("date butoir : {x}", ctx.fdate(r.due)))}</div>
+        ${payers.map(pid => { const s = DEALUI.tonStatus(d, r, pid, today), cls = s === "late" ? "due late" : s; return `<div class="pj-line ${cls}"><div class="pj-l"><b>${hesc(name(pid))}</b>${pid === me ? ` <small>(${hesc(t("moi"))})</small>` : ""}<small>${hesc(t("verse {x} à {y}", m(d.amount)).replace("{y}", name(r.ben)))}</small></div>
+          <div class="pj-r"><span class="pj-st ${s}">${hesc(s === "ok" ? t("Reçu ✓") : stLabel(s))}</span></div>
+          <div class="pj-acts">${pid === me && (s === "due" || s === "late") && !invited ? `<button type="button" class="btn primary" data-tpay="${r.k}">${hesc(t("Payer {x}", name(r.ben)))}</button>` : ""}${owner && s !== "ok" && s !== "sent" && pid !== me && r.date <= addDaysISO(today, 7) && !isCur ? `<button type="button" class="linkbtn ton-rem" data-trem="${r.k}" data-pid="${hesc(pid)}">${hesc(t("Relancer"))}</button>` : ""}${owner && s === "late" && pid !== me && !isCur ? `<button type="button" class="linkbtn danger ton-rem" data-twarn="${r.k}" data-pid="${hesc(pid)}">${hesc(t("Avertir"))}</button>` : ""}${(mineBen || (owner && !(d.parts[r.ben] || {}).member)) && s !== "ok" && pid !== me ? `<button type="button" class="btn ${s === "sent" ? "primary" : ""}" data-trec="${r.k}" data-pid="${hesc(pid)}">${hesc(t("Confirmer la réception"))}</button>` : ""}</div>
+          ${pid === me && (s === "due" || s === "late") ? `<div class="ton-paybox" id="tpb${r.k}" hidden></div>` : ""}</div>`; }).join("")}</div>`;
     }
   }
   if (owner) h += `<div class="card"><h2>${hesc(t("Gérer"))}</h2><div class="acts">${d.status === "open" ? `<button type="button" class="btn danger" data-own="cancel">${hesc(t("Annuler"))}</button>` : `<button type="button" class="btn" data-own="reopen">${hesc(t("Rouvrir"))}</button>`}${ctx.edit ? `<button type="button" class="btn" id="dEditDeal">${hesc(t("Modifier"))}</button>` : ""}</div></div>`;
   const items = Object.entries(d.comments || {}).map(([id, c]) => ({ id, name: c.name, text: c.text, at: c.at, re: c.re, mine: c.by === (owner ? "owner" : me) })).sort((a, b2) => a.at - b2.at);
-  const cme = owner ? "owner" : me;
-  h += `<div class="card"><h2>${hesc(t("Discussion"))}<small>${items.length || ""}</small></h2><div id="dCom">${COMUI.html(items, d.reacts, cme, t, v => ctx.fdate(new Date(v).toISOString().slice(0, 10)), { locked: "Participe pour commenter et réagir.", empty: "Pas encore de message. Pose une question ou dis bonjour !" })}</div></div>`;
+  const cme = owner ? "owner" : invited ? "" : me;
+  h += `<div class="card"><h2>${hesc(t("Discussion"))}<small>${items.length || ""}</small></h2><div id="dCom">${COMUI.html(items, d.reacts, cme, t, v => ctx.fdate(new Date(v).toISOString().slice(0, 10)), { locked: invited ? "Accepte l'invitation pour commenter et réagir." : "Participe pour commenter et réagir.", empty: "Pas encore de message. Pose une question ou dis bonjour !" })}</div></div>`;
   root.innerHTML = h;
   const $ = id => root.querySelector("#" + id);
-  const run = async (sub, body, msg) => { try { const r = await ctx.call(sub, body || {}); if (msg) ctx.toast(msg); ctx.onUpdate(r); } catch (e) { ctx.toast(e.message); } };
+  const run = async (sub, body, msg) => { try { const r = await ctx.call(sub, body || {}); if (msg) ctx.toast(msg); ctx.onUpdate(r); return r; } catch (e) { ctx.toast(e.message); } };
   if (d.photo && ctx.getPhoto) ctx.getPhoto(d.photo).then(src => { const b2 = $("dhPh"); if (b2) { b2.innerHTML = `<img alt="">`; b2.firstChild.src = src; } }).catch(() => {});
-  $("dShare").onclick = () => ctx.share(t("Cagnotte « {x} » : participe !", d.title), ctx.url);
+  if ($("dShare")) $("dShare").onclick = () => ctx.share(t(owner && d.started ? "Cagnotte « {x} » : suis les tours et les versements" : "Cagnotte « {x} » : participe !", d.title), ctx.url);
+  if ($("tAcc")) $("tAcc").onclick = () => run("me", { action: "accept" }, t("Bienvenue dans la cagnotte !"));
+  if ($("tDecl")) $("tDecl").onclick = e => { if (e.target.dataset.c !== "1") { e.target.dataset.c = "1"; e.target.textContent = t("Confirmer ?"); return; } run("me", { action: "decline" }, t("Invitation refusée")); };
   if ($("djGo")) $("djGo").onclick = () => { const nm = $("djName") ? $("djName").value.trim() : ""; if ($("djName") && !nm) return ctx.toast(t("Indique ton prénom")); run("join", { name: nm }, t("C'est noté, tu participes !")); };
   if ($("dLeave")) $("dLeave").onclick = () => run("me", { action: "leave" }, t("Tu ne participes plus"));
+  // Envoyer à quelqu'un sans l'appli son lien personnel (suivre, payer, commenter)
+  const sendLink = async (pid, link, dd) => {
+    const nm = ((dd || d).parts[pid] || {}).name || "", url = DEALUI.tonPersonalLink(ctx, link);
+    await ctx.share(t("Bonjour {x} ! Voici ton lien pour la cagnotte « {t} » ({m} {f}) : tu y vois les tours, qui a payé, et tu peux payer et commenter. Pas besoin d'appli.", nm).replace("{t}", d.title).replace("{m}", m(d.amount)).replace("{f}", fr), url);
+  };
+  root.querySelectorAll("[data-tlink]").forEach(b2 => b2.onclick = async () => { const r = await run("owner", { action: "link", pid: b2.dataset.tlink }); if (r && r.link) sendLink(b2.dataset.tlink, r.link, r.deal); });
+  // Ajouter un membre : prénom (sans l'appli) ou @tag (avec l'appli)
+  const add = $("tAdd"), res = $("tAddRes");
+  if (add) {
+    let tmr = null;
+    const draw = (q, users) => {
+      const isTag = q.startsWith("@"), nm = q.replace(/^@/, "").trim();
+      res.innerHTML = (users || []).map(u => `<div class="soc-contact"><div><b>@${hesc(u.tag)}</b>${u.name ? ` <span class="hint">${hesc(u.name)}</span>` : ""}</div><button type="button" class="btn" data-tinv="${hesc(u.tag)}" data-n="${hesc(u.name || "")}">${hesc(t("Inviter"))}</button></div>`).join("")
+        + (nm && !isTag ? `<button type="button" class="btn ton-addg" data-tg="1">+ ${hesc(t("Ajouter « {x} » (sans l'appli)", nm))}</button>` : "");
+      res.querySelectorAll("[data-tinv]").forEach(b2 => b2.onclick = async () => { const r = await run("owner", { action: "invite", tag: b2.dataset.tinv, name: b2.dataset.n || "" }, t("Invitation envoyée à @{x}", b2.dataset.tinv)); if (r) { add.value = ""; } });
+      const g = res.querySelector("[data-tg]"); if (g) g.onclick = async () => { const r = await run("owner", { action: "add", name: nm }); if (r && r.link) { ctx.toast(t("{x} est ajouté·e : envoie-lui son lien", nm)); setTimeout(() => sendLink(r.added, r.link, r.deal), 400); } };
+    };
+    add.oninput = () => {
+      clearTimeout(tmr); const q = add.value.trim(); draw(q, []);
+      const tq = q.replace(/^@/, "").toLowerCase();
+      if (ctx.search && tq.length >= 3 && /^[a-z0-9_-]+$/.test(tq)) tmr = setTimeout(async () => { try { const users = await ctx.search(tq); if (add.value.trim() === q) draw(q, users.filter(u => !Object.values(d.parts).some(p => p.tag === u.tag))); } catch (e) {} }, 400);
+    };
+    add.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); const g = res.querySelector("[data-tg]"); if (g) g.click(); } };
+  }
   const ord = (d.order || []).slice();
   root.querySelectorAll("[data-up]").forEach(b2 => b2.onclick = () => { const k = +b2.dataset.up; [ord[k - 1], ord[k]] = [ord[k], ord[k - 1]]; run("owner", { action: "order", order: ord }); });
   root.querySelectorAll("[data-dn]").forEach(b2 => b2.onclick = () => { const k = +b2.dataset.dn; [ord[k + 1], ord[k]] = [ord[k], ord[k + 1]]; run("owner", { action: "order", order: ord }); });
   root.querySelectorAll("[data-own]").forEach(b2 => b2.onclick = () => {
     const act = b2.dataset.own;
-    if ((act === "cancel" || act === "remove" || act === "start") && b2.dataset.c !== "1") { b2.dataset.c = "1"; b2.textContent = act === "start" ? t("Confirmer : l'ordre sera fixé") : t("Confirmer ?"); return; }
-    run("owner", { action: act, pid: b2.dataset.pid || "" }, { start: t("C'est parti : les membres sont prévenus"), shuffle: t("Ordre tiré au sort"), cancel: t("Annulé : les participants sont prévenus") }[act]);
+    if ((act === "cancel" || act === "remove" || act === "start") && b2.dataset.c !== "1") { b2.dataset.c = "1"; b2.textContent = act === "start" ? t("Confirmer : l'ordre sera fixé") : act === "remove" ? t("Retirer ?") : t("Confirmer ?"); return; }
+    run("owner", { action: act, pid: b2.dataset.pid || "" }, { start: t("C'est parti : les membres sont prévenus"), shuffle: t("Ordre tiré au sort"), cancel: t("Annulé : les participants sont prévenus"), remove: t("Membre retiré") }[act]);
   });
   root.querySelectorAll("[data-tpay]").forEach(b2 => b2.onclick = () => {
     const k = +b2.dataset.tpay, ben = d.rounds[k].ben, box = $("tpb" + k), p = pinfo[ben];
@@ -283,12 +344,42 @@ DEALUI.renderTon = function (root, S, ctx) {
     run("me", { action: "paid", k }, t("Merci ! {x} est prévenu.", name(ben)));
   });
   root.querySelectorAll("[data-trem]").forEach(b2 => b2.onclick = () => DEALUI.remind(d, ctx, [b2.dataset.pid], +b2.dataset.trem));
-  root.querySelectorAll("[data-tall]").forEach(b2 => b2.onclick = () => { const k = +b2.dataset.tall, r = d.rounds[k]; DEALUI.remind(d, ctx, d.order.filter(pid => pid !== r.ben && pid !== me && !((d.pays || {})[k + "|" + pid] || {}).st), k); });
+  root.querySelectorAll("[data-tall]").forEach(b2 => b2.onclick = () => { const k = +b2.dataset.tall, r = d.rounds[k]; DEALUI.remind(d, ctx, d.order.filter(pid => pid !== r.ben && pid !== me && DEALUI.tonStatus(d, r, pid, today) === "due"), k); });
+  root.querySelectorAll("[data-twarn]").forEach(b2 => b2.onclick = () => DEALUI.warn(d, ctx, [b2.dataset.pid], +b2.dataset.twarn));
+  root.querySelectorAll("[data-twall]").forEach(b2 => b2.onclick = () => { const k = +b2.dataset.twall, r = d.rounds[k]; DEALUI.warn(d, ctx, d.order.filter(pid => pid !== r.ben && pid !== me && DEALUI.tonStatus(d, r, pid, today) === "late"), k); });
   root.querySelectorAll("[data-trec]").forEach(b2 => b2.onclick = () => run("me", { action: "received", k: +b2.dataset.trec, pid: b2.dataset.pid }, t("Réception confirmée")));
   if ($("dEditDeal")) $("dEditDeal").onclick = () => ctx.edit(d);
   COMUI.bind($("dCom"), items, d.reacts, cme, { onSend: (text, re) => run("comment", { text, re }), onReact: (cid, e) => run("react", { cid, e }) }, t);
 };
+// Avertir (date butoir dépassée) : notification aux membres qui ont l'appli, message prêt à envoyer (avec leur lien) pour les autres
+DEALUI.warn = async function (d, ctx, pids, k) {
+  const t = ctx.t, m = v => ctx.money(v, d.cur), r = d.rounds[k], nm = pid => (d.parts[pid] || {}).name || "";
+  const notified = [], toShare = []; let last = null;
+  for (const pid of pids) {
+    try { const x = await ctx.call("owner", { action: "warn", k, pid }); last = x; (x.notified ? notified : x.member ? [] : toShare).push(pid); } catch (e) { ctx.toast(e.message); return; }
+  }
+  if (last) ctx.onUpdate(last);
+  for (const pid of toShare) {
+    let url = ctx.url; const lk = (d.parts[pid] || {}).lk; if (lk) url = DEALUI.tonPersonalLink(ctx, pid + "." + lk);
+    await ctx.share(t("⚠️ Avertissement {x} : ta cotisation de {m} pour « {t} » (tour {k}, pour {b}) devait être réglée au plus tard le {d}. Merci de régulariser au plus vite :", nm(pid)).replace("{m}", m(d.amount)).replace("{t}", d.title).replace("{k}", k + 1).replace("{b}", nm(r.ben)).replace("{d}", ctx.fdate(r.due)), url);
+  }
+  if (notified.length) setTimeout(() => ctx.toast(t("Avertissement envoyé à {x}", notified.map(nm).join(", "))), toShare.length ? 1800 : 0);
+};
 Object.assign(DEAL_EN, {
+  "le jour du tour": "on the day of the round", "{x} jour après la date du tour": "{x} day after the round date", "{x} jours après la date du tour": "{x} days after the round date",
+  "Payé ✓": "Paid ✓", "En retard": "Late", "Invitation": "Invitation", "{x} t'invite dans cette cagnotte. Accepte pour la suivre, commenter et voir les versements.": "{x} invited you to this money pot. Accept to follow it, comment and see payments.",
+  "Refuser": "Decline", "Accepter": "Accept", "Gérée par {x}": "Managed by {x}", "Clauses de la cagnotte": "Money pot terms", "Date butoir de règlement": "Payment deadline",
+  "Partager le lien de la cagnotte": "Share the money pot link", "Cette semaine": "This week", "Ce mois-ci": "This month", "Cette année": "This year", "Tour en cours": "Current round",
+  "à régler au plus tard le {x}": "to pay by {x}", "averti 1 fois": "warned once", "averti {x} fois": "warned {x} times", "Avertir": "Warn", "Avertir tous les retardataires ({x})": "Warn everyone who is late ({x})",
+  "Membres et ordre des tours": "Members and order of rounds", "invitation envoyée": "invitation sent", "sans l'appli": "no app", "Envoyer son lien": "Send their link", "Retirer": "Remove", "Retirer ?": "Remove?",
+  "Ajouter un membre": "Add a member", "Prénom, ou @tag d'un utilisateur Bourselle": "First name, or @tag of a Bourselle user", "Prénom": "First name",
+  "Avec l'appli : il reçoit l'invitation dans Bourselle et l'accepte. Sans l'appli : tu lui envoies son lien pour suivre la cagnotte, payer et commenter.": "With the app: they get the invitation in Bourselle and accept it. Without the app: send them their link to follow the pot, pay and comment.",
+  "date butoir : {x}": "deadline: {x}", "Accepte l'invitation pour commenter et réagir.": "Accept the invitation to comment and react.",
+  "Cagnotte « {x} » : suis les tours et les versements": "Money pot “{x}”: follow the rounds and payments", "Bienvenue dans la cagnotte !": "Welcome to the money pot!", "Invitation refusée": "Invitation declined",
+  "Bonjour {x} ! Voici ton lien pour la cagnotte « {t} » ({m} {f}) : tu y vois les tours, qui a payé, et tu peux payer et commenter. Pas besoin d'appli.": "Hi {x}! Here's your link for the money pot “{t}” ({m} {f}): see the rounds and who has paid, pay and comment. No app needed.",
+  "Inviter": "Invite", "Ajouter « {x} » (sans l'appli)": "Add “{x}” (no app)", "Invitation envoyée à @{x}": "Invitation sent to @{x}", "{x} est ajouté·e : envoie-lui son lien": "{x} added: send them their link", "Membre retiré": "Member removed",
+  "⚠️ Avertissement {x} : ta cotisation de {m} pour « {t} » (tour {k}, pour {b}) devait être réglée au plus tard le {d}. Merci de régulariser au plus vite :": "⚠️ Warning {x}: your {m} contribution for “{t}” (round {k}, to {b}) was due by {d}. Please settle it as soon as possible:",
+  "Avertissement envoyé à {x}": "Warning sent to {x}", "Invitation à accepter": "Invitation to accept",
   "Terminée": "Finished", "Tour {x}": "Round {x}", "Inscriptions ouvertes": "Sign-ups open", "par personne": "per person", "{x} membre": "{x} member", "{x} membres": "{x} members", "pot de {x}": "pot of {x}",
   "chaque tour, un membre reçoit le pot de {x}": "each round, one member receives the pot of {x}", "1er tour le {x}": "1st round on {x}",
   "Les inscriptions sont ouvertes. L'ordre des tours (qui reçoit le pot, et quand) sera fixé au démarrage.": "Sign-ups are open. The order of rounds (who gets the pot, and when) will be fixed at the start.",

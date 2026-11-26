@@ -714,3 +714,21 @@ html.ios #app { min-height: calc(100lvh + 1px); }
 @supports not (height: 100lvh) { html.ios #app { min-height: calc(100vh + 1px); } }
 html.ios input:not([type=checkbox]):not([type=radio]):not([type=range]), html.ios select, html.ios textarea { font-size: max(16px, 1em); }
 html.ios nav.tabs { bottom: 0; transform: translateZ(0); }
+
+/* Cagnotte : clauses, période en cours, membres sans l'appli / invités */
+.ton-clauses { margin-top: 10px; border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; font-size: .86rem; }
+.ton-clauses p { margin: 4px 0 0; } .ton-rules { white-space: pre-wrap; color: var(--muted); }
+.ton-now h2 small { margin-left: auto; }
+.ton-st { display: grid; grid-template-columns: 12px 1fr auto; gap: 4px 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--line); }
+.ton-st:last-of-type { border-bottom: 0; }
+.ton-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--pj-due); }
+.ton-st.ok .ton-dot { background: var(--pj-ok); } .ton-st.sent .ton-dot { background: var(--pj-sent); } .ton-st.late .ton-dot { background: var(--bad); box-shadow: 0 0 0 3px color-mix(in srgb, var(--bad) 22%, transparent); }
+.ton-sn small { color: var(--muted); font-size: .76rem; } .ton-sn .ton-w { display: block; color: var(--bad); }
+.ton-oa { grid-column: 2 / -1; display: flex; gap: 14px; } .ton-oa .linkbtn { font-size: .82rem; } .ton-oa .danger, .ton-rem.danger { color: var(--bad); }
+.pj-st.late { background: var(--bad); color: #fff; } .pj-line.late { border-left-color: var(--bad); }
+.ton-all { width: 100%; margin-top: 10px; } .ton-all.danger-soft { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }
+.ton-b { font-size: .66rem; font-weight: 700; padding: 1px 7px; border-radius: 99px; background: color-mix(in srgb, var(--ink) 10%, transparent); color: var(--muted); white-space: nowrap; }
+.ton-b.inv { background: color-mix(in srgb, var(--gold) 25%, transparent); color: color-mix(in srgb, var(--gold) 55%, var(--ink)); }
+.ton-add { margin-top: 12px; } .ton-addres { display: grid; gap: 6px; margin-top: 6px; } .ton-addres .soc-contact { margin: 0; } .ton-addg { width: 100%; text-align: left; }
+.ton-inv { border: 2px solid var(--gold) !important; }
+.dc-st.inv { color: color-mix(in srgb, var(--gold) 60%, var(--ink)); }

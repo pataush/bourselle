@@ -29,7 +29,7 @@ function hubBalances() {
     const amt = p => d.kind === "achat" ? (p.qty || 0) * d.price : p.amount || 0;
     if (d.status === "cancelled") continue;
     if (d.ton) {
-      if (!d.started || !d.you || !d.you.pid) continue;
+      if (!d.started || !d.you || !d.you.pid || (d.parts[d.you.pid] || {}).inv) continue;
       const today = todayISO();
       for (const r of d.rounds || []) { if (r.date > today) continue;
         for (const pid of d.order) { if (pid === r.ben) continue; const st = ((d.pays || {})[r.k + "|" + pid] || {}).st;
@@ -149,6 +149,7 @@ function renderDeal() {
       } catch (e) {}
       dealState = { deal: r.deal, pay: r.pay, payinfo: r.payinfo }; if (r.deal.you && r.deal.you.role !== "guest") dealPut(r.deal); else { DEALS = DEALS.filter(x => x.id !== id); dealsSave(); } render(); },
     edit: dd => editDeal(dd.id),
+    search: q => socApi("/search?q=" + encodeURIComponent(q)).then(j => j.users || []),
     needName: false,
   };
   DEALUI.render(document.getElementById("dealRoot"), S, ctx);
@@ -169,6 +170,9 @@ function editDeal(id, kind) {
     : d && !d.ton ? `<div class="two"><div>${fld("dlTarget", `Objectif (${esc(curSym())}, facultatif)`, `inputmode="decimal" placeholder="ex. 150" value="${num(d && d.target)}"`)}</div><div>${fld("dlSug", "Montant proposé (facultatif)", `inputmode="decimal" placeholder="ex. 20" value="${num(d && d.suggested)}"`)}</div></div>`
     : `<div class="two"><div>${fld("dlAmt", `Cotisation par personne (${esc(curSym())})`, `inputmode="decimal" placeholder="ex. 100" value="${num(d && d.amount)}"`)}</div><div>${fld("dlStart", "Date du 1er tour", `type="date" value="${esc(d ? d.start || "" : todayISO())}"`)}</div></div>
       <span class="lbl">Versement</span><div class="chips" id="dlFreq"></div>
+      <span class="lbl" style="margin-top:12px">Clauses</span>
+      ${fld("dlDue", "Date butoir de règlement : nombre de jours après la date de chaque tour", `inputmode="numeric" placeholder="ex. 3 (0 = le jour même)" value="${d && d.due != null ? d.due : 3}"`)}
+      <label class="lbl" for="dlRules">Autres règles (facultatif)</label><textarea class="field" id="dlRules" rows="3" maxlength="1500" placeholder="ex. En cas de retard après la date butoir : avertissement, puis exclusion au 2e retard.">${esc(d ? d.rules || "" : "")}</textarea>
       <p class="hint" style="margin:6px 0 0">À chaque tour, tous les membres versent la cotisation à celui dont c'est le tour : chacun reçoit le pot une fois. Tu fixes l'ordre (ou tu le tires au sort) avant de démarrer.</p>`}
     ${kind === "achat" || (d && !d.ton) ? fld("dlDate", "Date limite (facultatif)", `type="date" value="${esc(d ? d.deadline || "" : "")}"`) : ""}
     ${!d ? `<span class="lbl">Photo (facultatif)</span><label class="btn" style="display:inline-flex;gap:6px;align-items:center;cursor:pointer">📷 <span id="dlPhL">Ajouter une photo</span><input type="file" accept="image/*" id="dlPh" hidden></label>` : ""}
@@ -182,6 +186,7 @@ function editDeal(id, kind) {
     } else if (d && !d.ton) { body.target = parseAmount(val("dlTarget")) || 0; body.suggested = parseAmount(val("dlSug")) || 0; }
     else {
       body.amount = parseAmount(val("dlAmt")); body.freq = tfreq; body.start = val("dlStart");
+      body.due = Math.max(0, Math.min(60, parseInt(val("dlDue"), 10) || 0)); body.rules = val("dlRules");
       if (!(body.amount > 0)) { toast("Indique la cotisation par personne"); return false; }
       if (!/^\d{4}-\d{2}-\d{2}$/.test(body.start)) { toast("Indique la date du premier tour"); return false; }
     }

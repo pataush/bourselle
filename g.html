@@ -236,6 +236,9 @@
   async function dealPage(id) {
     const SK = "bourselle-d-" + id, tt = dealT(EN ? "en" : "fr", D);
     let me = {}; try { me = JSON.parse(localStorage.getItem(SK) || "{}") || {}; } catch (e) {}
+    // Lien personnel envoyé par le gérant (#d=…&m=membre.clé) : on le garde sur cet appareil et on l'efface de l'adresse
+    const ml = /^(p[a-z0-9]{6,16})\.([a-z0-9]{12,40})$/.exec(hash.get("m") || "");
+    if (ml) { me = { pid: ml[1], key: ml[2], name: "" }; try { localStorage.setItem(SK, JSON.stringify(me)); } catch (e) {} try { history.replaceState(null, "", location.pathname + "#d=" + id); } catch (e) {} }
     const S = {};
     const fdateD = d => fdate(d);
     const ctx = {
@@ -253,7 +256,7 @@
     };
     const show = r => {
       S.deal = r.deal; S.pay = r.pay; S.payinfo = r.payinfo;
-      if (me.pid && S.deal.parts[me.pid]) S.deal.you = { role: "part", pid: me.pid };
+      if (me.pid && S.deal.parts[me.pid]) { S.deal.you = { role: "part", pid: me.pid }; if (!me.name) { me.name = S.deal.parts[me.pid].name; try { localStorage.setItem(SK, JSON.stringify(me)); } catch (e) {} } }
       ctx.needName = !(S.deal.you && S.deal.you.pid); ctx.defaultName = me.name || "";
       document.title = S.deal.title + " · Bourselle";
       main.innerHTML = top + `<div id="dealRoot"></div>` + cta;
