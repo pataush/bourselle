@@ -251,9 +251,11 @@
         if (cur.name !== name) await api(`${API}/files/${folderId}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
         return true;
       },
-      signOut() {
-        if (token && window.google && google.accounts) google.accounts.oauth2.revoke(token, () => {});
-        token = null; localStorage.removeItem("mb-google-hint"); try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
+      // Se déconnecter n'efface pas l'autorisation donnée au Drive : à la reconnexion, Google ne redemande pas l'accord.
+      // revoke = true : on retire vraiment l'accès de Bourselle au Drive (il faudra de nouveau l'autoriser).
+      signOut(revoke) {
+        if (revoke && token && window.google && google.accounts) google.accounts.oauth2.revoke(token, () => {});
+        token = null; if (revoke) localStorage.removeItem("mb-google-hint"); try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
       },
     };
   }
@@ -389,9 +391,10 @@
       },
       async folderLink(folder) { return (await msFolder(folder)).webUrl || (root && root.webUrl) || ""; },
       async ensureFolder(folder) { return msFolder(folder); },
+      // Se déconnecter de Bourselle seulement (le compte Microsoft reste ouvert et l'autorisation est gardée)
       signOut() {
         const a = account; account = null;
-        if (msal && a) msal.logoutRedirect({ account: a, postLogoutRedirectUri: redirectUri }).catch(() => {});
+        if (msal && a) msal.logoutRedirect({ account: a, onRedirectNavigate: () => false }).catch(() => {});
       },
     };
   }

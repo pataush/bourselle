@@ -34,7 +34,9 @@ const PAY = {
     if (p.link) m.push({ id: "link", label: "Lien de paiement", sub: String(p.link).replace(/^https:\/\/(www\.)?/, "").slice(0, 28), url: p.link });
     if (p.iban) m.push({ id: "iban", label: "Virement", sub: "IBAN " + PAY.ibanFmt(p.iban).slice(0, 9) + "…" });
     if (p.momo && (p.momo.num || p.momo.qr)) m.push({ id: "momo", label: p.momo.op || "Mobile Money", sub: p.momo.num || "QR code" });
-    return m;
+    // L'ordre choisi par celui qui se fait payer : son moyen préféré est proposé en premier
+    const ord = p.order || [], rank = id => { const i = ord.indexOf(id); return i < 0 ? 99 : i; };
+    return m.map((x, i) => ({ x, i })).sort((a, b) => rank(a.x.id) - rank(b.x.id) || a.i - b.i).map(o => o.x);
   },
   // Bloc « Payer » : on choisit le moyen de paiement ; chacun a son bouton pour ouvrir l'appli et son QR code.
   // t traduit un texte, money formate un montant

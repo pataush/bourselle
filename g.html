@@ -68,7 +68,7 @@
     "Indique ce qui a été payé": "Say what was paid for", "Montant invalide": "Invalid amount", "Choisis au moins une personne": "Pick at least one person",
     "Gère ton budget avec Bourselle : gratuit, tes données restent dans ton Drive.": "Manage your budget with Bourselle: free, your data stays in your Drive.", "Découvrir Bourselle": "Discover Bourselle",
     "pour": "for", "tout le monde": "everyone", "Copié": "Copied", "moi": "me",
-    "À payer": "To pay", "Bénéficiaire": "Payee", "Copier": "Copy", "Motif": "Reference", "Payer avec PayPal": "Pay with PayPal", "{x} te paie": "{x} is paying you", "Réception confirmée. Merci !": "Receipt confirmed. Thank you!", "{x} est prévenu.": "{x} has been notified.", "{x} indique t'avoir payé.": "{x} says they've paid you.", "{x} va te payer.": "{x} is going to pay you.", "Confirme seulement quand l'argent est bien arrivé sur ton compte.": "Only confirm once the money has actually reached your account.", "J'ai bien reçu {x}": "I've received {x}", "Choisis comment payer": "Choose how to pay", "Comment payer": "How to pay", "Ouvrir {x}": "Open {x}", "le lien de paiement": "the payment link", "Virement": "Bank transfer", "Le lien s'ouvre dans l'appli concernée si elle est installée, sinon dans le navigateur.": "The link opens in the right app if it's installed, otherwise in your browser.", "S'ouvre dans l'appli {x} si elle est installée, sinon sur le site.": "Opens in the {x} app if it's installed, otherwise on the website.", "Tu paies depuis un autre téléphone ? Scanne ce QR code.": "Paying from another phone? Scan this QR code.", "Paiement rapide": "Quick payment", "Virement bancaire": "Bank transfer", "Lien de paiement": "Payment link", "Dans l'appli de ta banque, ouvre Wero et envoie le montant à ce numéro ou cet e-mail.": "In your bank's app, open Wero and send the amount to this number or email.", "Ouvrir son lien de paiement": "Open their payment link",
+    "À payer": "To pay", "Bénéficiaire": "Payee", "Copier": "Copy", "Motif": "Reference", "Payer avec PayPal": "Pay with PayPal", "{x} te demande": "{x} is asking you for", "Payé et confirmé. Merci !": "Paid and confirmed. Thank you!", "C'est noté !": "Got it!", "{x} confirmera dès que l'argent sera arrivé.": "{x} will confirm as soon as the money arrives.", "J'ai Bourselle : ouvrir dans l'appli": "I have Bourselle: open in the app", "Règle-le comme d'habitude, puis appuie sur « J'ai payé ».": "Pay as usual, then tap “I've paid”.", "Une fois payé": "Once paid", "Ton prénom": "Your first name", "ex. Marc": "e.g. Mark", "J'ai payé {x}": "I've paid {x}", "Cette demande n'existe plus.": "This request no longer exists.", "{x} te paie": "{x} is paying you", "Réception confirmée. Merci !": "Receipt confirmed. Thank you!", "{x} est prévenu.": "{x} has been notified.", "{x} indique t'avoir payé.": "{x} says they've paid you.", "{x} va te payer.": "{x} is going to pay you.", "Confirme seulement quand l'argent est bien arrivé sur ton compte.": "Only confirm once the money has actually reached your account.", "J'ai bien reçu {x}": "I've received {x}", "Choisis comment payer": "Choose how to pay", "Comment payer": "How to pay", "Ouvrir {x}": "Open {x}", "le lien de paiement": "the payment link", "Virement": "Bank transfer", "Le lien s'ouvre dans l'appli concernée si elle est installée, sinon dans le navigateur.": "The link opens in the right app if it's installed, otherwise in your browser.", "S'ouvre dans l'appli {x} si elle est installée, sinon sur le site.": "Opens in the {x} app if it's installed, otherwise on the website.", "Tu paies depuis un autre téléphone ? Scanne ce QR code.": "Paying from another phone? Scan this QR code.", "Paiement rapide": "Quick payment", "Virement bancaire": "Bank transfer", "Lien de paiement": "Payment link", "Dans l'appli de ta banque, ouvre Wero et envoie le montant à ce numéro ou cet e-mail.": "In your bank's app, open Wero and send the amount to this number or email.", "Ouvrir son lien de paiement": "Open their payment link",
     "Scanne ce QR code avec l'appli de ta banque : le virement est déjà rempli.": "Scan this QR code with your banking app: the transfer is pre-filled.",
     "Payer {x}": "Pay {x}", "{x} n'a pas encore indiqué comment le payer : règle-le comme d'habitude, puis appuie sur « J'ai payé ».": "{x} hasn't added payment details yet: pay them as usual, then tap “I've paid”.",
     "Une fois le paiement fait, appuie sur « J'ai payé » pour prévenir le groupe.": "Once you've paid, tap “I've paid” to let the group know.",
@@ -102,6 +102,24 @@
         <div class="card">${PAY.html(p, amount, cur, note, t, money)}</div>` + cta;
       PAY.bind(main, toast);
     } catch (e) { fail(e.status === 404 ? "Lien de paiement introuvable." : "Connexion impossible. Réessaie dans un instant."); }
+  }
+  // ---------- Demande de paiement (QR code / lien) : #q=identifiant ----------
+  async function reqPage() {
+    const id = hash.get("q"), path = "/q/" + id;
+    const draw = j => {
+      const r = j.req, money = v => new Intl.NumberFormat(EN ? "en-GB" : "fr-FR", { style: "currency", currency: r.cur || "EUR" }).format(v);
+      const left = Math.max(0, r.amount - r.paid), done = r.status === "settled";
+      document.title = t("{x} te demande", r.from) + " · Bourselle";
+      main.innerHTML = top + `<div class="gp-hero"><div class="cap">${esc(t("{x} te demande", r.from))}</div><h1>${esc(money(left || r.amount))}</h1>${r.name ? `<div class="cap">${esc(r.name)}</div>` : ""}</div>
+        ${done ? `<div class="card"><p class="gp-ok">✓ ${esc(t("Payé et confirmé. Merci !"))}</p></div>`
+        : r.pend ? `<div class="card"><p class="gp-ok">✓ ${esc(t("C'est noté !"))}</p><p class="hint" style="margin:0">${esc(t("{x} confirmera dès que l'argent sera arrivé.", r.from))}</p></div>`
+        : `<div class="card"><a class="btn primary" style="display:block;text-align:center;text-decoration:none;margin-bottom:12px" href="./?q=${esc(id)}">${esc(t("J'ai Bourselle : ouvrir dans l'appli"))}</a>${j.pay ? PAY.html(j.pay, left, r.cur, r.name, t, money) : `<p class="hint">${esc(t("Règle-le comme d'habitude, puis appuie sur « J'ai payé »."))}</p>`}</div>
+           <div class="card"><h2>${esc(t("Une fois payé"))}</h2><label for="qName">${esc(t("Ton prénom"))}</label><input id="qName" maxlength="40" placeholder="${esc(t("ex. Marc"))}">
+           <button class="btn primary" id="qPaid" style="width:100%;margin-top:12px">${esc(t("J'ai payé {x}", money(left)))}</button></div>`}` + cta;
+      if (j.pay) PAY.bind(main, toast);
+      const b = $("qPaid"); if (b) b.onclick = async () => { b.disabled = true; try { draw(await api(path, { action: "paid", name: $("qName").value.trim() })); } catch (e) { b.disabled = false; toast(e.message); } };
+    };
+    try { draw(await api(path)); } catch (e) { fail(e.status === 404 ? "Cette demande n'existe plus." : "Connexion impossible. Réessaie dans un instant."); }
   }
   // ---------- Confirmer la réception d'un paiement (sans compte) : #j=paiement.ligne.clé ----------
   async function confirmPage() {
@@ -282,7 +300,7 @@
     try { show(await api("/d/" + id)); } catch (e) { fail(e.status === 404 ? "Ce lien n'est plus valable." : "Connexion impossible. Réessaie dans un instant."); }
   }
   $("gpLoad").textContent = t("Chargement…");
-  if (hash.get("j")) confirmPage(); else if (hash.get("p")) payPage(); else if (hash.get("d")) dealPage(hash.get("d")); else if (tok) load(); else fail("Ce lien n'est plus valable.");
+  if (hash.get("q")) reqPage(); else if (hash.get("j")) confirmPage(); else if (hash.get("p")) payPage(); else if (hash.get("d")) dealPage(hash.get("d")); else if (tok) load(); else fail("Ce lien n'est plus valable.");
   window.addEventListener("hashchange", () => location.reload());
 })();
 </script>

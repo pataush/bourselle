@@ -21,7 +21,7 @@ function socMerge() {
     const [id, d] = socFind(c.id); if (!d) return;
     if (d.claimStatus !== c.status) { d.claimStatus = c.status; changed = true; }
     for (const p of c.payments || []) {
-      if (p.by === mine || (d.payments || []).some(q => q.pid === p.id)) continue;
+      if (p.by === mine || p.pend || (d.payments || []).some(q => q.pid === p.id)) continue;   // « J'ai payé » pas encore confirmé : pas compté
       const amt = d.ccur && Number(d.xr) > 0 ? Math.round(p.amount / Number(d.xr) * 100) / 100 : p.amount;   // dette convertie dans ma devise
       d.payments = (d.payments || []).concat([{ date: p.date, amount: amt, pid: p.id }]); changed = true;
       toast(`@${mine === "from" ? c.to : c.from} : remboursement de ${socMoney({ ...c, amount: p.amount })} enregistré`);
@@ -56,12 +56,12 @@ async function socRefresh() {
   if (!socOn() || socBusy) return; socBusy = true;
   try {
     const j = await socApi("/claims");
-    SOC.tag = j.tag || SOC.tag; SOC.in = j.in || []; SOC.out = j.out || []; SOC.loaded = true; SOC.err = "";
+    SOC.tag = j.tag || SOC.tag; SOC.in = j.in || []; SOC.out = j.out || []; SOC.loaded = true; SOC.err = ""; SOC.quota = j.quota || SOC.quota;
     if (typeof driveRootName === "function") driveRootName(SOC.tag);
     const changed = socMerge();
     try { await socPullGroups(); await socPushGroups(); } catch (e) {}
     socLoadPay(); socLoadReminders();
-    if (!SOC.addChecked) { SOC.addChecked = true; socPendingAdd(); }
+    if (!SOC.addChecked) { SOC.addChecked = true; socPendingAdd(); if (typeof reqTakeFromUrl === "function") reqTakeFromUrl(); }
     socOpenPending(); pushResync(); if (typeof dealsRefresh === "function") dealsRefresh(); if (typeof projRefresh === "function") projRefresh();
     const fresh = SOC.in.filter(c => c.status === "pending" && !socSeen.has(c.id));
     if (fresh.length) {
@@ -203,7 +203,6 @@ function socBindTagCard() {
     settings.contacts = socContacts().filter(c => c.tag !== b.dataset.socdel); saveSettings(); render();
   });
   document.querySelectorAll("[data-socclaim]").forEach(b => b.onclick = () => {
-    if (!isPlus()) return showPlus("claim");
     const c = socContacts().find(x => x.tag === b.dataset.socclaim) || {};
     editDebt(null, { kind: "medoit", claimTo: c.tag, who: c.name || "@" + c.tag });
   });
@@ -212,17 +211,16 @@ function socBindTagCard() {
 // ---------- Dettes : réclamations reçues ----------
 function socInboxHTML() {
   if (!socOn()) return "";
-  const pend = SOC.in.filter(c => c.status === "pending");
-  if (!pend.length) return "";
+  const pend = SOC.in.filter(c => c.status === "pending" && c.kind !== "req");   // les demandes de paiement ont leur propre carte
+  if (!pend.length) return typeof reqInHTML === "function" ? reqInHTML() : "";
   return `<div class="card soc-in"><h2>À accepter<small>${pend.length}</small></h2>${pend.map(c => `<div class="soc-claim">
     <div><b>@${esc(c.from)}</b>${c.fromName ? ` <span class="hint">(${esc(c.fromName)})</span>` : ""} <span>${c.bill ? "a partagé un paiement : ta part est de" : "te réclame"}</span> <b class="num">${esc(socMoney(c))}</b></div>
     <div class="hint">${esc(c.name || "Dette")}${c.bill && c.billTotal ? ` · <span>total ${esc(socMoney({ ...c, amount: c.billTotal }))}${c.billN > 1 ? ` · ${c.billN} personnes invitées` : ""}</span>` : ""}${c.note ? " · " + esc(c.note) : ""}${c.due ? ` · <span>avant le ${esc(frDate(c.due))}</span>` : ""}</div>
-    <div class="acts"><button class="btn primary" data-soc="accept" data-cid="${esc(c.id)}">Accepter</button><button class="btn" data-soc="decline" data-cid="${esc(c.id)}">Refuser</button></div></div>`).join("")}</div>`;
+    <div class="acts"><button class="btn primary" data-soc="accept" data-cid="${esc(c.id)}">Accepter</button><button class="btn" data-soc="decline" data-cid="${esc(c.id)}">Refuser</button></div></div>`).join("")}</div>` + (typeof reqInHTML === "function" ? reqInHTML() : "");
 }
 // Relancer une réclamation refusée : une nouvelle réclamation part vers la même personne
 function socRelaunch(id) {
   const d = debts[id]; if (!d || !d.claimTo) return;
-  if (!isPlus()) return showPlus("claim");
   delete d.claim; d.claimStatus = ""; saveDebts();
   socSendClaim(id);
 }
@@ -241,6 +239,8 @@ function socBindRefused() {
 }
 function socBindInbox() {
   socBindRefused();
+  if (typeof reqInBind === "function") reqInBind(document.getElementById("view"));
+  document.querySelectorAll("[data-rqok]").forEach(b => b.onclick = () => reqAct(b.dataset.rqok, { action: "received", pid: b.dataset.pid }, "Réception confirmée ✓"));
   const answer = async (c, action, b, fx) => {
     if (b) b.disabled = true;
     try {
@@ -293,18 +293,19 @@ function socDebtLine(x) {
   if (x.kind === "medoit" && x.claimStatus === "declined")
     return `<div class="soc-refused"><b>Dette refusée</b> <span>par</span> <b>@${esc(who || "")}</b>
       <div class="acts"><button class="btn primary" data-socre="${esc(x.id)}">Relancer</button><button class="btn danger" data-socrm="${esc(x.id)}">Supprimer</button></div></div>`;
+  const co = x.kind === "medoit" ? SOC.out.find(y => y.id === x.claim) : null, pd = co && (co.payments || []).find(p => p.pend);
+  if (pd) return `<div class="soc-st"><b>@${esc(co.to || "")}</b> <span>dit t'avoir payé</span> <b class="num">${esc(socMoney({ ...co, amount: pd.amount }))}</b> <button class="btn primary" data-rqok="${esc(co.id)}" data-pid="${esc(pd.id)}">J'ai bien reçu</button></div>`;
   const c = x.kind !== "medoit" ? SOC.in.find(y => y.id === x.claim) : null, canPay = c && c.pay && c.status === "accepted" && x.c && !x.c.done;
   return `<div class="soc-st"><span>${x.kind === "medoit" ? "Réclamée à" : "Réclamée par"}</span> <b>@${esc(who || "")}</b> · <span>${esc(SOC_ST[x.claimStatus] || "envoyée")}</span>${canPay ? ` <button class="linkbtn" data-socpay="${esc(x.id)}">Payer</button>` : ""}</div>`;
 }
 // Envoyer la réclamation d'une dette « On me doit »
 async function socSendClaim(id) {
   const d = debts[id]; if (!d || d.claim || !d.claimTo) return;
-  if (!isPlus()) { showPlus("claim"); return; }
   try {
-    const r = await socApi("/claims", { method: "POST", body: JSON.stringify({ to: d.claimTo, amount: d.amount, cur: baseCurrency(), name: d.name, note: d.note, due: d.due, plus: settings.licence || "" }) });
+    const r = await socApi("/claims", { method: "POST", body: JSON.stringify({ kind: "req", to: d.claimTo, amount: d.amount, cur: baseCurrency(), name: d.name, note: d.note, due: d.due, plus: settings.licence || "" }) });
     d.claim = r.id; d.claimStatus = r.status; saveDebts(); SOC.out.unshift(r); render();
-    toast(`Réclamation envoyée à @${d.claimTo}`);
-  } catch (e) { toast(e.status === 402 ? "Réclamer une dette est réservé à Bourselle Plus" : e.message); if (e.status === 402) showPlus("claim"); }
+    toast(`Demande envoyée à @${d.claimTo}`); if (!isPlus() && SOC.quota) SOC.quota.used++;
+  } catch (e) { toast(e.message); if (e.status === 402) showPlus("claim"); }
 }
 // Partage : quand je paie une dépense du groupe, la part des membres qui ont un tag leur est envoyée (elle arrive dans leurs dettes)
 function socSendShares(gid, label, amount, order, date, owed) {
@@ -381,7 +382,8 @@ async function socPay(id, p) {
   const d = debts[id]; if (!d || !d.claim || !socOn()) return;
   const st = (SOC.in.concat(SOC.out).find(c => c.id === d.claim) || {}).status || d.claimStatus;
   if (st !== "accepted") return;
-  try { await socApi("/claims/" + d.claim, { method: "POST", body: JSON.stringify({ action: "pay", amount: d.ccur && Number(d.xr) > 0 ? Math.round(p.amount * Number(d.xr) * 100) / 100 : p.amount, date: p.date, pid: p.pid }) }); socRefresh(); }
+  const isReq = ((SOC.in || []).find(c => c.id === d.claim) || (SOC.out || []).find(c => c.id === d.claim) || {}).kind === "req";
+  try { await socApi("/claims/" + d.claim, { method: "POST", body: JSON.stringify({ action: isReq && d.kind !== "medoit" ? "paid" : isReq ? "received" : "pay", amount: d.ccur && Number(d.xr) > 0 ? Math.round(p.amount * Number(d.xr) * 100) / 100 : p.amount, date: p.date, pid: p.pid }) }); socRefresh(); }
   catch (e) { toast("Remboursement non transmis : " + e.message); }
 }
 async function socCancel(d) {

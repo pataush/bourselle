@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "73";
+const APP_VERSION = "75";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -249,7 +249,6 @@ function showProfileMenu() {
       <div><span class="lbl">Apparence</span><div class="seg2" id="pmTheme"><button type="button" data-th="light" aria-pressed="${theme === "light"}">☀︎ Clair</button><button type="button" data-th="dark" aria-pressed="${theme === "dark"}">☾ Sombre</button></div></div>
       <div><span class="lbl">Version</span><div class="seg2" id="pmMode"><button type="button" data-m="simple" aria-pressed="${isSimple()}">Simple</button><button type="button" data-m="complete" aria-pressed="${!isSimple()}">Complète</button></div></div></div>
     <div class="pm-list">
-      ${row("pmSettings", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>', "Paramètres", "Mon compte, budget, catégories, devise, exports")}
       ${soc && SOC.tag ? row("pmQr", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v7h-7"/></svg>', "Mon QR code", "Pour qu'on t'ajoute en contact") : ""}
       ${soc ? row("pmContacts", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.6.9 2.6 2.6 3 5.2"/></svg>', "Mes contacts", `${(settings.contacts || []).length} contact${(settings.contacts || []).length > 1 ? "s" : ""}`) : ""}
       ${soc ? row("pmPush", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/><circle cx="19" cy="5" r="2.5" fill="currentColor"/></svg>', "Notifications en direct", typeof pushOn === "function" && pushOn() ? "Activées sur cet appareil" : "Désactivées") : ""}
@@ -257,7 +256,7 @@ function showProfileMenu() {
       ${typeof showPlus === "function" ? row("pmPlus", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg>', "Bourselle Plus", typeof isPlus === "function" && isPlus() ? "Activé" : "Découvrir l'offre") : ""}
       ${row("pmLang", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9s1.3-6.3 3.8-9z"/></svg>', window.LANG === "en" ? "Français" : "English", window.LANG === "en" ? "Langue : anglais" : "Langue : français")}
       ${!local && store.folderUrl && store.folderUrl() ? row("pmFolder", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>', "Ouvrir mon dossier", store.label) : ""}
-      ${row("pmUpdate", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12a8 8 0 1 1-2.3-5.7"/><path d="M20 4v5h-5"/></svg>', "Charger la dernière version", "Version " + APP_VERSION)}
+      ${row("pmSettings", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>', "Paramètres", "Mon compte, budget, catégories, devise, exports")}
     </div></div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
   const on = (id, fn) => { const b = f.querySelector("#" + id); if (b) b.onclick = fn; };
@@ -272,7 +271,6 @@ function showProfileMenu() {
   on("pmLang", () => { closeForm(); if (typeof setLang === "function") setLang(window.LANG === "en" ? "fr" : "en"); });
   on("pmFolder", () => { window.open(store.folderUrl(), "_blank", "noopener"); });
   on("pmSettings", () => { closeForm(); switchTab("reglages"); });
-  on("pmUpdate", () => { closeForm(); forceUpdate(); });
 }
 // Alertes regroupées derrière la cloche.
 // Chaque alerte a une clé stable (k) : « Gérer » emmène à l'endroit concerné ; ✕ la masque (choix gardé dans les réglages,
@@ -284,7 +282,9 @@ function alertsAll() {
   try {
     const mk = cur.y + "-" + String(cur.m).padStart(2, "0");
     if (typeof SOC !== "undefined" && (SOC.reminders || []).length) add("rem", "accueil", "Rappels reçus", SOC.reminders.filter(r => !remResolved(r)).map(r => ({ k: "rem:" + r.id, rem: r.id, t: `${r.from || "Quelqu'un"} : ${r.msg || `merci de régler ${fmtCur(r.amt, r.cur)}`}`, s: `${r.title || ""}${r.amt ? " · " + fmtCur(r.amt, r.cur) : ""} · ${agoText(r.at)}`, warn: !!r.warn, g: r.kind === "g" ? r.ref : "", deal: r.kind === "d" ? r.ref : "", go: "Régler" })), true);
-    if (typeof SOC !== "undefined") add("claims", "dettes", "Réclamations de dettes reçues", SOC.in.filter(c => c.status === "pending").map(c => ({ k: "claim:" + c.id, t: `@${c.from} te réclame ${socMoney(c)}`, s: [c.name, c.due ? "avant le " + frDate(c.due) : ""].filter(Boolean).join(" · "), go: "Répondre", claim: c.id })));
+    if (typeof SOC !== "undefined") add("reqin", "dettes", "Demandes de paiement reçues", (SOC.in || []).filter(c => c.kind === "req" && !["settled", "cancelled", "declined"].includes(c.status) && !reqPend(c)).map(c => ({ k: "reqin:" + c.id, t: `${c.fromName || "@" + c.from} te demande ${socMoney({ ...c, amount: reqLeft(c) })}`, s: c.name || "", reqpay: c.id, go: "Payer" })), true);
+    if (typeof SOC !== "undefined") add("reqok", "accueil", "Paiements à confirmer", (SOC.out || []).filter(c => c.kind === "req" && reqPend(c)).map(c => ({ k: "reqok:" + c.id, t: `${c.to ? "@" + c.to : c.guest || "Quelqu'un"} dit t'avoir payé ${socMoney({ ...c, amount: reqPend(c).amount })}`, s: (c.name || "Paiement") + " · confirme quand l'argent est arrivé", payme: true, go: "Confirmer" })), true);
+    if (typeof SOC !== "undefined") add("claims", "dettes", "Réclamations de dettes reçues", SOC.in.filter(c => c.status === "pending" && c.kind !== "req").map(c => ({ k: "claim:" + c.id, t: `@${c.from} te réclame ${socMoney(c)}`, s: [c.name, c.due ? "avant le " + frDate(c.due) : ""].filter(Boolean).join(" · "), go: "Répondre", claim: c.id })));
     if (typeof DEALS !== "undefined") add("ton", "accueil", "Cotisations à verser", DEALS.filter(d => d.ton && d.started && d.you && d.you.pid).flatMap(d => (d.rounds || []).filter(r => r.date <= addDays(todayISO(), 3) && r.ben !== d.you.pid && !((d.pays || {})[r.k + "|" + d.you.pid] || {}).st)
       .map(r => ({ k: `ton:${d.id}:${r.k}`, t: `${d.title} · tour ${r.k + 1}`, s: `${dealMoney(d.amount, d.cur)} à verser à ${(d.parts[r.ben] || {}).name || "?"} · ${frDate(r.date)}`, deal: d.id, go: "Payer" }))), true);
     if (typeof DEALS !== "undefined") add("tinv", "accueil", "Invitations à une cagnotte", DEALS.filter(d => d.ton && d.you && d.you.pid && (d.parts[d.you.pid] || {}).inv).map(d => ({ k: "tinv:" + d.id, t: d.title, s: `${d.ownerName || "Quelqu'un"} t'invite`, deal: d.id, go: "Répondre" })), true);
@@ -329,6 +329,8 @@ function alertsPrune() {
 function alertGo(a, x) {
   closeForm();
   setTimeout(() => {
+    if (x && x.reqpay) { switchTab("dettes"); return setTimeout(() => reqPay(x.reqpay), 200); }
+    if (x && x.payme) return editPay();
     if (x && x.g) { if (groups[x.g]) { openGroup = x.g; return switchTab("partage"); } return switchTab("partage"); }
     if (x && x.deal) return showDeal(x.deal);
     if (x && x.pj) return showProject(x.pj);
@@ -769,7 +771,7 @@ function renderReglages() {
     ${store && store.id === "local" ? `<p class="hint" style="margin:0 0 8px"><b>Associe un compte</b> pour retrouver Bourselle sur tous tes appareils : tes données d'essai seront transférées dans ton cloud.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="linkGoogle"${CFG.googleClientId ? "" : " disabled"}>Se connecter avec Google</button><button class="btn primary" id="linkMicrosoft"${CFG.microsoftClientId ? "" : " disabled"}>Se connecter avec Microsoft</button></div>
     <div style="margin-top:8px"><button class="btn danger" id="logout" data-l="Quitter le mode essai">Quitter le mode essai</button></div></div>`
-    : `<div style="display:flex;gap:8px;flex-wrap:wrap">${store && store.folderUrl() ? `<a class="btn" href="${esc(store.folderUrl())}" target="_blank" rel="noopener">Ouvrir mon dossier</a>` : ""}<button class="btn danger" id="logout" data-l="Se déconnecter">Se déconnecter</button></div></div>`}
+    : `<div style="display:flex;gap:8px;flex-wrap:wrap">${store && store.folderUrl() ? `<a class="btn" href="${esc(store.folderUrl())}" target="_blank" rel="noopener">Ouvrir mon dossier</a>` : ""}<button class="btn danger" id="logout" data-l="Se déconnecter">Se déconnecter</button></div>${store && store.id === "google" ? `<button type="button" class="linkbtn" id="revokeDrive" style="margin-top:10px">Retirer à Bourselle l'accès à mon Drive</button>` : ""}</div>`}
   ${typeof accCardHTML === "function" ? accCardHTML(false) : ""}
   ${typeof editPay === "function" && typeof socOn === "function" && socOn() ? `<div class="card"><h2>Me faire payer</h2><p class="hint" style="margin:0 0 10px">${SOC.pay ? `Enregistré : ${[SOC.pay.revolut ? "Revolut" : "", SOC.pay.wero ? "Wero" : "", SOC.pay.paypal ? "PayPal" : "", SOC.pay.link ? "lien de paiement" : "", SOC.pay.iban ? "IBAN " + esc(PAY.ibanFmt(SOC.pay.iban).slice(0, 7)) + "…" : "", SOC.pay.momo ? SOC.pay.momo.op : ""].filter(Boolean).join(", ")}` : "Revolut, Wero, PayPal, ton RIB ou Mobile Money (MoMo, Orange Money, Wave…), pour qu'on te paie en un geste."}</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="payEdit">${SOC.pay ? "Modifier" : "Ajouter mes moyens de paiement"}</button>${SOC.payToken ? `<button class="btn" id="payShare">Partager mon lien de paiement</button>` : ""}</div></div>` : ""}
@@ -782,7 +784,8 @@ function renderReglages() {
   <div class="card"><h2>Version de l'app</h2>
     <div class="seg2" id="modeSeg"><button type="button" data-m="simple" aria-pressed="${isSimple()}">Simple</button><button type="button" data-m="complete" aria-pressed="${!isSimple()}">Complète</button></div>
     <p class="hint" style="margin:8px 0 0">${isSimple() ? "Simple : le budget du mois, l'année, le partage des frais, je dois / on me doit, le plan d'économies et les objectifs. Passe à la version complète pour les abonnements, les notes de frais et les garanties."
-      : "Complète : toutes les fonctions. La version simple garde l'essentiel (budget du mois, année, partage des frais, dettes, économies, objectifs) pour un usage plus léger."} Tes données ne changent pas.</p></div>
+      : "Complète : toutes les fonctions. La version simple garde l'essentiel (budget du mois, année, partage des frais, dettes, économies, objectifs) pour un usage plus léger."} Tes données ne changent pas.</p>
+    <div class="ver-row"><span class="hint">Version ${APP_VERSION}</span><button class="btn" id="forceUpdate">Charger la dernière version</button></div></div>
   <div class="card"><h2>Langue et devise</h2>
     <div class="two"><div><label class="lbl" for="setLang">Langue</label><select class="field" id="setLang"><option value="fr"${window.LANG !== "en" ? " selected" : ""}>Français</option><option value="en"${window.LANG === "en" ? " selected" : ""}>English</option></select></div>
       <div><label class="lbl" for="setCur">Devise</label><select class="field" id="setCur">${APP_CURRENCIES.map(([c, l]) => `<option value="${c}"${c === (settings.currency || "EUR") ? " selected" : ""}>${esc(c)} · ${esc(l)}</option>`).join("")}</select></div></div>
@@ -812,7 +815,7 @@ function renderReglages() {
     <label class="btn" for="importFile" style="cursor:pointer">Importer un fichier</label><input type="file" id="importFile" accept=".json,application/json" hidden></div>
     <p class="hint">Importer ajoute les données du fichier (par exemple l'export de l'ancienne version) à celles que tu as déjà, sans rien effacer.</p></div>
     <div class="card"><h2>Installer sur ton téléphone</h2><p class="hint" style="margin:0">iPhone : dans Safari, bouton Partager puis « Sur l'écran d'accueil ». Android : dans Chrome, menu ⋮ puis « Ajouter à l'écran d'accueil ».</p>
-    <p class="hint">Version ${APP_VERSION}</p><button class="btn" id="forceUpdate">Charger la dernière version</button></div>`;
+</div>`;
   view.innerHTML = html;
   if (typeof socBindTagCard === "function") socBindTagCard();
   if (typeof accBindCard === "function") accBindCard();
@@ -862,6 +865,11 @@ function renderReglages() {
       render(); toast(`${n} élément${n > 1 ? "s" : ""} importé${n > 1 ? "s" : ""}`);
     } catch (err) { toast("Ce fichier n'est pas une sauvegarde de Bourselle."); }
   };
+  { const rv = document.getElementById("revokeDrive"); if (rv) rv.onclick = () => {
+    if (rv.dataset.c !== "1") { rv.dataset.c = "1"; rv.textContent = "Confirmer : il faudra de nouveau autoriser Bourselle"; return; }
+    if (dirty || saving) { toast("Patiente, l'enregistrement est en cours…"); flush(); return; }
+    signOut(true);
+  }; }
   document.getElementById("logout").onclick = e => {
     const b = e.currentTarget;
     if (dirty || saving) { toast("Patiente, l'enregistrement est en cours…"); flush(); return; }
@@ -1706,6 +1714,11 @@ function renderDettes() {
   const list = Object.entries(debts).map(([id, x]) => ({ ...x, id, c: debtCalc(x) }));
   const open = list.filter(x => !x.c.done);
   const pjT = typeof projDebtTotals === "function" ? projDebtTotals() : { owe: 0, owed: 0 };   // « Payer » compté aussi
+  if (typeof SOC !== "undefined" && typeof reqLeft === "function") {   // demandes de paiement (sans dette liée)
+    const linked = new Set(Object.values(debts).map(d => d.claim).filter(Boolean));
+    for (const c of SOC.in || []) if (c.kind === "req" && !["settled", "cancelled", "declined"].includes(c.status) && !reqPend(c) && c.cur === baseCurrency()) pjT.owe += reqLeft(c);
+    for (const c of SOC.out || []) if (c.kind === "req" && !linked.has(c.id) && !["settled", "cancelled", "declined"].includes(c.status) && c.cur === baseCurrency()) pjT.owed += reqLeft(c);
+  }
   const iOwe = open.filter(x => x.kind !== "medoit").reduce((a, x) => a + debtBase(x, x.c.remaining), 0) + pjT.owe;
   const owed = open.filter(x => x.kind === "medoit").reduce((a, x) => a + debtBase(x, x.c.remaining), 0) + pjT.owed;
   const monthly = open.filter(x => x.kind === "credit").reduce((a, x) => a + (Number(x.monthly) || 0), 0);
@@ -3217,12 +3230,12 @@ async function connect(id, interactive, existing, claim) {
     else msg.textContent = (e.message || "Connexion impossible") + (e.code === "auth" || e.code === "script" ? "" : " Réessaie.");
   }
 }
-function signOut() {
+function signOut(revoke) {
   if (typeof sessEnd === "function") sessEnd();
   const s0 = store; store = null; assets = null;
   localStorage.removeItem("mb-provider");
   applyData(null); blobCache.clear(); version = null;
-  if (s0) s0.signOut();
+  if (s0) s0.signOut(revoke);   // se déconnecter garde l'autorisation du Drive sur cet appareil ; « Retirer l'accès » la supprime
   showLogin("Tu es déconnecté.");
 }
 document.getElementById("loginGoogle").onclick = () => connect("google", localStorage.getItem("mb-provider") === "google" ? true : "choose");
