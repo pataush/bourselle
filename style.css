@@ -854,3 +854,8 @@ html.locked #app, html.locked nav.tabs, html.locked .fab, html.locked .ask-fab, 
 #eyeBtn .eye-off { display: none; } html.hide-amounts #eyeBtn .eye-on { display: none; } html.hide-amounts #eyeBtn .eye-off { display: block; }
 html.hide-amounts :is(.num, .big, .amt, .tile .v, .pay-amt b, .rq-big, .dh-big b, .bud .t .num, .pj-r b, .rq-r b, .ton-kpi b, .cur-opt .num) { filter: blur(7px); user-select: none; }
 html.hide-amounts :is(.num, .big, .amt, .tile .v):hover { filter: blur(7px); }
+
+/* Œil à côté du mois */
+.period .label-wrap { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; }
+.hero .period button.eye-mini, .period button.eye-mini { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; padding: 0; flex: none; background: rgba(255,255,255,.14); color: #fff; }
+.eye-mini svg { width: 17px; height: 17px; }
