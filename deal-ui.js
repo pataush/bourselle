@@ -298,7 +298,7 @@ Object.assign(DEAL_EN, {
   "Ordre tiré au sort": "Order drawn", "Relancer": "Remind", "Relancer ceux qui n'ont pas versé": "Remind those who haven't paid", "Rappel envoyé à {x}": "Reminder sent to {x}",
   "Petit rappel 🙂 {x} : ta cotisation de {m} pour « {t} » (tour {k}, le {d}) est à verser à {b}. Pour payer :": "Friendly reminder 🙂 {x}: your {m} contribution for “{t}” (round {k}, on {d}) is due to {b}. To pay:",
   "Petit rappel 🙂 {x} : ta part de {m} pour « {t} » est à régler à {b}. Pour payer :": "Friendly reminder 🙂 {x}: your {m} share for “{t}” is due to {b}. To pay:",
-  "Mobile Money": "Mobile Money", "Envoie le montant depuis ton appli {x} à ce numéro.": "Send the amount from your {x} app to this number.", "Merci ! {x} est prévenu.": "Thanks! {x} has been notified.", "En cours": "Ongoing",
+  "Mobile Money": "Mobile Money", "Scanne ce QR code avec ton appli {x}.": "Scan this QR code with your {x} app.", "Envoie le montant depuis ton appli {x} à ce numéro.": "Send the amount from your {x} app to this number.", "Merci ! {x} est prévenu.": "Thanks! {x} has been notified.", "En cours": "Ongoing",
 });
 // Les cagnottes créées avant (avec un objectif) gardent l'ancien affichage
 {

@@ -360,6 +360,7 @@ async function editPay() {
   if (!socOn()) { toast("Connecte-toi avec Google ou Microsoft pour te faire payer"); return; }
   await socLoadPay(true);
   const p = SOC.pay || {};
+  let qrState = p.momo && p.momo.qr ? "keep" : "";
   const f = openForm(`<div class="f2"><h3>Me faire payer</h3>
     <p class="hint" style="margin:0 0 8px">Ceux qui te doivent de l'argent (membres de tes groupes, ton lien de paiement) verront ces informations pour te payer directement. Rien ne passe par Bourselle.</p>
     ${fld("pyName", "Ton nom (titulaire du compte)", `placeholder="ex. Anne Martin" value="${esc(p.name || "")}"`)}
@@ -368,11 +369,14 @@ async function editPay() {
     <span class="lbl">Mobile Money (facultatif)</span>
     <div class="two"><div><select class="field" id="pyMoOp">${["MTN MoMo", "Orange Money", "Wave", "Moov Money", "Airtel Money", "M-Pesa", "Free Money", "Autre"].map(o => `<option ${p.momo && p.momo.op === o ? "selected" : ""}>${o}</option>`).join("")}</select></div>
       <div><input class="field" id="pyMoNum" inputmode="tel" placeholder="+229 97 00 00 00" value="${esc(p.momo ? p.momo.num : "")}"></div></div>
+    <div class="py-qr"><div id="pyQrPrev" class="py-qrprev"></div><div><label class="btn" style="cursor:pointer;display:inline-block">${p.momo && p.momo.qr ? "Remplacer" : "Ajouter"} mon QR code<input type="file" accept="image/*" id="pyQrIn" hidden></label>
+      <button type="button" class="linkbtn danger" id="pyQrDel" ${p.momo && p.momo.qr ? "" : "hidden"}>Retirer</button>
+      <p class="hint" style="margin:4px 0 0">Ouvre ton appli Mobile Money (MoMo, Orange Money, Wave…), affiche « Mon QR code », fais une capture d'écran et choisis-la ici.</p></div></div>
     ${fld("pyPaypal", "PayPal.me (facultatif)", `placeholder="ex. annemartin" value="${esc(p.paypal || "")}"`)}
     ${fld("pyLink", "Autre lien de paiement (facultatif)", `placeholder="https://… (Lydia, Wero, Revolut…)" value="${esc(p.link || "")}"`)}
     ${SOC.payToken ? `<button type="button" class="btn" id="pyShare" style="margin-top:12px;width:100%">Partager mon lien de paiement</button>` : ""}</div>`, () => {
     const iban = PAY.clean(val("pyIban")), name = val("pyName").trim(), paypal = val("pyPaypal").trim(), link = val("pyLink").trim();
-    const moNum = val("pyMoNum").replace(/[\s.-]/g, ""), momo = moNum ? { op: val("pyMoOp"), num: moNum } : null;
+    const moNum = val("pyMoNum").replace(/[\s.-]/g, ""), momo = moNum || (qrState && qrState !== "") ? { op: val("pyMoOp"), num: moNum, qr: qrState } : { op: val("pyMoOp"), num: "", qr: "" };
     if (moNum && !/^\+?[0-9]{8,15}$/.test(moNum)) { toast("Numéro Mobile Money invalide (ex. +229 97 00 00 00)"); return false; }
     if (iban && !PAY.ibanOk(iban)) { toast("IBAN invalide : vérifie-le"); return false; }
     if (iban && !name) { toast("Indique le nom du titulaire du compte"); return false; }
@@ -387,6 +391,12 @@ async function editPay() {
     })();
   });
   const sh = f.querySelector("#pyShare"); if (sh) sh.onclick = () => shareText("Pour me payer :", payLinkUrl(0, ""));
+  // QR code Mobile Money : aperçu, ajout, retrait
+  const prev = f.querySelector("#pyQrPrev"), qin = f.querySelector("#pyQrIn"), qdel = f.querySelector("#pyQrDel");
+  const showPrev = src => { prev.innerHTML = src ? `<img alt="QR">` : ""; if (src) prev.firstChild.src = src; prev.hidden = !src; };
+  showPrev(""); if (p.momo && p.momo.qr) PAY.momoQr(p.momo.qr).then(showPrev).catch(() => {});
+  qin.onchange = async () => { const file = qin.files && qin.files[0]; if (!file) return; try { const d = await prepMomoQr(file, x => window.T ? window.T(x) : x); qrState = d; showPrev(d); qdel.hidden = false; toast("QR code prêt : enregistre pour le garder"); } catch (e) { toast(e.message); } qin.value = ""; };
+  qdel.onclick = () => { qrState = ""; showPrev(""); qdel.hidden = true; };
 }
 // Fenêtre « Payer » : IBAN + QR code, PayPal, lien ; « J'ai payé » enregistre le remboursement
 function showPay(p, amount, note, who, onPaid) {

@@ -690,3 +690,18 @@ nav.tabs .in { gap: 2px; }
 
 .pay-hint { margin: 2px 0 4px; font-size: .8rem; color: var(--muted); }
 .ton-rem { font-size: .8rem; }
+
+/* QR code Mobile Money */
+.pay-momoqr { display: flex; flex-direction: column; align-items: center; gap: 6px; background: #fff; border-radius: 14px; padding: 12px; border: 1px solid var(--line); }
+.pay-momoqr img { width: 200px; height: auto; image-rendering: pixelated; cursor: zoom-in; } .pay-momoqr p { margin: 0; font-size: .78rem; color: #4b5a52; text-align: center; }
+.py-qr { display: grid; grid-template-columns: auto 1fr; gap: 12px; align-items: start; margin-top: 8px; }
+.py-qrprev img { width: 84px; height: 84px; object-fit: contain; background: #fff; border: 1px solid var(--line); border-radius: 10px; image-rendering: pixelated; }
+.py-qrprev[hidden] { display: none; } .py-qr .linkbtn.danger { color: var(--bad); margin-left: 8px; }
+
+/* Recadrer le QR code */
+.crop-ov { position: fixed; inset: 0; z-index: 10000; background: #0b0f0d; display: flex; flex-direction: column; align-items: center; gap: 12px; padding: calc(16px + env(safe-area-inset-top)) 14px calc(16px + env(safe-area-inset-bottom)); }
+.crop-top { color: #fff; font-weight: 700; }
+.crop-stage { position: relative; flex: 1; min-height: 0; display: flex; align-items: flex-start; justify-content: center; overflow: auto; width: 100%; }
+.crop-stage img { max-width: 100%; max-height: 100%; display: block; user-select: none; -webkit-user-drag: none; }
+.crop-box { position: absolute; border: 3px solid var(--gold, #e0b84a); box-shadow: 0 0 0 9999px rgba(0,0,0,.45); border-radius: 6px; touch-action: none; cursor: move; }
+.crop-size { width: 80%; } .crop-acts { display: flex; gap: 10px; }

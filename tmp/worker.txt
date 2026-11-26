@@ -177,7 +177,7 @@ const grpPub = g => ({ id: g.id, name: g.name, owner: g.ownerTag, members: g.mem
 // ---------- Me faire payer ----------
 // Coordonnées que l'utilisateur choisit de montrer à ceux qui lui doivent de l'argent (membres de ses groupes, lien de paiement).
 const MOMO_OPS = ["MTN MoMo", "Orange Money", "Wave", "Moov Money", "Airtel Money", "M-Pesa", "Free Money", "Autre"];
-const payPub = p => p && (p.iban || p.paypal || p.link || (p.momo && p.momo.num)) ? { name: p.name || "", iban: p.iban || "", paypal: p.paypal || "", link: p.link || "", momo: p.momo && p.momo.num ? { op: p.momo.op, num: p.momo.num } : null } : null;
+const payPub = p => p && (p.iban || p.paypal || p.link || (p.momo && (p.momo.num || p.momo.qr))) ? { name: p.name || "", iban: p.iban || "", paypal: p.paypal || "", link: p.link || "", momo: p.momo && (p.momo.num || p.momo.qr) ? { op: p.momo.op, num: p.momo.num || "", qr: p.momo.qr || "" } : null } : null;
 async function payOf(env, email) { return email ? payPub(await kvJ(env, "pay:" + email)) : null; }
 function ibanOk(iban) {
   const s = String(iban || "").replace(/\s+/g, "").toUpperCase();
@@ -605,6 +605,8 @@ const pubGroup = (g, pays) => ({ name: g.name, cur: g.cur || "EUR", owner: g.own
 const guestName = (g, id) => ((g.members || []).find(x => x.id === id) || {}).name || "?";
 async function publicApi(req, env, url, cors) {
   if (url.pathname === "/p/key" && req.method === "GET") return json({ key: (await vapid(env)).pub }, 200, cors);
+  const qm = /^\/p\/q\/([a-z0-9]{10,24})$/.exec(url.pathname);
+  if (qm && req.method === "GET") { const d = await env.CODES.get("pqr:" + qm[1]); if (!d) throw new HttpErr(404, "QR code introuvable"); return json({ data: d }, 200, cors); }
   const pm = /^\/p\/([a-z0-9]{10,24})$/.exec(url.pathname);
   if (pm && req.method === "GET") {
     const email = await env.CODES.get("ptk:" + pm[1]); const p = await payOf(env, email);
@@ -709,7 +711,17 @@ async function social(req, env, url, cors) {
     // Mobile Money : opérateur et numéro au format international
     const mnum = String((body.momo && body.momo.num) || "").replace(/[\s.-]/g, ""), mop = MOMO_OPS.includes(body.momo && body.momo.op) ? body.momo.op : "Autre";
     if (mnum && !/^\+?[0-9]{8,15}$/.test(mnum)) throw new HttpErr(400, "numéro Mobile Money invalide (ex. +229 97 00 00 00)");
-    const momo = mnum ? { op: mop, num: mnum.startsWith("+") ? mnum : mnum } : null;
+    // QR code Mobile Money : l'image fournie par l'appli de l'opérateur, gardée à part (lue seulement par ceux qui ont l'identifiant)
+    let qr = old.momo && old.momo.qr || "";
+    const q = body.momo && body.momo.qr;
+    if (q === "" || q === null) { if (qr) await env.CODES.delete("pqr:" + qr); qr = ""; }
+    else if (typeof q === "string" && q.startsWith("data:")) {
+      if (!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(q)) throw new HttpErr(400, "image du QR code invalide");
+      if (q.length > 560000) throw new HttpErr(413, "image du QR code trop lourde");
+      if (qr) await env.CODES.delete("pqr:" + qr);
+      qr = rid(16); await env.CODES.put("pqr:" + qr, q);
+    }
+    const momo = mnum || qr ? { op: mop, num: mnum, qr } : null;
     if (!iban && !paypal && !link && !momo) { await env.CODES.delete("pay:" + me.email); if (old.token) await env.CODES.delete("ptk:" + old.token); return json({ pay: null, token: "" }, 200, cors); }
     const p = { name, iban, paypal, link, momo, token: old.token || rid(14), updated: Date.now() };
     await kvP(env, "pay:" + me.email, p); if (!old.token) await env.CODES.put("ptk:" + p.token, me.email);
