@@ -150,6 +150,7 @@ function renderDeal() {
       dealState = { deal: r.deal, pay: r.pay, payinfo: r.payinfo }; if (r.deal.you && r.deal.you.role !== "guest") dealPut(r.deal); else { DEALS = DEALS.filter(x => x.id !== id); dealsSave(); } render(); },
     edit: dd => editDeal(dd.id),
     search: q => socApi("/search?q=" + encodeURIComponent(q)).then(j => j.users || []),
+    pickMsg: (who, amt, ctxName, opts) => remindPick(who, amt, ctxName, opts),
     needName: false,
   };
   DEALUI.render(document.getElementById("dealRoot"), S, ctx);

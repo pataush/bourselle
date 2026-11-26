@@ -202,8 +202,16 @@ DEALUI.tonCard = function (d, ctx) {
 // Relancer : notification aux membres qui ont un compte, message prêt à envoyer (avec le lien pour payer) pour les autres
 DEALUI.remind = async function (d, ctx, pids, k) {
   const t = ctx.t, m = v => ctx.money(v, d.cur), notified = [], toShare = []; let last = null;
+  const amtOf = pid => d.ton ? d.amount : d.kind === "achat" ? ((d.parts[pid] || {}).qty || 0) * d.price : (d.parts[pid] || {}).amount || 0;
+  let msg = "";
+  if (ctx.pickMsg) {
+    const r = d.ton ? d.rounds[k] : null, who = pids.length === 1 ? (d.parts[pids[0]] || {}).name || "" : t("{x} membres", pids.length);
+    const preset = d.ton ? t("Petit rappel : ta cotisation de {m} (tour {k}) est à verser à {b} au plus tard le {d} 🙂").replace("{m}", m(d.amount)).replace("{k}", k + 1).replace("{b}", (d.parts[r.ben] || {}).name || "").replace("{d}", ctx.fdate(r.due || r.date))
+      : t("Petit rappel : merci de régler ta part de {m} 🙂").replace("{m}", m(amtOf(pids[0])));
+    msg = await ctx.pickMsg(who, m(amtOf(pids[0])), d.title, { preset }); if (!msg) return;
+  }
   for (const pid of pids) {
-    try { const r = await ctx.call("me", { action: "remind", k, pid }); last = r; (r.notified ? notified : toShare).push(pid); } catch (e) { ctx.toast(e.message); return; }
+    try { const r = await ctx.call("me", { action: "remind", k, pid, msg }); last = r; (r.notified ? notified : toShare).push(pid); } catch (e) { ctx.toast(e.message); return; }
   }
   if (last) ctx.onUpdate(last);
   const nm = pid => (d.parts[pid] || {}).name || "";
@@ -211,7 +219,8 @@ DEALUI.remind = async function (d, ctx, pids, k) {
     const amt = pid => d.ton ? d.amount : d.kind === "achat" ? (d.parts[pid].qty || 0) * d.price : d.parts[pid].amount || 0;
     const r = d.ton ? d.rounds[k] : null;
     const who = toShare.map(nm).join(", ");
-    const txt = d.ton ? t("Petit rappel 🙂 {x} : ta cotisation de {m} pour « {t} » (tour {k}, le {d}) est à verser à {b}. Pour payer :", who).replace("{m}", m(d.amount)).replace("{t}", d.title).replace("{k}", k + 1).replace("{d}", ctx.fdate(r.date)).replace("{b}", nm(r.ben))
+    const lc = x => /^[A-ZÀ-Ý][a-zà-ÿ]/.test(x) ? x[0].toLowerCase() + x.slice(1) : x;
+    const txt = msg ? who + ", " + lc(msg) : d.ton ? t("Petit rappel 🙂 {x} : ta cotisation de {m} pour « {t} » (tour {k}, le {d}) est à verser à {b}. Pour payer :", who).replace("{m}", m(d.amount)).replace("{t}", d.title).replace("{k}", k + 1).replace("{d}", ctx.fdate(r.date)).replace("{b}", nm(r.ben))
       : t("Petit rappel 🙂 {x} : ta part de {m} pour « {t} » est à régler à {b}. Pour payer :", who).replace("{m}", m(amt(toShare[0]))).replace("{t}", d.title).replace("{b}", d.ownerName || "");
     const lk = d.ton && toShare.length === 1 && (d.parts[toShare[0]] || {}).lk;
     await ctx.share(txt, lk ? DEALUI.tonPersonalLink(ctx, toShare[0] + "." + lk) : ctx.url);
@@ -354,18 +363,24 @@ DEALUI.renderTon = function (root, S, ctx) {
 // Avertir (date butoir dépassée) : notification aux membres qui ont l'appli, message prêt à envoyer (avec leur lien) pour les autres
 DEALUI.warn = async function (d, ctx, pids, k) {
   const t = ctx.t, m = v => ctx.money(v, d.cur), r = d.rounds[k], nm = pid => (d.parts[pid] || {}).name || "";
-  const notified = [], toShare = []; let last = null;
+  const notified = [], toShare = []; let last = null, msg = "";
+  if (ctx.pickMsg) {
+    const preset = t("⚠️ Avertissement : ta cotisation de {m} (tour {k}) devait être réglée au plus tard le {d}. Merci de régulariser au plus vite.").replace("{m}", m(d.amount)).replace("{k}", k + 1).replace("{d}", ctx.fdate(r.due));
+    msg = await ctx.pickMsg(pids.length === 1 ? nm(pids[0]) : t("{x} membres", pids.length), m(d.amount), d.title, { preset, title: t("Avertir"), payLabel: t("Date butoir dépassée") }); if (!msg) return;
+  }
   for (const pid of pids) {
-    try { const x = await ctx.call("owner", { action: "warn", k, pid }); last = x; (x.notified ? notified : x.member ? [] : toShare).push(pid); } catch (e) { ctx.toast(e.message); return; }
+    try { const x = await ctx.call("owner", { action: "warn", k, pid, msg }); last = x; (x.notified ? notified : x.member ? [] : toShare).push(pid); } catch (e) { ctx.toast(e.message); return; }
   }
   if (last) ctx.onUpdate(last);
   for (const pid of toShare) {
     let url = ctx.url; const lk = (d.parts[pid] || {}).lk; if (lk) url = DEALUI.tonPersonalLink(ctx, pid + "." + lk);
+    if (msg) { await ctx.share(nm(pid) + " — " + msg, url); continue; }
     await ctx.share(t("⚠️ Avertissement {x} : ta cotisation de {m} pour « {t} » (tour {k}, pour {b}) devait être réglée au plus tard le {d}. Merci de régulariser au plus vite :", nm(pid)).replace("{m}", m(d.amount)).replace("{t}", d.title).replace("{k}", k + 1).replace("{b}", nm(r.ben)).replace("{d}", ctx.fdate(r.due)), url);
   }
   if (notified.length) setTimeout(() => ctx.toast(t("Avertissement envoyé à {x}", notified.map(nm).join(", "))), toShare.length ? 1800 : 0);
 };
 Object.assign(DEAL_EN, {
+  "Petit rappel : ta cotisation de {m} (tour {k}) est à verser à {b} au plus tard le {d} 🙂": "Friendly reminder: your {m} contribution (round {k}) is due to {b} by {d} 🙂", "Petit rappel : merci de régler ta part de {m} 🙂": "Friendly reminder: please pay your {m} share 🙂", "Date butoir dépassée": "Deadline passed", "⚠️ Avertissement : ta cotisation de {m} (tour {k}) devait être réglée au plus tard le {d}. Merci de régulariser au plus vite.": "⚠️ Warning: your {m} contribution (round {k}) was due by {d}. Please settle it as soon as possible.",
   "Choisis comment payer": "Choose how to pay", "Comment payer": "How to pay", "Ouvrir {x}": "Open {x}", "le lien de paiement": "the payment link", "Virement": "Bank transfer", "Le lien s'ouvre dans l'appli concernée si elle est installée, sinon dans le navigateur.": "The link opens in the right app if it's installed, otherwise in your browser.", "S'ouvre dans l'appli {x} si elle est installée, sinon sur le site.": "Opens in the {x} app if it's installed, otherwise on the website.", "Tu paies depuis un autre téléphone ? Scanne ce QR code.": "Paying from another phone? Scan this QR code.",
   "Paiement rapide": "Quick payment", "Virement bancaire": "Bank transfer", "Lien de paiement": "Payment link", "Dans l'appli de ta banque, ouvre Wero et envoie le montant à ce numéro ou cet e-mail.": "In your bank's app, open Wero and send the amount to this number or email.",
   "le jour du tour": "on the day of the round", "{x} jour après la date du tour": "{x} day after the round date", "{x} jours après la date du tour": "{x} days after the round date",

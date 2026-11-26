@@ -2,7 +2,7 @@
  * Chaque utilisateur a un tag (@marie-7k2q) qu'il peut partager. Un utilisateur Plus peut réclamer une dette
  * à un tag : elle arrive dans l'app de l'autre, qui l'accepte ou la refuse, et les remboursements se suivent des deux côtés.
  * Passe par le serveur PLUS_CFG.api ; sans serveur configuré, rien de tout cela n'apparaît. */
-const SOC = { tag: "", in: [], out: [], loaded: false, err: "", sig: "" };
+const SOC = { tag: "", in: [], out: [], loaded: false, err: "", sig: "", reminders: [] };
 const socOn = () => !!(typeof PLUS_CFG !== "undefined" && PLUS_CFG.api) && !!store && store.id !== "local" && typeof store.accessToken === "function";
 async function socApi(path, opts = {}) {
   const t = await store.accessToken();
@@ -33,6 +33,14 @@ function socMerge() {
   return changed;
 }
 let socBusy = false, socSeen = new Set(JSON.parse(localStorage.getItem("bourselle-soc-seen") || "[]"));
+// Rappels reçus (relances d'un groupe ou d'une cagnotte) : affichés dans la cloche, supprimables définitivement
+async function socLoadReminders() {
+  try { const j = await socApi("/me/reminders"); SOC.reminders = j.reminders || []; if (typeof refreshBell === "function") refreshBell(); } catch (e) {}
+}
+async function socDelReminder(id) {
+  SOC.reminders = (SOC.reminders || []).filter(x => x.id !== id);
+  try { const j = await socApi("/me/reminders", { method: "POST", body: JSON.stringify({ id }) }); SOC.reminders = j.reminders || []; } catch (e) {}
+}
 async function socRefresh() {
   if (!socOn() || socBusy) return; socBusy = true;
   try {
@@ -40,7 +48,7 @@ async function socRefresh() {
     SOC.tag = j.tag || SOC.tag; SOC.in = j.in || []; SOC.out = j.out || []; SOC.loaded = true; SOC.err = "";
     const changed = socMerge();
     try { await socPullGroups(); await socPushGroups(); } catch (e) {}
-    socLoadPay();
+    socLoadPay(); socLoadReminders();
     if (!SOC.addChecked) { SOC.addChecked = true; socPendingAdd(); }
     socOpenPending(); pushResync(); if (typeof dealsRefresh === "function") dealsRefresh(); if (typeof projRefresh === "function") projRefresh();
     const fresh = SOC.in.filter(c => c.status === "pending" && !socSeen.has(c.id));

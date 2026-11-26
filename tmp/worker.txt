@@ -312,6 +312,12 @@ function tonDate(d, k) {
   else return iso(addMonths(x, d.freq === "an" ? 12 * k : k));
   return iso(x);
 }
+// Rappels reçus (relances) : gardés pour l'appli de la personne, qui peut les supprimer définitivement
+const remMsg = v => String(v || "").replace(/[<>]/g, "").replace(/\s+/g, " ").trim().slice(0, 240);
+async function addReminder(env, email, item) {
+  const l = await kvJ(env, "rem:" + email, []) || [];
+  l.unshift({ id: rid(10), at: Date.now(), ...item }); await kvP(env, "rem:" + email, l.slice(0, 50));
+}
 const tonRounds = d => (d.order || []).map((ben, k) => { const date = tonDate(d, k), x = new Date(date + "T12:00:00Z"); x.setUTCDate(x.getUTCDate() + (d.due || 0)); return { k, date, due: iso(x), ben }; });
 const fdFr = s => s.split("-").reverse().join("/");
 const dealEmails = (d, except) => [d.ownerEmail, ...Object.values(d.parts || {}).map(p => p.email)].filter(e => e && e !== except);
@@ -395,7 +401,10 @@ async function dealApi(req, env, url, cors) {
       let sent = false;
       if (tp.email && Date.now() - last > 6 * 3600 * 1000) {
         const amt = d.ton ? d.amount : d.kind === "achat" ? (tp.qty || 0) * d.price : tp.amount || 0, to = d.ton ? (d.parts[rnd.ben] || {}).name : d.ownerName;
-        notify(env, [tp.email], dealMsg(d, l => `Petit rappel : ${fmtMoney(amt, d.cur, l)} à verser à ${to}${d.ton ? ` (tour ${k + 1}, au plus tard le ${fdFr(rnd.due)})` : ""}`, l => `Friendly reminder: ${fmtMoney(amt, d.cur, l)} to pay to ${to}${d.ton ? ` (round ${k + 1}, by ${fdFr(rnd.due)})` : ""}`));
+        const msg = remMsg(b.msg);
+        await addReminder(env, tp.email, { kind: "d", ref: d.id, title: d.title, from: d.ownerName || "", amt, cur: d.cur, msg });
+        if (msg) notify(env, [tp.email], dealMsg(d, () => `${d.ownerName || "Le gérant"} : ${msg}`, () => `${d.ownerName || "The manager"}: ${msg}`));
+        else notify(env, [tp.email], dealMsg(d, l => `Petit rappel : ${fmtMoney(amt, d.cur, l)} à verser à ${to}${d.ton ? ` (tour ${k + 1}, au plus tard le ${fdFr(rnd.due)})` : ""}`, l => `Friendly reminder: ${fmtMoney(amt, d.cur, l)} to pay to ${to}${d.ton ? ` (round ${k + 1}, by ${fdFr(rnd.due)})` : ""}`));
         d.reminded[rk] = Date.now(); await save(); sent = true;
       }
       return out({ notified: sent, member: !!tp.email });
@@ -516,7 +525,8 @@ async function dealApi(req, env, url, cors) {
       let notified = false;
       if (Date.now() - w.at > 6 * 3600 * 1000) {
         d.warns[wk] = { n: w.n + 1, at: Date.now() };
-        if (p.email) { notify(env, [p.email], dealMsg(d, l => `⚠️ Avertissement : ta cotisation de ${fmtMoney(d.amount, d.cur, l)} (tour ${k + 1}, pour ${(d.parts[rnd.ben] || {}).name || ""}) devait être réglée au plus tard le ${fdFr(rnd.due)}.`, l => `⚠️ Warning: your ${fmtMoney(d.amount, d.cur, l)} contribution (round ${k + 1}, to ${(d.parts[rnd.ben] || {}).name || ""}) was due by ${fdFr(rnd.due)}.`)); notified = true; }
+        if (p.email) { await addReminder(env, p.email, { kind: "d", ref: d.id, title: d.title, from: d.ownerName || "", amt: d.amount, cur: d.cur, warn: true, msg: remMsg(b.msg) || `⚠️ Avertissement : date butoir du ${fdFr(rnd.due)} dépassée (tour ${k + 1}).` });
+          notify(env, [p.email], dealMsg(d, l => `⚠️ Avertissement : ta cotisation de ${fmtMoney(d.amount, d.cur, l)} (tour ${k + 1}, pour ${(d.parts[rnd.ben] || {}).name || ""}) devait être réglée au plus tard le ${fdFr(rnd.due)}.`, l => `⚠️ Warning: your ${fmtMoney(d.amount, d.cur, l)} contribution (round ${k + 1}, to ${(d.parts[rnd.ben] || {}).name || ""}) was due by ${fdFr(rnd.due)}.`)); notified = true; }
       }
       await save(); return out({ notified, member: !!p.email, n: (d.warns[wk] || w).n });
     }
@@ -781,6 +791,15 @@ async function social(req, env, url, cors) {
     if (body.test) notify(env, [me.email], lang => ({ title: "Bourselle", body: lang === "en" ? "Notifications are on 🎉" : "Les notifications sont activées 🎉", url: "./", tag: "test" }));
     return json({ ok: true, n: list.length }, 200, cors);
   }
+  if (path === "/me/reminders") {
+    const l = await kvJ(env, "rem:" + me.email, []) || [];
+    if (req.method === "GET") return json({ reminders: l }, 200, cors);
+    if (req.method === "POST") {
+      const keep = body.action === "clear" ? [] : l.filter(x => x.id !== String(body.id || ""));
+      if (keep.length !== l.length) { if (keep.length) await kvP(env, "rem:" + me.email, keep); else await env.CODES.delete("rem:" + me.email); }
+      return json({ reminders: keep }, 200, cors);
+    }
+  }
   if (path === "/me/pay" && req.method === "GET") { const p = await kvJ(env, "pay:" + me.email); return json({ pay: payPub(p), token: (p && p.token) || "" }, 200, cors); }
   if (path === "/me/pay" && req.method === "POST") {
     const old = await kvJ(env, "pay:" + me.email) || {};
@@ -884,7 +903,9 @@ async function social(req, env, url, cors) {
       const em = m.tag ? await env.CODES.get("tag:" + m.tag) : ""; if (!em || em === me.email) { res[m.id] = "share"; continue; }
       const rk = "grr:" + gr[1] + ":" + m.id; if (await env.CODES.get(rk)) { res[m.id] = "recent"; continue; }
       await env.CODES.put(rk, "1", { expirationTtl: 6 * 3600 });
-      notify(env, [em], l => ({ title: g.name, body: l === "en" ? `${from} reminds you: you owe them ${fmtMoney(amt, cur, l)} in “${g.name}”.` : `${from} te relance : tu lui dois ${fmtMoney(amt, cur, l)} dans « ${g.name} ».`, url: "./?g=" + gr[1], tag: "g-" + gr[1] + "-r" }));
+      const msg = remMsg(body.msg);
+      await addReminder(env, em, { kind: "g", ref: gr[1], title: g.name, from, amt, cur, msg });
+      notify(env, [em], l => ({ title: g.name, body: msg ? `${from} : ${msg}` : l === "en" ? `${from} reminds you: you owe them ${fmtMoney(amt, cur, l)} in “${g.name}”.` : `${from} te relance : tu lui dois ${fmtMoney(amt, cur, l)} dans « ${g.name} ».`, url: "./?g=" + gr[1], tag: "g-" + gr[1] + "-r" }));
       res[m.id] = "notified";
     }
     return json({ res }, 200, cors);

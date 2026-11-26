@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "66";
+const APP_VERSION = "67";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -283,6 +283,7 @@ function alertsAll() {
   const L = [], add = (id, tab, label, items, open) => { if (items.length && (subAllowed(tab) || open)) L.push({ id, tab, label, items, open }); };
   try {
     const mk = cur.y + "-" + String(cur.m).padStart(2, "0");
+    if (typeof SOC !== "undefined" && (SOC.reminders || []).length) add("rem", "accueil", "Rappels reçus", SOC.reminders.map(r => ({ k: "rem:" + r.id, rem: r.id, t: `${r.from || "Quelqu'un"} : ${r.msg || `merci de régler ${fmtCur(r.amt, r.cur)}`}`, s: `${r.title || ""}${r.amt ? " · " + fmtCur(r.amt, r.cur) : ""} · ${agoText(r.at)}`, warn: !!r.warn, g: r.kind === "g" ? r.ref : "", deal: r.kind === "d" ? r.ref : "", go: "Régler" })), true);
     if (typeof SOC !== "undefined") add("claims", "dettes", "Réclamations de dettes reçues", SOC.in.filter(c => c.status === "pending").map(c => ({ k: "claim:" + c.id, t: `@${c.from} te réclame ${socMoney(c)}`, s: [c.name, c.due ? "avant le " + frDate(c.due) : ""].filter(Boolean).join(" · "), go: "Répondre", claim: c.id })));
     if (typeof DEALS !== "undefined") add("ton", "accueil", "Cotisations à verser", DEALS.filter(d => d.ton && d.started && d.you && d.you.pid).flatMap(d => (d.rounds || []).filter(r => r.date <= addDays(todayISO(), 3) && r.ben !== d.you.pid && !((d.pays || {})[r.k + "|" + d.you.pid] || {}).st)
       .map(r => ({ k: `ton:${d.id}:${r.k}`, t: `${d.title} · tour ${r.k + 1}`, s: `${dealMoney(d.amount, d.cur)} à verser à ${(d.parts[r.ben] || {}).name || "?"} · ${frDate(r.date)}`, deal: d.id, go: "Payer" }))), true);
@@ -316,6 +317,7 @@ function alertsPrune() {
 function alertGo(a, x) {
   closeForm();
   setTimeout(() => {
+    if (x && x.g) { if (groups[x.g]) { openGroup = x.g; return switchTab("partage"); } return switchTab("partage"); }
     if (x && x.deal) return showDeal(x.deal);
     if (x && x.pj) return showProject(x.pj);
     if (x && x.sub) { switchTab("abos"); return editSub(x.sub); }
@@ -327,24 +329,24 @@ function alertGo(a, x) {
 }
 function showAlerts(openIds) {
   alertsPrune();
-  const L = alertsList(), off = alertsOff(), nOff = Object.keys(off).length, act = typeof hubActivity === "function" ? hubActivity().slice(0, 6) : [];
+  const L = alertsList(), act = typeof hubActivity === "function" ? hubActivity().slice(0, 6) : [];
   const open = new Set(openIds || (L[0] ? [L[0].id] : []));
   const f = openForm(`<div class="f2"><h3>Alertes</h3>${L.length ? L.map((a, i) => `<div class="al-box${open.has(a.id) ? " open" : ""}" data-box="${a.id}"><button type="button" class="alert-row" data-al="${i}"><b>${esc(a.label)}</b><span class="n">${a.n}</span><span class="al-chev" aria-hidden="true">⌄</span></button>
       <div class="al-items">${a.items.slice(0, 12).map((x, j) => `<div class="al-it2"><div class="al-tx"><b>${esc(x.t)}</b>${x.s ? `<small>${esc(x.s)}</small>` : ""}</div>
-        <button type="button" class="btn al-go" data-go="${i}" data-j="${j}">${esc(x.go || "Gérer")} ›</button><button type="button" class="al-x" data-off="${esc(x.k)}" data-box="${a.id}" aria-label="Masquer cette alerte" title="Masquer">✕</button></div>`).join("")}
+        <button type="button" class="btn al-go" data-go="${i}" data-j="${j}">${esc(x.go || "Gérer")} ›</button><button type="button" class="al-x" data-off="${esc(x.k)}" data-rem="${esc(x.rem || "")}" aria-label="Supprimer cette notification" title="Supprimer">🗑</button></div>`).join("")}
       ${a.items.length > 12 ? `<p class="hint">+ ${a.items.length - 12} autres</p>` : ""}
-      <div class="al-foot"><button type="button" class="linkbtn" data-go="${i}">Tout voir ›</button>${a.n > 1 ? `<button type="button" class="linkbtn al-alloff" data-alloff="${i}">Tout masquer</button>` : ""}</div></div></div>`).join("")
+      <div class="al-foot"><button type="button" class="linkbtn" data-go="${i}">Tout voir ›</button>${a.n > 1 ? `<button type="button" class="linkbtn al-alloff" data-alloff="${i}">Tout supprimer</button>` : ""}</div></div></div>`).join("")
     : `<p class="hint">Rien à surveiller pour l'instant.</p>`}
-    ${nOff ? `<button type="button" class="linkbtn al-restore" id="alRestore">Réafficher les alertes masquées (${nOff})</button>` : ""}
     ${act.length ? `<span class="lbl" style="margin-top:14px">Activité récente</span>${act.map((e, k) => `<button type="button" class="al-it" data-ev="${k}"><b>${esc(e.t)}</b><small>${esc(e.s)} · ${esc(agoText(e.at))}</small></button>`).join("")}` : ""}</div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
   const openNow = () => [...f.querySelectorAll(".al-box.open")].map(b => b.dataset.box);
   const redraw = msg => { saveSettings(); refreshBell(); const o = openNow(); closeForm(); showAlerts(o); if (msg) toast(msg); };
   f.querySelectorAll("[data-al]").forEach(b => b.onclick = () => b.parentElement.classList.toggle("open"));
   f.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { const a = L[Number(b.dataset.go)]; alertGo(a, b.dataset.j != null ? a.items[Number(b.dataset.j)] : null); });
-  f.querySelectorAll("[data-off]").forEach(b => b.onclick = () => { alertsOff()[b.dataset.off] = Date.now(); redraw("Alerte masquée"); });
-  f.querySelectorAll("[data-alloff]").forEach(b => b.onclick = () => { const a = L[Number(b.dataset.alloff)]; for (const x of a.items) alertsOff()[x.k] = Date.now(); redraw(`${a.n} alertes masquées`); });
-  { const r = f.querySelector("#alRestore"); if (r) r.onclick = () => { settings.alertsOff = {}; redraw("Alertes réaffichées"); }; }
+  // Supprimer définitivement : un rappel reçu est effacé du serveur ; une autre alerte ne revient plus (sauf si un nouveau problème apparaît)
+  const del = async items => { for (const x of items) { if (x.rem) await socDelReminder(x.rem); else alertsOff()[x.k] = Date.now(); } };
+  f.querySelectorAll("[data-off]").forEach(b => b.onclick = async () => { const x = L.flatMap(a => a.items).find(y => y.k === b.dataset.off); if (x) await del([x]); redraw("Notification supprimée"); });
+  f.querySelectorAll("[data-alloff]").forEach(b => b.onclick = async () => { const a = L[Number(b.dataset.alloff)]; await del(a.items); redraw(`${a.n} notifications supprimées`); });
   f.querySelectorAll("[data-ev]").forEach(b => b.onclick = () => { const e = act[Number(b.dataset.ev)]; closeForm(); if (e.did) showDeal(e.did); else { openGroup = e.gid; switchTab("partage"); } });
 }
 function refreshBell() { const d = document.getElementById("bellDot"); if (d) d.hidden = !alertsList().reduce((a, x) => a + x.n, 0); }
@@ -1628,6 +1630,7 @@ const DEBT_KINDS = [["credit", "Crédit / prêt"], ["dois", "Je dois à quelqu'u
 // au taux retenu à l'acceptation (xr = unités de la devise pour 1 unité de la devise du budget).
 const debtForeign = x => !!(x && x.cur && x.cur !== baseCurrency() && Number(x.xr) > 0);
 const debtBase = (x, v) => debtForeign(x) ? Math.round(v / Number(x.xr) * 100) / 100 : v;
+function fmtCur(v, cur) { if (!cur || cur === baseCurrency()) return eur(v); try { return new Intl.NumberFormat(appLocale(), { style: "currency", currency: cur }).format(v); } catch (e) { return v + " " + cur; } }
 function debtFmt(x, v, short) {
   if (!debtForeign(x)) return eur(v, short);
   let f; try { f = new Intl.NumberFormat(appLocale(), { style: "currency", currency: x.cur }).format(v); } catch (e) { f = v + " " + x.cur; }
@@ -2182,15 +2185,40 @@ function renderPartage() {
   view.querySelectorAll("[data-grem]").forEach(b => b.onclick = () => { const g = groups[b.dataset.grem]; groupRemind(b.dataset.grem, settle(groupBalances(g)).filter(x => x.to === g.me)); });
   view.querySelectorAll("[data-ev]").forEach(b => b.onclick = () => { const e = act[Number(b.dataset.ev)]; if (e && e.gid) { openGroup = e.gid; render(); window.scrollTo(0, 0); } });
 }
+// Relancer : on choisit le message (régler la somme, ou un autre message). Résout avec le texte, ou null si annulé.
+function remindPick(who, amountTxt, context, opts) {
+  opts = opts || {};
+  return new Promise(res => {
+    const pay = opts.preset || `Petit rappel : merci de me régler ${amountTxt}${context ? ` pour « ${context} »` : ""} 🙂`;
+    let done = false, kind = "pay";
+    const f = openForm(`<div class="f2"><h3>${esc(opts.title || "Relancer")} ${esc(who)}</h3>
+      <span class="lbl">Motif du rappel</span><div class="chips" id="rmKind"></div>
+      <label class="lbl" for="rmMsg">Message envoyé</label><textarea class="field" id="rmMsg" rows="3" maxlength="240">${esc(pay)}</textarea>
+      <p class="hint" style="margin:6px 0 0">${esc(opts.hint || "Ceux qui ont l'appli le reçoivent en notification et le retrouvent dans « Rappels reçus ». Pour les autres, un message prêt à envoyer s'ouvre.")}</p></div>`, () => {
+      const m = val("rmMsg").trim(); if (!m) { toast("Écris un message"); return false; }
+      done = true; res(m);
+    });
+    f.querySelector("button[type=submit]").textContent = "Envoyer le rappel";
+    chipsPick("rmKind", [["pay", opts.payLabel || "Régler la somme"], ["other", "Autre message"]], kind, v => {
+      kind = v; const t = f.querySelector("#rmMsg");
+      if (v === "pay") t.value = pay; else { t.value = ""; t.placeholder = "ex. On en parle ce week-end ?"; setTimeout(() => t.focus(), 50); }
+    });
+    const cancel = f.querySelector("#f2Cancel"), c0 = cancel.onclick; cancel.onclick = e => { if (!done) res(null); c0 && c0(e); };
+    const root = document.getElementById("sheet2Root"), obs = new MutationObserver(() => { if (!root.classList.contains("open")) { obs.disconnect(); if (!done) { done = true; res(null); } } });
+    obs.observe(root, { attributes: true, attributeFilter: ["class"] });
+  });
+}
 // Relancer ceux qui me doivent dans un groupe : notification à ceux qui ont l'appli (groupe partagé),
 // message prêt à envoyer (avec le lien du groupe ou mon lien de paiement) pour les autres
 async function groupRemind(gid, list) {
   const g = groups[gid]; if (!g || !list.length) return;
   const nm = id => (g.members.find(m => m.id === id) || {}).name || "";
+  const msg = await remindPick(list.length === 1 ? nm(list[0].from) : `${list.length} personnes`, list.length === 1 ? eur(list[0].amount) : "ce que tu me dois", g.name);
+  if (!msg) return;
   let notified = [], recent = [], share = list.slice();
   if (g.shared && typeof socOn === "function" && socOn() && list.some(s => (g.members.find(m => m.id === s.from) || {}).tag)) {
     try {
-      const r = await socApi("/groups/" + gid + "/remind", { method: "POST", body: JSON.stringify({ cur: g.cur || baseCurrency(), to: list.map(s => ({ id: s.from, amount: s.amount })) }) });
+      const r = await socApi("/groups/" + gid + "/remind", { method: "POST", body: JSON.stringify({ cur: g.cur || baseCurrency(), msg, to: list.map(s => ({ id: s.from, amount: s.amount })) }) });
       share = []; for (const s of list) { const v = (r.res || {})[s.from]; (v === "notified" ? notified : v === "recent" ? recent : share).push(s); }
     } catch (e) { share = list.slice(); }
   }
@@ -2200,8 +2228,9 @@ async function groupRemind(gid, list) {
   if (typeof socLoadPay === "function") await socLoadPay();
   const total = share.reduce((a, s) => a + s.amount, 0);
   const url = g.link ? groupLinkUrl(g.link) : typeof payLinkUrl === "function" ? payLinkUrl(share.length === 1 ? share[0].amount : 0, g.name) : "";
-  const txt = share.length === 1 ? `Petit rappel 🙂 ${nm(share[0].from)}, tu me dois ${eur(share[0].amount)} pour « ${g.name} ».${url ? " Tu peux payer ici :" : ""}`
-    : `Petit rappel 🙂 pour « ${g.name} » : ${share.map(s => `${nm(s.from)} me doit ${eur(s.amount)}`).join(", ")} (${eur(total)} en tout).${url ? " Pour payer :" : ""}`;
+  const lc = m => /^[A-ZÀ-Ý][a-zà-ÿ]/.test(m) ? m[0].toLowerCase() + m.slice(1) : m;
+  const txt = share.length === 1 ? `${nm(share[0].from)}, ${lc(msg)}${url ? " Pour payer :" : ""}`
+    : `${msg} (${share.map(s => `${nm(s.from)} : ${eur(s.amount)}`).join(", ")}, ${eur(total)} en tout).${url ? " Pour payer :" : ""}`;
   setTimeout(() => shareText(txt, url || undefined), notified.length ? 1200 : 0);
 }
 function groupRecapText(g) {
