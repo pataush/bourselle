@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "103";
+const APP_VERSION = "104";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -3207,7 +3207,7 @@ function startImport() {
       if (!rows.length) { toast(format === "PDF" ? "Aucune opération reconnue dans ce PDF. Essaie l'export CSV depuis l'espace en ligne de ta banque, ou envoie-moi le souci." : "Aucune opération reconnue dans ce fichier. Exporte le relevé au format CSV ou OFX depuis ta banque.", 9000); return; }
       { const tt = document.getElementById("toast"); if (tt) tt.style.display = "none"; }
       reviewImport(rows, format, f.name);
-    } catch (e) { console.warn(e); toast("Ce fichier n'a pas pu être lu."); }
+    } catch (e) { console.warn(e); toast(`Ce fichier n'a pas pu être lu${e && e.message ? ` (détail : ${String(e.message).slice(0, 120)})` : ""}.`, 12000); }
   };
   inp.click();
 }

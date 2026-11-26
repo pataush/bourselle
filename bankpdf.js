@@ -14,9 +14,18 @@ const PDF_AMT = /^[-+]?\d{1,3}(?:[\s  .]\d{3})*,\d{2}\s*-?$|^[-+]?\d+,\d{2}\s
 const PDF_DATE = /^(\d{1,2})[./-](\d{1,2})(?:[./-](\d{2}|\d{4}))?$/;
 const pdfNum = s => { const neg = /^-|-$/.test(s.trim()); const v = Number(s.replace(/[\s  .+-]/g, "").replace(",", ".")); return neg ? -v : v; };
 
-async function pdfLines(buf) {
+async function pdfOpen(buf) {
   const lib = await pdfLib();
-  const doc = await lib.getDocument({ data: new Uint8Array(buf), isEvalSupported: false }).promise;
+  try { return await lib.getDocument({ data: new Uint8Array(buf.slice(0)), isEvalSupported: false }).promise; }
+  catch (e) {
+    if (e && e.name === "PasswordException") throw new Error("ce PDF est protégé par un mot de passe");
+    // Certains iPhone refusent le « worker » de pdf.js : on le charge alors dans la page elle-même
+    if (!globalThis.pdfjsWorker) { try { globalThis.pdfjsWorker = await import(new URL("lib/pdf.worker.min.mjs", document.baseURI).href); } catch (e2) { throw e; } }
+    return await lib.getDocument({ data: new Uint8Array(buf.slice(0)), isEvalSupported: false }).promise;
+  }
+}
+async function pdfLines(buf) {
+  const doc = await pdfOpen(buf);
   const pages = [];
   for (let p = 1; p <= doc.numPages; p++) {
     const tc = await (await doc.getPage(p)).getTextContent();
@@ -39,10 +48,12 @@ function pdfCells(items) {
   const out = [];
   for (const it of items) {
     const last = out[out.length - 1];
-    if (last && it.x - (last.x + last.w) < 3 && !(PDF_AMT.test(last.s) && PDF_AMT.test(it.s))) { last.s += (it.x - (last.x + last.w) > 0.8 ? " " : "") + it.s; last.w = it.x + it.w - last.x; }
+    if (last && it.x - (last.x + last.w) < 3 && !(PDF_AMT.test(last.s) && PDF_AMT.test(it.s)) && !(PDF_DATE.test(last.s) && PDF_DATE.test(it.s))) { last.s += (it.x - (last.x + last.w) > 0.8 ? " " : "") + it.s; last.w = it.x + it.w - last.x; }
     else out.push({ ...it });
   }
-  return out;
+  // « 54,20 € », « 54,20 ¨ » (le symbole euro mal encodé du Crédit Agricole), « 54,20 EUR » → « 54,20 »
+  for (const c of out) c.s = c.s.replace(/\s*(€|¨|EUR|euros?)$/i, "").trim();
+  return out.filter(c => c.s);
 }
 
 async function parseBankPdf(buf) {
