@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "102";
+const APP_VERSION = "103";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -3090,6 +3090,15 @@ function parseOFX(text) {
 }
 function parseBankFile(text) {
   if (/<OFX>|<STMTTRN>/i.test(text)) return { rows: parseOFX(text), format: "OFX" };
+  if (/^!Type:/im.test(text)) {   // QIF (Quicken) : D date, T montant, P bénéficiaire, M mémo, ^ fin
+    const rows = []; let r = {};
+    for (const l of text.split(/\r?\n/)) {
+      const k = l.charAt(0), v = l.slice(1).trim();
+      if (k === "D") r.date = bankDate(v.replace(/'/g, "/").replace(/\s/g, "")); else if (k === "T" || k === "U") r.amount = bankNum(v); else if (k === "P") r.p = v; else if (k === "M") r.m = v;
+      else if (k === "^") { if (r.date && r.amount) rows.push({ date: r.date, label: [r.p, r.m].filter(Boolean).join(" "), amount: Math.round(r.amount * 100) / 100 }); r = {}; }
+    }
+    return { rows, format: "QIF" };
+  }
   const lines = text.split(/\r?\n/).filter(l => l.trim()).slice(0, 40);
   const sep = [";", ",", "\t", "|"].map(s => [s, lines.reduce((a, l) => a + (l.split(s).length - 1), 0)]).sort((a, b) => b[1] - a[1])[0][0];
   const rows = splitCSV(text, sep);
