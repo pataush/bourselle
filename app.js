@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "53";
+const APP_VERSION = "54";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -2091,7 +2091,7 @@ function renderPartage() {
   if (openGroup) return renderGroup(openGroup);
   const list = Object.entries(groups).map(([id, g]) => ({ ...g, id, bal: groupBalances(g) }));
   const mine = list.reduce((a, g) => a + (g.bal[g.me] || 0), 0);
-  document.getElementById("periodLabel").textContent = "Dépenses partagées";
+  document.getElementById("periodLabel").textContent = "Entre proches";
   document.getElementById("resCap").textContent = mine >= 0 ? "Au total, on te doit" : "Au total, tu dois";
   const big = document.getElementById("resBig"); big.textContent = eur(Math.abs(mine)); big.className = "big num " + (mine > 0.004 ? "good" : mine < -0.004 ? "bad" : "");
   document.getElementById("resPill").innerHTML = "";
@@ -2104,9 +2104,15 @@ function renderPartage() {
       <div class="top"><span class="amt num">${esc(eur(Math.abs(b)))}</span><span class="hint">${g.members.length} personnes · ${Object.values(liveExp(g)).filter(e => e.kind !== "transfer").length} dépenses</span></div>
       ${g.shared ? `<div class="hint" style="margin-top:4px">${g.owner && typeof SOC !== "undefined" && g.owner !== SOC.tag ? `<span>Partagé par</span> @${esc(g.owner)}` : "Partagé avec les membres Bourselle"}</div>` : ""}</button>`;
   }
-  html += `<p class="hint" style="text-align:center;margin:4px 0 0">Le groupe est tenu dans ton app : partage le récap (bouton dans le groupe) pour que chacun sache où il en est.</p>`;
+  if (list.length) html = html.replace(banner, banner + `<div class="hub-sec"><span>Dépenses partagées</span><button class="linkbtn" id="grNew">+ Nouveau groupe</button></div>`);
+  else html += `<button class="btn primary" id="grNew" style="width:100%">+ Créer un groupe</button>`;
+  const act = typeof hubActivity === "function" ? hubActivity("groups") : [];
+  if (act.length) html += `<div class="hub-sec"><span>Activité récente</span></div><div class="card hub-act">${act.map((e, i) => `<button type="button" class="hub-ev" data-ev="${i}"><span class="hub-ei">${e.ic === "comment" ? "💬" : hubIcon("group")}</span><span><span class="hub-et">${esc(e.t)}</span><small>${esc(e.s)} · ${esc(agoText(e.at))}</small></span></button>`).join("")}</div>`;
+  html += `<p class="hint" style="text-align:center;margin:4px 0 0">Couple, colocation, voyage, famille : chacun ajoute ses dépenses, Bourselle calcule qui doit combien à qui.</p>`;
   view.innerHTML = html;
   view.querySelectorAll("[data-open]").forEach(b => b.onclick = () => { openGroup = b.dataset.open; render(); window.scrollTo(0, 0); });
+  { const n = document.getElementById("grNew"); if (n) n.onclick = () => editGroup(null); }
+  view.querySelectorAll("[data-ev]").forEach(b => b.onclick = () => { const e = act[Number(b.dataset.ev)]; if (e && e.gid) { openGroup = e.gid; render(); window.scrollTo(0, 0); } });
 }
 function groupRecapText(g) {
   const bal = groupBalances(g), st = settle(bal);
@@ -2124,7 +2130,7 @@ function renderGroup(gid) {
   const total = Object.values(liveExp(g)).filter(e => e.kind !== "transfer").reduce((a, e) => a + Number(e.amount), 0);
   document.getElementById("resPill").innerHTML = `<span class="pill" style="background:rgba(255,255,255,.15);color:#fff">Total du groupe ${esc(eur(total, true))}</span>`;
   const exps = Object.entries(liveExp(g)).map(([id, e]) => ({ ...e, id })).sort((a, b) => b.date.localeCompare(a.date) || (b.created || 0) - (a.created || 0));
-  let html = banner + `<button class="btn" id="gBack" style="align-self:flex-start">‹ Tous les groupes</button>
+  let html = banner + `<button class="btn" id="gBack" style="align-self:flex-start">‹ Entre proches</button>
     <div class="card"><h2>Soldes</h2>${g.members.map(m => `<div class="fc-it" style="grid-template-columns:1fr auto"><span>${esc(mName(g, m.id))}</span><b class="num" style="color:${bal[m.id] > 0.004 ? "var(--good)" : bal[m.id] < -0.004 ? "var(--bad)" : "var(--muted)"}">${bal[m.id] > 0 ? "+" : ""}${esc(eur(bal[m.id]))}</b></div>`).join("")}</div>
     <div class="card"><h2>Qui doit à qui</h2>${st.length ? st.map((s, i) => `<div class="ndf-item"><div><div class="n">${esc(mName(g, s.from))} → ${esc(mName(g, s.to))}</div></div><div class="num" style="font-weight:700">${esc(eur(s.amount))}</div>
         <div class="acts">${s.from === g.me && g.pays && g.pays[s.to] ? `<button class="btn primary" data-gpay="${i}">Payer</button>` : ""}${s.to === g.me && typeof socOn === "function" && socOn() ? `<button class="btn" data-gask="${i}">Demander</button>` : ""}<button class="btn ${s.from === g.me && g.pays && g.pays[s.to] ? "" : "primary"}" data-settle="${i}">Marquer comme remboursé</button></div></div>`).join("") : `<div class="empty">Tout le monde est quitte.</div>`}

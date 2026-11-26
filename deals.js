@@ -23,14 +23,20 @@ const HUB_ICONS = {
 };
 const hubIcon = k => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${HUB_ICONS[k]}</svg>`;
 function hubBalances() {
+  // Partage : achats groupés, cagnottes et personnes à payer (les groupes sont dans « Entre proches »)
   let owed = 0, owe = 0;
-  for (const g of Object.values(groups)) { const b = groupBalances(g)[g.me] || 0; if (b > 0) owed += b; else owe -= b; }
-  for (const x of Object.values(debts)) { if (x.kind === "credit") continue; const r = debtCalc(x).remaining; if (x.kind === "medoit") owed += r; else owe += r; }
+  for (const d of DEALS) {
+    const amt = p => d.kind === "achat" ? (p.qty || 0) * d.price : p.amount || 0;
+    if (d.status === "cancelled") continue;
+    if (d.you && d.you.role === "owner") { for (const [pid, p] of Object.entries(d.parts || {})) if (pid !== d.you.pid && !p.ok) owed += amt(p); }
+    else if (d.you && d.you.pid && d.parts[d.you.pid] && !d.parts[d.you.pid].paid && (d.kind === "cagnotte" || (d.stats && d.stats.reached) || d.status === "done")) owe += amt(d.parts[d.you.pid]);
+  }
+  if (typeof PROJECTS !== "undefined") for (const pj of PROJECTS) for (const l of Object.values(pj.lines || {})) if (l.status !== "ok") { if (pj.role === "owner") owe += l.amount; else owed += l.amount; }
   return { owed: Math.round(owed * 100) / 100, owe: Math.round(owe * 100) / 100 };
 }
-function hubActivity() {
+function hubActivity(which) {
   const ev = [];
-  for (const [gid, g] of Object.entries(groups)) {
+  if (which !== "deals") for (const [gid, g] of Object.entries(groups)) {
     const nm = id => (g.members.find(m => m.id === id) || { name: "?" }).name;
     for (const [eid, e] of Object.entries(liveExp(g))) {
       const at = e.updated || e.created || Date.parse(e.date) || 0;
@@ -38,7 +44,7 @@ function hubActivity() {
     }
     for (const c of Object.values(g.comments || {})) if (c && !c.deleted && c.text) ev.push({ at: c.at, gid, ic: "comment", t: `${nm(c.by)} : ${c.text.length > 70 ? c.text.slice(0, 69) + "…" : c.text}`, s: g.name });
   }
-  for (const d of DEALS) {
+  if (which !== "groups") for (const d of DEALS) {
     for (const p of Object.values(d.parts || {})) ev.push({ at: p.at, did: d.id, ic: d.kind, t: `${p.name} participe${d.kind === "achat" ? ` · ${p.qty} place${p.qty > 1 ? "s" : ""}` : ` · ${dealMoney(p.amount, d.cur)}`}`, s: d.title });
     for (const c of Object.values(d.comments || {})) ev.push({ at: c.at, did: d.id, ic: "comment", t: `${c.name} : ${c.text.length > 70 ? c.text.slice(0, 69) + "…" : c.text}`, s: d.title });
   }
@@ -53,38 +59,30 @@ function renderAccueil() {
   if (openDeal) return renderDeal();
   if (typeof openProject !== "undefined" && openProject) return renderProject();
   const { owed, owe } = hubBalances(), net = Math.round((owed - owe) * 100) / 100;
-  document.getElementById("periodLabel").textContent = "Entre amis";
-  document.getElementById("resCap").textContent = net > 0.004 ? "Au total, on te doit" : net < -0.004 ? "Au total, tu dois" : "Tout le monde est quitte";
+  document.getElementById("periodLabel").textContent = "Partage";
+  document.getElementById("resCap").textContent = net > 0.004 ? "Au total, on te doit" : net < -0.004 ? "Au total, tu dois" : "Rien à payer ni à recevoir";
   const big = document.getElementById("resBig"); big.textContent = eur(Math.abs(net)); big.className = "big num " + (net > 0.004 ? "good" : net < -0.004 ? "bad" : "");
   document.getElementById("resPill").innerHTML = owed || owe ? `<span class="pill" style="background:rgba(255,255,255,.15);color:#fff">On te doit ${esc(eur(owed, true))} · tu dois ${esc(eur(owe, true))}</span>` : "";
   const soc = typeof socOn === "function" && socOn();
   let html = banner + `<div class="hub-acts">
     <button type="button" data-hub="proj">${hubIcon("bill")}<span>Payer plusieurs personnes</span></button>
-    <button type="button" data-hub="group">${hubIcon("group")}<span>Nouveau groupe</span></button>
     <button type="button" data-hub="achat">${hubIcon("achat")}<span>Achat groupé</span></button>
-    <button type="button" data-hub="cagnotte">${hubIcon("cagnotte")}<span>Cagnotte</span></button></div>`;
-  if (!soc) html += `<div class="card hub-intro"><h2>Partager sans compte bancaire connecté</h2><p class="hint" style="margin:0">Fais les comptes entre amis, organise des achats groupés et des cagnottes, et paie-toi de banque à banque : l'argent ne passe jamais par Bourselle. Connecte-toi avec Google ou Microsoft (Profil) pour inviter tes amis par lien.</p></div>`;
+    <button type="button" data-hub="cagnotte">${hubIcon("cagnotte")}<span>Cagnotte</span></button>
+    <button type="button" data-hub="pay">${hubIcon("pay")}<span>Me faire payer</span></button></div>`;
+  if (!soc) html += `<div class="card hub-intro"><h2>Partager sans compte bancaire connecté</h2><p class="hint" style="margin:0">Organise des achats groupés et des cagnottes, paie plusieurs personnes et suis chaque règlement, de banque à banque : l'argent ne passe jamais par Bourselle. Connecte-toi avec Google ou Microsoft (Profil) pour inviter tes amis par lien.</p></div>`;
   if (typeof projHubHTML === "function") html += projHubHTML();
   // Achats groupés et cagnottes
   const ds = DEALS.slice().sort((a, b) => (a.status !== "open") - (b.status !== "open") || (b.updated || 0) - (a.updated || 0));
   html += `<div class="hub-sec"><span>Achats groupés et cagnottes</span>${ds.length ? `<small>${ds.filter(d => d.status === "open").length} en cours</small>` : ""}</div>`;
   html += ds.length ? `<div class="hub-deals">${ds.slice(0, 6).map(d => DEALUI.card(d, dealCtxBase())).join("")}</div>`
     : `<div class="card"><div class="empty" style="padding:6px">Organise un achat groupé (une meule de fromage, des places de concert, un abonnement à plusieurs…) ou une cagnotte (un cadeau, un week-end). Tes amis rejoignent par un simple lien, sans compte.</div></div>`;
-  // Groupes
-  const gl = Object.entries(groups).map(([id, g]) => ({ id, g, b: groupBalances(g)[g.me] || 0, n: Object.values(liveExp(g)).length })).sort((a, b) => Math.abs(b.b) - Math.abs(a.b));
-  html += `<div class="hub-sec"><span>Mes groupes</span>${gl.length ? `<button class="linkbtn" id="hubGroups">Tout voir</button>` : ""}</div>`;
-  html += gl.length ? `<div class="card hub-groups">${gl.slice(0, 5).map(x => `<button type="button" class="hub-g" data-g="${esc(x.id)}"><span class="hub-gi">${esc((x.g.name || "?").slice(0, 2))}</span><span class="hub-gt"><b>${esc(x.g.name)}</b><small>${x.g.members.length} personnes · ${x.n} dépense${x.n > 1 ? "s" : ""}</small></span>
-      <span class="num hub-gb ${x.b > 0.004 ? "good" : x.b < -0.004 ? "bad" : ""}">${Math.abs(x.b) < 0.005 ? "Quitte" : (x.b > 0 ? "+" : "−") + esc(eur(Math.abs(x.b)))}</span></button>`).join("")}</div>`
-    : `<div class="card"><div class="empty" style="padding:6px">Crée un groupe pour une colocation, un voyage ou un couple : chacun ajoute ses dépenses, Bourselle calcule qui doit combien à qui.</div></div>`;
   // Activité
-  const act = hubActivity();
+  const act = hubActivity("deals");
   if (act.length) html += `<div class="hub-sec"><span>Activité récente</span></div><div class="card hub-act">${act.map((e, i) => `<button type="button" class="hub-ev" data-ev="${i}"><span class="hub-ei ${e.ic}">${e.ic === "comment" ? "💬" : hubIcon(e.ic === "group" ? "group" : e.ic)}</span><span><span class="hub-et">${esc(e.t)}</span><small>${esc(e.s)} · ${esc(agoText(e.at))}</small></span></button>`).join("")}</div>`;
   view.innerHTML = html;
   view.querySelectorAll("[data-hub]").forEach(b => b.onclick = () => ({ proj: () => editProject(), group: () => editGroup(null), achat: () => editDeal(null, "achat"), cagnotte: () => editDeal(null, "cagnotte"), pay: () => editPay() })[b.dataset.hub]());
   view.querySelectorAll("[data-deal]").forEach(b => b.onclick = () => showDeal(b.dataset.deal));
   if (typeof projBindHub === "function") projBindHub();
-  view.querySelectorAll("[data-g]").forEach(b => b.onclick = () => { openGroup = b.dataset.g; switchTab("partage"); });
-  { const b = document.getElementById("hubGroups"); if (b) b.onclick = () => { openGroup = null; switchTab("partage"); }; }
   view.querySelectorAll("[data-ev]").forEach(b => b.onclick = () => { const e = act[Number(b.dataset.ev)]; if (e.did) showDeal(e.did); else { openGroup = e.gid; switchTab("partage"); } });
 }
 // Menu du bouton + sur l'accueil
@@ -122,7 +120,7 @@ function renderDeal() {
   const big = document.getElementById("resBig"); big.className = "big num";
   big.textContent = d ? (d.kind === "achat" ? `${d.stats.qty} / ${d.min}` : dealMoney(d.stats.sum, d.cur)) : "";
   document.getElementById("resPill").innerHTML = d ? `<span class="pill" style="background:rgba(255,255,255,.15);color:#fff">${esc(d.kind === "achat" ? "places réservées / minimum" : d.target ? "sur " + dealMoney(d.target, d.cur) : d.stats.n + " participants")}</span>` : "";
-  view.innerHTML = banner + `<button class="btn" id="dBack" style="align-self:flex-start">‹ Accueil</button><div id="dealRoot">${d ? "" : `<div class="card"><div class="empty">Chargement…</div></div>`}</div>`;
+  view.innerHTML = banner + `<button class="btn" id="dBack" style="align-self:flex-start">‹ Partage</button><div id="dealRoot">${d ? "" : `<div class="card"><div class="empty">Chargement…</div></div>`}</div>`;
   document.getElementById("dBack").onclick = () => { openDeal = null; dealState = null; render(); window.scrollTo(0, 0); };
   if (!d) return;
   const id = d.id, ctx = { ...dealCtxBase(),

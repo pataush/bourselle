@@ -25,7 +25,7 @@ function pjStats(pj) {
   return { total: sum(), due: sum("due"), sent: sum("sent"), ok: sum("ok"), n: L.length };
 }
 const pjBar = st => st.total ? `<div class="pj-bar"><i class="ok" style="width:${(st.ok / st.total * 100).toFixed(1)}%"></i><i class="sent" style="width:${(st.sent / st.total * 100).toFixed(1)}%"></i><i class="due" style="width:${(st.due / st.total * 100).toFixed(1)}%"></i></div>` : "";
-// Sur « Entre amis » : mes paiements à gérer, et ce qu'on me doit
+// Sur « Partage » : mes paiements à gérer, et ce qu'on me doit
 function projHubHTML() {
   const mine = PROJECTS.filter(p => p.role === "owner"), owed = PROJECTS.filter(p => p.role === "payee");
   let h = "";
@@ -64,7 +64,7 @@ function renderProject() {
   document.getElementById("resPill").innerHTML = owner ? `<span class="pill" style="background:rgba(255,255,255,.15);color:#fff">Reçu ${esc(pjMoney(st.ok, pj.cur, true))} · envoyé ${esc(pjMoney(st.sent, pj.cur))} · reste ${esc(pjMoney(st.due, pj.cur))}</span>` : "";
   const today = todayISO();
   const lines = Object.entries(pj.lines || {}).sort((a, b) => ({ due: 0, sent: 1, ok: 2 }[a[1].status] - { due: 0, sent: 1, ok: 2 }[b[1].status]) || (a[1].due || "9").localeCompare(b[1].due || "9"));
-  let h = banner + `<button class="btn" id="pjBack" style="align-self:flex-start">‹ Entre amis</button>`;
+  let h = banner + `<button class="btn" id="pjBack" style="align-self:flex-start">‹ Partage</button>`;
   if (owner) h += `<div class="card"><h2>${esc(pj.title)}<small>${st.n} personne${st.n > 1 ? "s" : ""}</small></h2>${pj.note ? `<p class="hint" style="margin:0 0 8px">${esc(pj.note)}</p>` : ""}${pjBar(st)}
     <div class="pj-legend"><span class="pj-c due">● À payer ${esc(pjMoney(st.due, pj.cur))}</span><span class="pj-c sent">● Envoyé ${esc(pjMoney(st.sent, pj.cur))}</span><span class="pj-c ok">● Reçu ${esc(pjMoney(st.ok, pj.cur))}</span></div></div>`;
   h += `<div class="card"><h2>${owner ? "Personnes à payer" : "Ce qu'on te doit"}</h2>${lines.map(([lid, l]) => {

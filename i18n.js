@@ -647,7 +647,10 @@
     "À accepter": "To accept", "a partagé un paiement : ta part est de": "split a payment: your share is", "Paiements à faire": "Payments to make", "Tout voir ›": "See all ›",
     "Version": "Version", "☀︎ Clair": "☀︎ Light", "☾ Sombre": "☾ Dark", "Simple": "Simple", "Complète": "Full",
     // Payer plusieurs personnes, nouvelle barre du bas
-    "Partage": "Sharing", "Entre amis": "Between friends", "Paramètres": "Settings", "Mon compte, budget, catégories, devise, exports": "Account, budget, categories, currency, exports",
+    "Partage": "Sharing", "Entre amis": "Between friends", "Entre proches": "Family & friends", "‹ Partage": "‹ Sharing", "‹ Entre proches": "‹ Family & friends", "Dépenses partagées": "Shared expenses",
+    "+ Nouveau groupe": "+ New group", "+ Créer un groupe": "+ Create a group", "Rien à payer ni à recevoir": "Nothing to pay or receive",
+    "Couple, colocation, voyage, famille : chacun ajoute ses dépenses, Bourselle calcule qui doit combien à qui.": "Couple, flatshare, trip, family: everyone adds their expenses, Bourselle works out who owes whom.",
+    "Organise des achats groupés et des cagnottes, paie plusieurs personnes et suis chaque règlement, de banque à banque : l'argent ne passe jamais par Bourselle. Connecte-toi avec Google ou Microsoft (Profil) pour inviter tes amis par lien.": "Organise group buys and money pots, pay several people and track every payment, bank to bank: the money never goes through Bourselle. Sign in with Google or Microsoft (Settings) to invite friends by link.", "Paramètres": "Settings", "Mon compte, budget, catégories, devise, exports": "Account, budget, categories, currency, exports",
     "Payer plusieurs personnes": "Pay several people", "Mes paiements à faire": "My payments to make", "Paiement à faire": "Payment to make", "Paiement": "Payment", "Tout est payé ✓": "All paid ✓",
     "Travaux, prestataires : qui payer, combien, quand": "Works, contractors: who to pay, how much, when", "On te doit": "You are owed", "En attente": "Pending", "Envoyé, à confirmer": "Sent, to confirm",
     "J'ai reçu le paiement": "I've received the payment", "Réception confirmée ✓": "Receipt confirmed ✓", "‹ Entre amis": "‹ Between friends", "Personnes à payer": "People to pay", "Ce qu'on te doit": "What you're owed",
