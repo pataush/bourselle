@@ -2,7 +2,7 @@
  * Les cartes des réglages sont rangées en rubriques ; chacune se replie et se déroule d'un toucher (l'état est retenu).
  * « Mon compte » reste toujours ouvert. Les trois listes de choix sont réunies en une seule carte. */
 const PF_GROUPS = [
-  ["Argent et partage", ["Mes comptes", "Combien as-tu vraiment ?", "Me faire payer", "Mes contacts Bourselle", "Notifications en direct", "Bourselle Plus"]],
+  ["Argent et partage", ["Mes comptes", "Combien as-tu vraiment ?", "Me faire payer", "Mes contacts Bourselle", "Notifications en direct", "Bourselle Plus", "Outils"]],
   ["Budget", ["Budget mensuel par catégorie", "Opérations automatiques", "Importer un relevé bancaire", "Listes de choix", "Rappel des garanties"]],
   ["Application", ["Verrouillage et clé d'accès", "Apparence", "Langue et devise", "Version de l'app", "Installer sur ton téléphone"]],
   ["Mes données", ["Exporter mes données"]],

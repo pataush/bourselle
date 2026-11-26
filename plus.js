@@ -6,7 +6,11 @@
 // (La clé privée correspondante reste chez l'éditeur, elle n'est jamais publiée.)
 const PLUS_PUB = { kty: "EC", crv: "P-256", x: "FVolf7Ixuv9wbaEw8Liyh1YbtbrZOsghwVphdfVVOLM", y: "rsfy0EMVoZkRjGF0asb7-kY3EMaDg6ICztrXPUcaaGM" };
 const PLUS_CFG = (window.APP_CONFIG && window.APP_CONFIG.plus) || {};
-const FREE = { scan: 5, import: 1, tontines: 1, groups: 1, ndf: 5, ndfTrialDays: 30, ...(PLUS_CFG.free || {}) };
+// Bourselle Plus est caché pour l'instant (lancement) : presque tout est gratuit, quelques services restent en essai limité
+// (imports de relevés, exports comptables, demandes de paiement vers un utilisateur). Pour réactiver Plus : APP_CONFIG.plus.hidden = false.
+const PLUS_HIDDEN = PLUS_CFG.hidden !== false;
+const PLUS_TRIAL = ["import", "compta", "claim"];
+const FREE = { scan: 5, import: PLUS_HIDDEN ? 3 : 1, compta: 2, tontines: 1, groups: 1, ndf: 5, ndfTrialDays: 30, ...(PLUS_CFG.free || {}) };
 const OFFERS = [
   { id: "mensuel", name: "Plus mensuel", price: "2,99 €", per: "par mois", note: "Sans engagement" },
   { id: "annuel", name: "Plus annuel", price: "24,99 €", per: "par an", note: "2 mois offerts", best: true },
@@ -38,6 +42,8 @@ const PLUS_LIST = [
 // ---------- Codes d'activation ----------
 let plusState = { ok: false };
 const isPlus = () => !!plusState.ok;
+// Ce service est-il ouvert sans limite ? (Plus actif, ou Plus caché et le service n'est pas en essai)
+const plusFree = k => isPlus() || (PLUS_HIDDEN && !PLUS_TRIAL.includes(k));
 function b64uBytes(s) { const b = atob(s.replace(/-/g, "+").replace(/_/g, "/") + "===".slice((s.length + 3) % 4)); return Uint8Array.from(b, c => c.charCodeAt(0)); }
 async function verifyLicence(code) {
   const m = /^BRS1\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/.exec(String(code || "").replace(/\s+/g, ""));
@@ -91,26 +97,38 @@ function countUse(k) {
   settings.usage[mk] = { ...(settings.usage[mk] || {}), [k]: usedThisMonth(k) + 1 };
   saveSettings();
 }
-function canUse(k) { return isPlus() || usedThisMonth(k) < FREE[k]; }
+function canUse(k) { return plusFree(k) || usedThisMonth(k) < FREE[k]; }
 // ---------- Notes de frais : 1 mois d'essai illimité, puis 5 tickets par mois ----------
 function ndfTrialEnd() { if (!settings.ndfTrial) return null; const d = new Date(settings.ndfTrial + "T12:00:00"); d.setDate(d.getDate() + FREE.ndfTrialDays); return d.toISOString().slice(0, 10); }
 function ndfInTrial() { const e = ndfTrialEnd(); return !e || todayISO() < e; }
 function ndfCount(ym, exceptId) { return allItems().filter(x => x.type === "depense" && x.ndf && x.date && x.date.startsWith(ym) && x.id !== exceptId).length; }
 function ndfAllowed(id, date) {
-  if (isPlus() || ndfInTrial()) return true;
+  if (plusFree("ndf") || ndfInTrial()) return true;
   const ym = date.slice(0, 7), prev = id && allItems().find(x => x.id === id);
   if (prev && prev.ndf && prev.date && prev.date.startsWith(ym)) return true;   // modifier une note existante reste possible
   return ndfCount(ym, id) < FREE.ndf;
 }
 function ndfQuotaHTML(ym) {
-  if (isPlus()) return "";
+  if (plusFree("ndf")) return "";
   if (ndfInTrial()) { const e = ndfTrialEnd(); return `<div class="banner">${e ? `<span>Mois d'essai : notes de frais illimitées jusqu'au</span> <b>${esc(frDate(e))}</b>.` : `<span>Ton premier mois de notes de frais est illimité.</span>`} <span>Ensuite : ${FREE.ndf} tickets gratuits par mois.</span></div>`; }
   const n = ndfCount(ym || todayISO().slice(0, 7));
   return `<div class="banner"><span>Version gratuite :</span> <b class="num">${Math.min(n, FREE.ndf)} / ${FREE.ndf}</b> <span>tickets en note de frais ce mois-ci.</span> <button type="button" class="btn" id="ndfPlus" style="margin-left:6px">Illimité avec Plus</button></div>`;
 }
 
 // ---------- Écran « Bourselle Plus » ----------
+const LIMIT_WHY = {
+  claim: "Tu as envoyé tes 3 demandes de paiement du mois à des utilisateurs Bourselle. Le QR code et le lien restent illimités.",
+  import: `Tu as utilisé tes ${FREE.import} imports de relevés du mois.`,
+  compta: `Tu as utilisé tes ${FREE.compta} exports comptables du mois.`,
+};
 function showPlus(feature) {
+  if (PLUS_HIDDEN && !plusState.ok) {
+    const f = openForm(`<div class="f2"><h3>Limite du mois atteinte</h3><p style="margin:0 0 8px">${esc(LIMIT_WHY[feature] || "Tu as atteint la limite de ce service pour ce mois-ci.")}</p>
+      <p class="hint" style="margin:0">Le compteur repart à zéro le 1er du mois. Une version sans limite arrivera bientôt.</p>
+      <details style="margin-top:12px"><summary class="hint">J'ai un code d'activation</summary><textarea class="field" id="plusCode" rows="3" placeholder="BRS1.…" spellcheck="false" autocapitalize="off" style="margin-top:8px"></textarea></details></div>`, () => { const code = val("plusCode"); if (!code) return true; activateCode(code); return false; });
+    f.querySelector("button[type=submit]").textContent = "OK";
+    return;
+  }
   const mine = plusState;
   const offers = OFFERS.map(o => `<div class="offer${o.best ? " best" : ""}">
       ${o.best ? `<span class="offer-tag">Le plus choisi</span>` : ""}
@@ -187,7 +205,7 @@ async function activateCode(code) {
     document.getElementById("scanInput").click();
   };
   const _runScan = runScan;
-  runScan = function (file) { if (!isPlus()) countUse("scan"); return _runScan(file); };
+  runScan = function (file) { if (!plusFree("scan")) countUse("scan"); return _runScan(file); };
   const _startImport = startImport;
   startImport = function () { if (!canUse("import")) return showPlus("import"); return _startImport(); };
   const _reviewImport = reviewImport;
@@ -195,13 +213,13 @@ async function activateCode(code) {
     const r = _reviewImport(rows, format, fname);
     // Le relevé compte dans la limite gratuite seulement s'il est vraiment importé.
     const btn = document.querySelector("#sheet2 button[type=submit]");
-    if (btn && !isPlus()) btn.addEventListener("click", () => { if (form2) countUse("import"); }, { once: true, capture: true });
+    if (btn && !plusFree("import")) btn.addEventListener("click", () => { if (form2) countUse("import"); }, { once: true, capture: true });
     return r;
   };
   const _editTontine = editTontine;
-  editTontine = function (id) { if (!id && !isPlus() && Object.keys(tontines).length >= FREE.tontines) return showPlus("tontines"); return _editTontine(id); };
+  editTontine = function (id) { if (!id && !plusFree("tontines") && Object.keys(tontines).length >= FREE.tontines) return showPlus("tontines"); return _editTontine(id); };
   const _editGroup = editGroup;
-  editGroup = function (id) { if (!id && !isPlus() && Object.keys(groups).length >= FREE.groups) return showPlus("groups"); return _editGroup(id); };
+  editGroup = function (id) { if (!id && !plusFree("groups") && Object.keys(groups).length >= FREE.groups) return showPlus("groups"); return _editGroup(id); };
 }
 
 // ---------- Rappels avancés : agenda (.ics) et notifications ----------
@@ -255,7 +273,7 @@ function dueSoon() {
   return out;
 }
 function notifyDue() {
-  if (!isPlus() || !settings.notif || !("Notification" in window) || Notification.permission !== "granted") return;
+  if (!plusFree("rappels") || !settings.notif || !("Notification" in window) || Notification.permission !== "granted") return;
   const key = "bourselle-notif-" + todayISO();
   try { if (localStorage.getItem(key)) return; } catch (e) {}
   const list = dueSoon(); if (!list.length) return;
@@ -303,7 +321,7 @@ function buildSynthese(y) {
 
 // ---------- Carte « Bourselle Plus » dans les Réglages ----------
 function plusCardHTML() {
-  const st = plusState, lock = isPlus() ? "" : ` <span class="plus-lock">Plus</span>`;
+  const st = plusState, lock = plusFree("rappels") ? "" : ` <span class="plus-lock">Plus</span>`;
   const years = [...new Set(allItems().map(x => x.date.slice(0, 4)))].sort().reverse();
   if (!years.includes(String(cur.y))) years.unshift(String(cur.y));
   const status = st.ok
@@ -314,31 +332,35 @@ function plusCardHTML() {
          <div><span>Imports de relevés</span><b class="num">${usedThisMonth("import")} / ${FREE.import}</b></div>
          <div><span>Groupes partagés</span><b class="num">${Object.keys(groups).length} / ${FREE.groups}</b></div>
          <div><span>Notes de frais ce mois-ci</span><b class="num">${ndfInTrial() ? "essai" : `${ndfCount(todayISO().slice(0, 7))} / ${FREE.ndf}`}</b></div></div>`;
-  return `<div class="card plus-card"><h2>Bourselle Plus<small>${st.ok ? "activé" : "en option"}</small></h2>${status}
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn ${st.ok ? "" : "primary"}" id="plusOpen">${st.ok ? "Mon offre" : "Découvrir Plus"}</button></div>
+  const head = PLUS_HIDDEN && !st.ok
+    ? `<div class="card plus-card"><h2>Outils<small>agenda et exports</small></h2>
+       <div class="plus-usage"><div><span>Imports de relevés ce mois-ci</span><b class="num">${usedThisMonth("import")} / ${FREE.import}</b></div><div><span>Exports comptables ce mois-ci</span><b class="num">${usedThisMonth("compta")} / ${FREE.compta}</b></div></div>`
+    : `<div class="card plus-card"><h2>Bourselle Plus<small>${st.ok ? "activé" : "en option"}</small></h2>${status}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn ${st.ok ? "" : "primary"}" id="plusOpen">${st.ok ? "Mon offre" : "Découvrir Plus"}</button></div>`;
+  return `${head}
     <h3 class="plus-h">Rappels avancés${lock}</h3>
     <label class="hint" for="remindDays">Me prévenir ce nombre de jours avant chaque prélèvement :</label>
     <input class="field num" id="remindDays" inputmode="numeric" value="${remindDays()}" style="margin-top:6px;max-width:120px">
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn" id="icsBtn">Ajouter à mon agenda</button><button class="btn" id="notifBtn">${settings.notif && "Notification" in window && Notification.permission === "granted" ? "Notifications activées ✓" : "Activer les notifications"}</button></div>
     <p class="hint">L'agenda (Google Agenda, Outlook, iPhone) reçoit les fins de garantie, les prélèvements et les dates limites de résiliation, avec une alerte. Les notifications s'affichent quand tu ouvres Bourselle.</p>
-    <h3 class="plus-h">Exports comptables${lock}</h3>
+    <h3 class="plus-h">Exports comptables${isPlus() ? "" : PLUS_HIDDEN ? ` <span class="plus-lock">${FREE.compta} par mois</span>` : lock}</h3>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><select class="field" id="cYear" style="max-width:110px" aria-label="Année">${years.map(y => `<option${y === String(cur.y) ? " selected" : ""}>${y}</option>`).join("")}</select>
       <button class="btn" id="ledgerBtn">Grand livre</button><button class="btn" id="syntheseBtn">Synthèse mensuelle</button></div>
     <p class="hint">Fichiers CSV pour Excel ou ton comptable : toutes les opérations avec solde cumulé, et les totaux par poste et par mois.</p></div>`;
 }
 function bindPlusCard() {
   const $ = id => document.getElementById(id);
-  $("plusOpen").onclick = () => showPlus();
+  if ($("plusOpen")) $("plusOpen").onclick = () => showPlus();
   $("remindDays").onchange = e => { const v = parseInt(e.target.value, 10); if (v >= 0 && v <= 60) { settings.remindDays = v; saveSettings(); } else e.target.value = remindDays(); };
   $("icsBtn").onclick = () => {
-    if (!isPlus()) return showPlus("rappels");
+    if (!plusFree("rappels")) return showPlus("rappels");
     const n = reminderEvents().length;
     if (!n) { toast("Rien à ajouter pour l'instant : ajoute des garanties ou des abonnements."); return; }
     saveFile("bourselle-rappels.ics", new Blob([buildICS()], { type: "text/calendar;charset=utf-8" }));
     toast(`${n} rappel${n > 1 ? "s" : ""} prêt${n > 1 ? "s" : ""} : ouvre le fichier pour les ajouter à ton agenda.`);
   };
   $("notifBtn").onclick = async () => {
-    if (!isPlus()) return showPlus("rappels");
+    if (!plusFree("rappels")) return showPlus("rappels");
     if (!("Notification" in window)) { toast("Ce navigateur ne gère pas les notifications. Utilise plutôt « Ajouter à mon agenda »."); return; }
     const p = Notification.permission === "default" ? await Notification.requestPermission() : Notification.permission;
     if (p !== "granted") { toast("Notifications refusées : tu peux les autoriser dans les réglages du navigateur."); return; }
@@ -346,8 +368,8 @@ function bindPlusCard() {
     try { localStorage.removeItem("bourselle-notif-" + todayISO()); } catch (e) {}
     notifyDue(); toast("Notifications activées");
   };
-  $("ledgerBtn").onclick = () => { if (!isPlus()) return showPlus("compta"); const y = $("cYear").value; saveFile(`bourselle-grand-livre-${y}.csv`, buildLedger(y)); };
-  $("syntheseBtn").onclick = () => { if (!isPlus()) return showPlus("compta"); const y = $("cYear").value; saveFile(`bourselle-synthese-${y}.csv`, buildSynthese(y)); };
+  $("ledgerBtn").onclick = () => { if (!canUse("compta")) return showPlus("compta"); if (!plusFree("compta")) countUse("compta"); const y = $("cYear").value; saveFile(`bourselle-grand-livre-${y}.csv`, buildLedger(y)); };
+  $("syntheseBtn").onclick = () => { if (!canUse("compta")) return showPlus("compta"); if (!plusFree("compta")) countUse("compta"); const y = $("cYear").value; saveFile(`bourselle-synthese-${y}.csv`, buildSynthese(y)); };
 }
 {
   const _renderReglages = renderReglages;
@@ -358,7 +380,7 @@ function bindPlusCard() {
   };
   const _render = render;
   let notified = false;
-  render = function () { _render(); if (!notified && store && isPlus()) { notified = true; setTimeout(notifyDue, 1500); } };
+  render = function () { _render(); if (!notified && store && plusFree("rappels")) { notified = true; setTimeout(notifyDue, 1500); } };
 }
 // Les données ont pu être chargées avant ce fichier (mode démo) : on vérifie le code tout de suite aussi.
 if (settings) refreshPlus().then(ch => { if (ch && store) render(); });

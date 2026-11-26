@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "91";
+const APP_VERSION = "92";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -253,7 +253,7 @@ function showProfileMenu() {
       ${soc ? row("pmContacts", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.6.9 2.6 2.6 3 5.2"/></svg>', "Mes contacts", `${(settings.contacts || []).length} contact${(settings.contacts || []).length > 1 ? "s" : ""}`) : ""}
       ${soc ? row("pmPush", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/><circle cx="19" cy="5" r="2.5" fill="currentColor"/></svg>', "Notifications en direct", typeof pushOn === "function" && pushOn() ? "Activées sur cet appareil" : "Désactivées") : ""}
       ${soc ? row("pmPay", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>', "Me faire payer", "IBAN, PayPal.me, lien de paiement") : ""}
-      ${typeof showPlus === "function" ? row("pmPlus", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg>', "Bourselle Plus", typeof isPlus === "function" && isPlus() ? "Activé" : "Découvrir l'offre") : ""}
+      ${typeof showPlus === "function" && !(typeof PLUS_HIDDEN !== "undefined" && PLUS_HIDDEN && !isPlus()) ? row("pmPlus", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg>', "Bourselle Plus", typeof isPlus === "function" && isPlus() ? "Activé" : "Découvrir l'offre") : ""}
       ${row("pmLang", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9s1.3-6.3 3.8-9z"/></svg>', window.LANG === "en" ? "Français" : "English", window.LANG === "en" ? "Langue : anglais" : "Langue : français")}
       ${!local && store.folderUrl && store.folderUrl() ? row("pmFolder", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>', "Ouvrir mon dossier", store.label) : ""}
       ${row("pmSettings", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>', "Paramètres", "Mon compte, budget, catégories, devise, exports")}
@@ -842,7 +842,7 @@ function renderReglages() {
         <li><b>Tes déplacements</b> avec le barème kilométrique (+20 % pour un véhicule électrique).</li>
         <li><b>Le suivi du remboursement</b> : à rembourser ou remboursé, avec une alerte tant que ce n'est pas réglé.</li>
       </ul>
-      <p class="hint" style="margin:8px 0 0">Gratuit : illimité le premier mois, puis ${FREE.ndf} tickets par mois ; illimité avec Bourselle Plus.</p>${!isSimple() ? `<button type="button" class="btn primary" id="aboutNdf" style="margin-top:10px">Ouvrir mes notes de frais</button>` : `<button type="button" class="btn" id="aboutNdf" style="margin-top:10px">Activer la version complète pour les notes de frais</button>`}</details>
+      <p class="hint" style="margin:8px 0 0">${typeof plusFree === "function" && plusFree("ndf") ? "Gratuit et illimité." : `Gratuit : illimité le premier mois, puis ${FREE.ndf} tickets par mois ; illimité avec Bourselle Plus.`}</p>${!isSimple() ? `<button type="button" class="btn primary" id="aboutNdf" style="margin-top:10px">Ouvrir mes notes de frais</button>` : `<button type="button" class="btn" id="aboutNdf" style="margin-top:10px">Activer la version complète pour les notes de frais</button>`}</details>
     <h3>Ce que tu peux faire</h3>
     <ul>
       <li><b>Ton budget</b> : dépenses, rentrées, épargne, budget par catégorie, prévision de fin de mois, et l'année d'un coup d'œil.</li>
@@ -865,8 +865,9 @@ function renderReglages() {
       <li>Connexion avec Google ou Microsoft, compatible avec les clés d'accès (Face ID, empreinte).</li>
       <li>Verrouillage de l'appli par Face ID, empreinte ou code, et un seul appareil connecté à la fois.</li>
     </ul>
-    <h3>Gratuit, et Bourselle Plus</h3>
-    <p style="margin:0">Le budget au quotidien est gratuit. Bourselle Plus débloque l'illimité (scan de tickets, imports, groupes, notes de frais, demandes de paiement), les exports comptables et le forfait famille.${typeof showPlus === "function" ? ` <button type="button" class="linkbtn" id="aboutPlus">Découvrir Plus</button>` : ""}</p>
+    ${typeof PLUS_HIDDEN !== "undefined" && PLUS_HIDDEN && !isPlus() ? `<h3>Gratuit</h3>
+    <p style="margin:0">Bourselle est gratuite. Quelques services ont une limite par mois : ${FREE.import} imports de relevés, ${FREE.compta} exports comptables et 3 demandes de paiement vers un utilisateur Bourselle (le QR code et le lien de paiement restent illimités).</p>` : `<h3>Gratuit, et Bourselle Plus</h3>
+    <p style="margin:0">Le budget au quotidien est gratuit. Bourselle Plus débloque l'illimité (scan de tickets, imports, groupes, notes de frais, demandes de paiement), les exports comptables et le forfait famille.${typeof showPlus === "function" ? ` <button type="button" class="linkbtn" id="aboutPlus">Découvrir Plus</button>` : ""}</p>`}
     <div class="ver-row"><span class="hint">Version ${APP_VERSION}</span><button class="btn" id="forceUpdate">Charger la dernière version</button></div>
     <p class="hint" style="margin:10px 0 0"><a href="privacy.html" target="_blank" rel="noopener">Confidentialité</a> · <a href="conditions.html" target="_blank" rel="noopener">Conditions d'utilisation</a></p></div>`;
   view.innerHTML = html;
@@ -2460,7 +2461,7 @@ function editGroup(id) {
       <div class="chips" id="grTags"></div>
       <input class="field" id="grTagFind" placeholder="Chercher un @tag ou un contact" autocapitalize="off" spellcheck="false" autocomplete="off" style="margin-top:6px">
       <div id="grTagRes"></div>
-      <p class="hint" style="margin:6px 0 0">Quand tu paies une dépense du groupe, leur part leur est envoyée : elle arrive dans leurs dettes (Bourselle Plus).</p>` : ""}</div>`,
+      <p class="hint" style="margin:6px 0 0">Quand tu paies une dépense du groupe, leur part leur est envoyée : elle arrive dans leurs dettes${typeof PLUS_HIDDEN !== "undefined" && PLUS_HIDDEN ? "" : " (Bourselle Plus)"}.</p>` : ""}</div>`,
     () => {
       const useMe = document.getElementById("grMeUse"), name = val("grName"), meName = useMe && useMe.checked ? profName : val("grMe").trim();
       const others = val("grOthers").split(",").map(s => s.trim()).filter(Boolean).filter(n => !tagged.some(t => t.name.toLowerCase() === n.toLowerCase()));

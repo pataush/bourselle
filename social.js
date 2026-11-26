@@ -332,7 +332,7 @@ function socSendShares(gid, label, amount, order, date, owed) {
   const shareOf = id => owed && owed[id] != null ? owed[id] : Math.round(amount / order.length * 100) / 100;
   const targets = g.members.filter(m => m.tag && m.id !== g.me && order.includes(m.id) && shareOf(m.id) > 0);
   if (!targets.length) return;
-  if (!isPlus()) return;   // sans Plus : le groupe partagé suffit, les parts ne partent pas en dettes
+  if (!(typeof plusFree === "function" ? plusFree("shares") : isPlus())) return;   // sans Plus : le groupe partagé suffit, les parts ne partent pas en dettes
   for (const m of targets) {
     const key = newId();
     debts[key] = { kind: "medoit", name: `${g.name} : ${label}`.slice(0, 60), who: m.name, amount: shareOf(m.id), due: "", note: `Partage « ${g.name} »`, payments: [], created: Date.now(),

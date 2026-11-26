@@ -81,7 +81,7 @@ async function editPay(opts) {
     f.querySelectorAll("#rqTo [data-to]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.to === to)));
     const go = f.querySelector("#rqGo"), hint = f.querySelector("#rqHint");
     go.textContent = to ? `Envoyer la demande à @${to}` : "Afficher le QR code / partager le lien";
-    hint.textContent = to ? (isPlus() ? "La personne la reçoit dans son appli Bourselle, avec tes moyens de paiement." : `La personne la reçoit dans son appli. Gratuit : encore ${left} demande${left > 1 ? "s" : ""} ce mois-ci (illimité avec Bourselle Plus).`)
+    hint.textContent = to ? (isPlus() ? "La personne la reçoit dans son appli Bourselle, avec tes moyens de paiement." : `La personne la reçoit dans son appli. Gratuit : encore ${left} demande${left > 1 ? "s" : ""} ce mois-ci${typeof PLUS_HIDDEN !== "undefined" && PLUS_HIDDEN ? "" : " (illimité avec Bourselle Plus)"}.`)
       : "À montrer en face ou à envoyer : la personne paie sans compte. Si elle a Bourselle, elle l'ouvre dans son appli.";
   };
   f.querySelectorAll("#rqTo [data-to]").forEach(b => b.onclick = () => { to = b.dataset.to; drawTo(); });

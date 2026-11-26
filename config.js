@@ -7,6 +7,9 @@ window.APP_CONFIG = {
   // Bourselle Plus : liens de paiement (ex. Stripe Payment Links), à remplir quand ils existent.
   // Laisse vide : le bouton « Choisir » propose alors de nous contacter.
   plus: {
+    // Bourselle Plus caché pour le lancement : tout est gratuit, sauf quelques services en essai limité
+    // (imports de relevés, exports comptables, demandes de paiement vers un utilisateur). Mettre false pour réafficher Plus.
+    hidden: true,
     checkout: { mensuel: "", annuel: "", famille: "", vie: "" },
     contact: "https://github.com/pataush/bourselle/issues",
     // Adresse du serveur des codes (Cloudflare Worker), ex. "https://bourselle-codes.ton-compte.workers.dev"
