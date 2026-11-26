@@ -334,7 +334,7 @@
     "Pas encore configuré (voir le guide)": "Not set up yet (see the guide)",
     "Essayer sans compte (données sur cet appareil)": "Try without an account (data on this device)",
     "L'app accède uniquement à son dossier « Bourselle » dans ton Drive, et à rien d'autre. Personne d'autre ne voit tes données.": "The app only accesses its own “Bourselle” folder in your Drive, nothing else. Nobody else can see your data.",
-    "Confidentialité": "Privacy", "Conditions d'utilisation": "Terms of use", "Connexion…": "Signing in…", "Tu es déconnecté.": "You are signed out.",
+    "Confidentialité": "Privacy", "Conditions d'utilisation": "Terms of use", "Connexion…": "Signing in…", "Tu es déconnecté.": "You are signed out.", "Ton compte Bourselle a été ouvert sur un autre appareil. Tu as été déconnecté ici. Reconnecte-toi pour continuer sur cet appareil : l'autre sera alors déconnecté.": "Your Bourselle account was opened on another device. You were signed out here. Sign in again to keep using this device: the other one will then be signed out.",
     "Connexion impossible": "Sign-in failed", "Connexion annulée ou bloquée": "Sign-in cancelled or blocked", "Réessaie.": "Try again.",
     "Le service de connexion ne s'est pas chargé. Vérifie ta connexion internet.": "The sign-in service did not load. Check your internet connection.",
     "Autorise l'accès au dossier « Bourselle » de ton Drive pour continuer.": "Allow access to the “Bourselle” folder in your Drive to continue.",
@@ -685,6 +685,8 @@
   const s = n => (Number(String(n).replace(/[^\d.]/g, "")) > 1 ? "s" : "");
   const PATTERNS = [
     ["Solde total au {d}", "Total balance on {d}"],
+    ["Connecté ici : Bourselle a été déconnecté de ton {x}.", "Signed in here: Bourselle was signed out on your {x}."],
+    ["Ton compte Bourselle a été ouvert sur un autre appareil ({x}). Tu as été déconnecté ici. Reconnecte-toi pour continuer sur cet appareil : l'autre sera alors déconnecté.", "Your Bourselle account was opened on another device ({x}). You were signed out here. Sign in again to keep using this device: the other one will then be signed out."],
     ["{m} ce mois-ci", "{m} this month"],
     ["{x} · principal", "{x} · main"],
     ["{n} opération sur ce compte.", "{n} transaction on this account."],

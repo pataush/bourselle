@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "59";
+const APP_VERSION = "60";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -400,6 +400,8 @@ async function flush() {
   if (!store || saving || !dirty) return;
   saving = true; dirty = false; setSync("", "Enregistrement…");
   try {
+    // Un autre appareil a pris la main ? On n'écrase pas ses données (session.js le déconnecte ici).
+    if (typeof sessCheck === "function" && !await sessCheck(3000)) return;
     version = await store.save(snapshot());
     lastError = null; hideReconnect(); if (!dirty) dropPending();
     setSync("ok", "Enregistré · " + store.label);
@@ -2999,7 +3001,7 @@ function demoToMigrate() {
   if (!localStorage.getItem(MIGRATE_KEY)) return null;
   try { const d = JSON.parse(localStorage.getItem(DEMO_KEY) || "null"); return d && typeof d === "object" ? d : null; } catch (e) { return null; }
 }
-async function connect(id, interactive, existing) {
+async function connect(id, interactive, existing, claim) {
   const msg = document.getElementById("loginMsg"), prev = store;
   msg.textContent = "Connexion…";
   try {
@@ -3007,6 +3009,8 @@ async function connect(id, interactive, existing) {
     await st.signIn(interactive);
     store = st; assets = st.canFiles ? st : null;
     localStorage.setItem("mb-provider", id);
+    // Un seul appareil à la fois : se connecter ici déconnecte les autres ; une reprise automatique vérifie qu'on est toujours l'appareil actif.
+    if (id !== "local" && typeof sessStart === "function" && !await sessStart(claim != null ? claim : interactive === true || interactive === "choose")) return;
     banner = id === "local" ? `<div class="banner">Mode démo : tes données restent dans ce navigateur. Connecte-toi avec Google ou Microsoft (Paramètres › Mon compte) pour les garder dans ton Drive : elles y seront transférées.</div>` : "";
     setSync("", "Chargement…");
     const r = await st.load();
@@ -3041,6 +3045,7 @@ async function connect(id, interactive, existing) {
   }
 }
 function signOut() {
+  if (typeof sessEnd === "function") sessEnd();
   const s0 = store; store = null; assets = null;
   localStorage.removeItem("mb-provider");
   applyData(null); blobCache.clear(); version = null;
@@ -3058,7 +3063,8 @@ async function boot() {
   if (CFG.microsoftClientId && (last === "microsoft" || /[#&?](code|error)=/.test(location.hash + location.search))) {
     try {
       const ms = makeStore("microsoft");
-      if (await ms.resume()) { history.replaceState(null, "", location.pathname); localStorage.setItem("mb-provider", "microsoft"); showLogin(""); return connect("microsoft", false, ms); }
+      const fromLogin = /[#&?]code=/.test(location.hash + location.search);   // retour de la page de connexion = nouvelle connexion
+      if (await ms.resume()) { history.replaceState(null, "", location.pathname); localStorage.setItem("mb-provider", "microsoft"); showLogin(""); return connect("microsoft", false, ms, fromLogin); }
     } catch (e) {}
   }
   if (last === "local") return connect("local", true);

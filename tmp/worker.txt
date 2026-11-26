@@ -679,6 +679,18 @@ async function social(req, env, url, cors) {
   if (path === "/deals") return dealsAuth(req, env, url, cors, me, body);
   if (/^\/projects(\/|$)/.test(path)) return projectsApi(req, env, url, cors, me, body);
   if (path === "/me" && req.method === "GET") return json({ tag: await myTag(env, me) }, 200, cors);
+  // Un seul appareil connecté à la fois : la dernière connexion (POST) devient l'appareil actif, les autres se déconnectent.
+  if (path === "/me/session") {
+    const cur = await kvJ(env, "sess:" + me.email);
+    if (req.method === "GET") return json({ sid: cur ? cur.sid : null, dev: cur ? cur.dev : "", at: cur ? cur.at : 0 }, 200, cors);
+    if (req.method === "POST") {
+      const sid = String(body.sid || ""); if (!/^[a-z0-9]{16,40}$/.test(sid)) throw new HttpErr(400, "session invalide");
+      const dev = String(body.dev || "").replace(/[<>]/g, "").trim().slice(0, 40);
+      if (!body.ifFree || !cur) await kvP(env, "sess:" + me.email, { sid, dev, at: Date.now() });
+      const now = (!body.ifFree || !cur) ? sid : cur.sid;
+      return json({ sid: now, prev: cur && cur.sid !== sid ? cur.dev || "un autre appareil" : "" }, 200, cors);
+    }
+  }
   if (path === "/me/tag" && req.method === "POST") {
     const tag = String(body.tag || "").trim().toLowerCase().replace(/^@/, "");
     if (!TAG_RE.test(tag)) throw new HttpErr(400, "3 à 24 caractères : lettres, chiffres, - ou _");
