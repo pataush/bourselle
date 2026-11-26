@@ -862,3 +862,53 @@ html.hide-amounts :is(.num, .big, .amt, .tile .v):hover { filter: blur(7px); }
 
 html.hide-amounts .mmask { filter: blur(6px); user-select: none; }
 html.hide-amounts #toast .mmask { filter: none; }
+/* Mes proches favoris */
+.fav-row { display: flex; gap: 8px; overflow-x: auto; padding: 6px 2px 10px; margin: 0 -2px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.fav-row::-webkit-scrollbar { display: none; }
+.fav { flex: 0 0 auto; width: 84px; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 10px 4px 8px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); font: inherit; color: inherit; cursor: pointer; }
+.fav b { font-size: .82rem; font-weight: 600; max-width: 76px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fav small { font-size: .68rem; color: var(--muted); text-align: center; line-height: 1.2; }
+.fav small.good { color: var(--good); font-weight: 600; } .fav small.bad { color: var(--bad); font-weight: 600; }
+.fav-av { position: relative; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 1.15rem; background: var(--muted); }
+.fav-av i { position: absolute; right: -4px; top: -4px; font-style: normal; font-size: .7rem; }
+.fav-av.big { width: 58px; height: 58px; font-size: 1.5rem; flex: 0 0 auto; }
+.fav-add .fav-av { background: transparent; color: var(--muted); border: 1.5px dashed var(--line); font-size: 1.5rem; font-weight: 400; }
+.fav-head { display: flex; align-items: center; gap: 14px; margin-bottom: 12px; }
+.fav-st { font-size: .9rem; font-weight: 600; margin-top: 2px; } .fav-st.good { color: var(--good); } .fav-st.bad { color: var(--bad); }
+.fav-acts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
+.fav-act { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 2px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); font: inherit; font-size: .72rem; line-height: 1.15; color: inherit; cursor: pointer; text-align: center; }
+.fav-act span { font-size: 1.3rem; } .fav-act:disabled { opacity: .4; cursor: default; }
+.fav-it { display: flex; justify-content: space-between; align-items: center; gap: 10px; width: 100%; padding: 9px 2px; border: 0; border-bottom: 1px solid var(--line); background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.fav-it small { display: block; color: var(--muted); font-size: .74rem; } .fav-it.in b { color: var(--good); } .fav-it.out b { color: var(--bad); }
+.fav-btns { display: flex; gap: 8px; margin-top: 10px; } .fav-btns .btn { flex: 1; }
+.share-exp { display: block; width: 100%; margin: 14px 0 0; padding: 11px; border: 1px dashed var(--line); border-radius: 14px; background: none; font: inherit; font-weight: 600; color: var(--good); cursor: pointer; }
+/* Le fil des proches */
+.feed { padding: 4px 14px; }
+.feed-it { border-bottom: 1px solid var(--line); padding: 8px 0; } .feed-it:last-of-type { border-bottom: 0; }
+.feed-main { display: flex; align-items: center; gap: 10px; width: 100%; border: 0; background: none; font: inherit; color: inherit; text-align: left; padding: 0; cursor: pointer; }
+.feed-ic { width: 34px; height: 34px; flex: 0 0 auto; border-radius: 50%; background: var(--bg); display: grid; place-items: center; font-size: 1rem; }
+.feed-tx { flex: 1; min-width: 0; } .feed-tx > span { display: block; font-size: .9rem; } .feed-tx small { color: var(--muted); font-size: .74rem; }
+.feed-main b { font-size: .88rem; white-space: nowrap; }
+.feed-rx { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0 0 44px; }
+.feed-rx button { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 2px 8px; font: inherit; font-size: .8rem; color: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 3px; }
+.feed-rx button small { font-size: .7rem; color: var(--muted); } .feed-rx button.on { background: var(--good-soft); border-color: var(--good); }
+.feed-rx .feed-com { color: var(--muted); }
+.feed-more { display: block; margin: 6px auto 4px; }
+/* Défis d'épargne */
+.chal { display: block; width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer; padding: 14px 16px; }
+.chal-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; margin-bottom: 8px; } .chal-top small { color: var(--muted); font-size: .76rem; white-space: nowrap; }
+.chal-empty b { display: block; margin-bottom: 4px; } .chal-empty small { color: var(--muted); }
+.chal-inv { margin: 0 0 10px; font-size: .88rem; } .chal-go { display: inline-block; }
+.chal-m { display: grid; grid-template-columns: 64px 1fr 40px; align-items: center; gap: 8px; margin: 4px 0; font-size: .82rem; }
+.chal-m span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .chal-m.me span { font-weight: 700; }
+.chal-m i, .chal-row i { height: 8px; border-radius: 99px; background: var(--bg); overflow: hidden; display: block; }
+.chal-m i b, .chal-row i b { display: block; height: 100%; border-radius: 99px; background: var(--accent); } .chal-m.me i b, .chal-row.me i b { background: var(--good); }
+.chal-m small { text-align: right; color: var(--muted); font-size: .74rem; }
+.chal-me { display: flex; align-items: center; gap: 14px; margin-bottom: 6px; }
+.chal-ring { --p: 0; width: 70px; height: 70px; flex: 0 0 auto; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(var(--good) calc(var(--p) * 1%), var(--bg) 0); position: relative; }
+.chal-ring::before { content: ""; position: absolute; inset: 8px; border-radius: 50%; background: var(--surface); } .chal-ring span { position: relative; font-weight: 700; font-size: .95rem; }
+.chal-board { display: flex; flex-direction: column; gap: 2px; }
+.chal-row { display: grid; grid-template-columns: 24px 80px 1fr 40px 34px; align-items: center; gap: 8px; padding: 6px 0; font-size: .86rem; border-bottom: 1px solid var(--line); }
+.chal-row.pend { grid-template-columns: 24px 1fr auto; color: var(--muted); } .chal-row.me .chal-nm { font-weight: 700; }
+.chal-rk { text-align: center; color: var(--muted); font-weight: 700; } .chal-nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .chal-row small { text-align: right; }
+.chal-cheer { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 2px 6px; cursor: pointer; }

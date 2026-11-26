@@ -49,8 +49,9 @@ async function editPay(opts) {
   opts = opts || {};
   await socLoadPay(true);
   if (typeof socRefresh === "function" && !SOC.loaded) await socRefresh();
-  const p = SOC.pay || {}, contacts = (settings.contacts || []).slice(0, 8);
+  const p = SOC.pay || {}, contacts = (typeof prochesTagged === "function" ? prochesTagged() : socContacts()).slice(0, 8);
   let to = opts.to || "";
+  if (to && !contacts.some(c => c.tag === to)) contacts.unshift({ tag: to, name: "" });
   const reqs = (SOC.out || []).filter(c => c.kind === "req").sort((a, b) => (reqState(a) === "ok") - (reqState(b) === "ok") || (b.updated || 0) - (a.updated || 0));
   const q = SOC.quota || { used: 0, free: 3 }, left = Math.max(0, q.free - q.used);
   const tiles = PM_DEFS.map(d => { const on = d.has(p); return `<button type="button" class="pm-tile${on ? " on" : ""}" data-pm="${d.id}"><span class="pm-ti">${d.ic}</span><b>${esc(d.label)}</b><small>${on ? "✓ " + esc(d.sum(p)) : "+ Ajouter"}</small></button>`; }).join("");

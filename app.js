@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "84";
+const APP_VERSION = "85";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -281,7 +281,7 @@ function alertsAll() {
   const L = [], add = (id, tab, label, items, open) => { if (items.length && (subAllowed(tab) || open)) L.push({ id, tab, label, items, open }); };
   try {
     const mk = cur.y + "-" + String(cur.m).padStart(2, "0");
-    if (typeof SOC !== "undefined" && (SOC.reminders || []).length) add("rem", "accueil", "Rappels reçus", SOC.reminders.filter(r => !remResolved(r)).map(r => ({ k: "rem:" + r.id, rem: r.id, t: `${r.from || "Quelqu'un"} : ${r.msg || `merci de régler ${fmtCur(r.amt, r.cur)}`}`, s: `${r.title || ""}${r.amt ? " · " + fmtCur(r.amt, r.cur) : ""} · ${agoText(r.at)}`, warn: !!r.warn, g: r.kind === "g" ? r.ref : "", deal: r.kind === "d" ? r.ref : "", go: "Régler" })), true);
+    if (typeof SOC !== "undefined" && (SOC.reminders || []).length) add("rem", "accueil", "Rappels reçus", SOC.reminders.filter(r => !remResolved(r)).map(r => ({ k: "rem:" + r.id, rem: r.id, t: `${r.from || "Quelqu'un"} : ${r.msg || `merci de régler ${fmtCur(r.amt, r.cur)}`}`, s: `${r.title || ""}${r.amt ? " · " + fmtCur(r.amt, r.cur) : ""} · ${agoText(r.at)}`, warn: !!r.warn, g: r.kind === "g" ? r.ref : "", deal: r.kind === "d" ? r.ref : "", chal: r.kind === "chal" ? r.ref : "", go: r.kind === "chal" ? "Voir" : "Régler" })), true);
     if (typeof SOC !== "undefined") add("reqin", "dettes", "Demandes de paiement reçues", (SOC.in || []).filter(c => c.kind === "req" && !["settled", "cancelled", "declined"].includes(c.status) && !reqPend(c)).map(c => ({ k: "reqin:" + c.id, t: `${c.fromName || "@" + c.from} te demande ${socMoney({ ...c, amount: reqLeft(c) })}`, s: c.name || "", reqpay: c.id, go: "Payer" })), true);
     if (typeof SOC !== "undefined") add("reqok", "accueil", "Paiements à confirmer", (SOC.out || []).filter(c => reqPend(c)).map(c => ({ k: "reqok:" + c.id, t: `${c.to ? "@" + c.to : c.guest || "Quelqu'un"} dit t'avoir payé ${socMoney({ ...c, amount: reqPend(c).amount })}`, s: (c.name || "Paiement") + " · confirme quand l'argent est arrivé", payme: c.kind === "req", claimout: c.kind !== "req", go: "Confirmer" })), true);
     if (typeof SOC !== "undefined") add("claims", "dettes", "Réclamations de dettes reçues", SOC.in.filter(c => c.status === "pending" && c.kind !== "req").map(c => ({ k: "claim:" + c.id, t: `@${c.from} te réclame ${socMoney(c)}`, s: [c.name, c.due ? "avant le " + frDate(c.due) : ""].filter(Boolean).join(" · "), go: "Répondre", claim: c.id })));
@@ -334,6 +334,7 @@ function alertGo(a, x) {
     if (x && x.claimout) return switchTab("dettes");
     if (x && x.g) { if (groups[x.g]) { openGroup = x.g; return switchTab("partage"); } return switchTab("partage"); }
     if (x && x.deal) return showDeal(x.deal);
+    if (x && x.chal && typeof chalOpen === "function") return chalOpen(x.chal);
     if (x && x.pj) return showProject(x.pj);
     if (x && x.sub) { switchTab("abos"); return editSub(x.sub); }
     if (x && x.tx) { const { key, ...tx } = x.tx; switchTab(a.tab); return openSheet(tx); }
@@ -1158,6 +1159,7 @@ function openSheet(tx) {
   document.getElementById("fDate").value = form.date;
   document.getElementById("fNote").value = form.note || "";
   document.getElementById("fDelete").hidden = !editing;
+  { const sh = document.getElementById("fShare"); if (sh) sh.hidden = !(editing && form.type === "depense" && typeof shareExpenseWith === "function"); }
   drawForm();
   document.getElementById("sheetRoot").classList.add("open");
   if (!editing) setTimeout(() => document.getElementById("fAmount").focus(), 60);
@@ -1430,6 +1432,7 @@ async function uploadPicked(picked) {
 document.getElementById("fab").onclick = () => tab === "accueil" ? showAddMenu() : tab === "abos" ? editSub(null) : tab === "dettes" ? editDebt(null) : tab === "patrimoine" ? editAsset(null) : tab === "objectifs" ? editGoal(null) : tab === "partage" ? (openGroup ? editGroupExpense(openGroup, null) : editGroup(null)) : tab === "tontines" ? editTontine(null) : openSheet(null);
 document.getElementById("sheetBg").onclick = () => closeSheet(false);
 document.getElementById("fCancel").onclick = () => closeSheet(false);
+document.getElementById("fShare").onclick = () => { const t = { amount: Number(form.amount) || 0, label: form.note || catById(form.cat).name, date: form.date }; closeSheet(); setTimeout(() => shareExpenseWith(t), 260); };
 document.getElementById("fDelete").onclick = () => {
   if (!form) return;
   const btn = document.getElementById("fDelete");
@@ -2305,7 +2308,7 @@ function renderPartage() {
   document.getElementById("resCap").textContent = mine > 0.004 ? "Au total, on te doit" : mine < -0.004 ? "Au total, tu dois" : "Tout le monde est quitte";
   const big = document.getElementById("resBig"); big.textContent = eur(Math.abs(mine)); big.className = "big num " + (mine > 0.004 ? "good" : mine < -0.004 ? "bad" : "");
   document.getElementById("resPill").innerHTML = "";
-  let html = banner;
+  let html = banner + (typeof favRowHTML === "function" ? favRowHTML() + chalHTML() : "");
   if (!list.length) html += `<div class="card"><div class="empty">Aucun groupe pour l'instant.</div></div>`;
   for (const g of list) {
     const b = g.bal[g.me] || 0;
@@ -2316,17 +2319,15 @@ function renderPartage() {
     const owers = settle(g.bal).filter(x => x.to === g.me);
     if (owers.length) html += `<button type="button" class="btn gr-rem" data-grem="${esc(g.id)}">🔔 Relancer ${owers.length > 1 ? `les ${owers.length} personnes qui te doivent` : esc((g.members.find(m => m.id === owers[0].from) || {}).name || "")}</button>`;
   }
-  if (list.length) html = html.replace(banner, banner + `<div class="hub-sec"><span>Dépenses partagées</span><button class="linkbtn" id="grNew">+ Nouveau groupe</button></div>`);
+  if (list.length) { const i = html.indexOf("<button class=\"gar "); html = html.slice(0, i) + `<div class="hub-sec"><span>Dépenses partagées</span><button class="linkbtn" id="grNew">+ Nouveau groupe</button></div>` + html.slice(i); }
   else html += `<button class="btn primary" id="grNew" style="width:100%">+ Créer un groupe</button>`;
-  const act = typeof hubActivity === "function" ? hubActivity("groups") : [];
-  if (act.length) html += actHead() + `<div class="card hub-act">${act.map((e, i) => `<button type="button" class="hub-ev" data-ev="${i}"><span class="hub-ei">${e.ic === "comment" ? "💬" : hubIcon("group")}</span><span><span class="hub-et">${esc(e.t)}</span><small>${esc(e.s)} · ${esc(agoText(e.at))}</small></span></button>`).join("")}</div>`;
+  html += typeof feedHTML === "function" ? feedHTML() : "";
   html += `<p class="hint" style="text-align:center;margin:4px 0 0">Couple, colocation, voyage, famille : chacun ajoute ses dépenses, Bourselle calcule qui doit combien à qui.</p>`;
   view.innerHTML = html;
   view.querySelectorAll("[data-open]").forEach(b => b.onclick = () => { openGroup = b.dataset.open; render(); window.scrollTo(0, 0); });
   { const n = document.getElementById("grNew"); if (n) n.onclick = () => editGroup(null); }
-  actBind(view);
+  actBind(view); if (typeof favBind === "function") { favBind(view); feedBind(view); chalBind(view); }
   view.querySelectorAll("[data-grem]").forEach(b => b.onclick = () => { const g = groups[b.dataset.grem]; groupRemind(b.dataset.grem, settle(groupBalances(g)).filter(x => x.to === g.me)); });
-  view.querySelectorAll("[data-ev]").forEach(b => b.onclick = () => { const e = act[Number(b.dataset.ev)]; if (e && e.gid) { openGroup = e.gid; render(); window.scrollTo(0, 0); } });
 }
 // Relancer : on choisit le message (régler la somme, ou un autre message). Résout avec le texte, ou null si annulé.
 function remindPick(who, amountTxt, context, opts) {
@@ -2489,8 +2490,9 @@ function editGroup(id) {
   };
   drawTags();
 }
-function editGroupExpense(gid, eid) {
-  const g = groups[gid], e = eid ? clone(g.expenses[eid]) : { label: "", amount: "", date: todayISO(), paidBy: g.me, split: g.members.map(m => m.id) };
+function editGroupExpense(gid, eid, pre) {
+  pre = pre || {};
+  const g = groups[gid], e = eid ? clone(g.expenses[eid]) : { label: pre.label || "", amount: pre.amount ?? "", date: pre.date || todayISO(), paidBy: g.me, split: g.members.map(m => m.id) };
   let paidBy = e.paidBy, split = new Set(e.split), cat = "loisirs", mode = e.mode || "equal", photo = e.photo || "";
   const w = { ...(e.weights || {}) };
   openForm(`<div class="f2"><h3>${eid ? "Modifier la dépense" : "Dépense du groupe"} · ${esc(g.name)}</h3>

@@ -214,7 +214,8 @@ function editProject() {
 function tagPicker(find, res, onAdd) {
   const list = items => res.innerHTML = items.length ? `<div class="soc-contacts">${items.map(u => `<div class="soc-contact"><div><b>@${esc(u.tag)}</b>${u.name ? ` <span class="hint">${esc(u.name)}</span>` : ""}</div><button type="button" class="btn" data-add="${esc(u.tag)}" data-n="${esc(u.name || "")}">Choisir</button></div>`).join("")}</div>` : "";
   const bind = () => res.querySelectorAll("[data-add]").forEach(b => b.onclick = () => { res.innerHTML = ""; onAdd(b.dataset.add, b.dataset.n); });
-  const contacts = q => { const c = (settings.contacts || []).filter(x => !q || x.tag.includes(q) || (x.name || "").toLowerCase().includes(q)).slice(0, 6); list(c); bind(); return c.length; };
+  const src = () => typeof prochesTagged === "function" ? prochesTagged() : (settings.contacts || []).filter(x => x && x.tag);
+  const contacts = q => { const c = src().filter(x => !q || x.tag.includes(q) || (x.name || "").toLowerCase().includes(q)).slice(0, 6); list(c); bind(); return c.length; };
   let tmr = null;
   find.addEventListener("focus", () => { if (!find.value) contacts(""); });
   find.addEventListener("input", () => {
@@ -222,8 +223,8 @@ function tagPicker(find, res, onAdd) {
     contacts(q);
     if (q.length >= 3) tmr = setTimeout(async () => {
       try {
-        const j = await socApi("/search?q=" + encodeURIComponent(q)), have = new Set((settings.contacts || []).filter(x => x.tag.includes(q) || (x.name || "").toLowerCase().includes(q)).map(x => x.tag));
-        if (find.value.trim().toLowerCase().replace(/^@/, "") === q) { list((settings.contacts || []).filter(x => have.has(x.tag)).concat((j.users || []).filter(u => !have.has(u.tag))).slice(0, 8)); bind(); }
+        const j = await socApi("/search?q=" + encodeURIComponent(q)), have = new Set(src().filter(x => x.tag.includes(q) || (x.name || "").toLowerCase().includes(q)).map(x => x.tag));
+        if (find.value.trim().toLowerCase().replace(/^@/, "") === q) { list(src().filter(x => have.has(x.tag)).concat((j.users || []).filter(u => !have.has(u.tag))).slice(0, 8)); bind(); }
       } catch (e) {}
     }, 450);
   });

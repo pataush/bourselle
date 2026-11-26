@@ -62,7 +62,7 @@ async function socRefresh() {
     try { await socPullGroups(); await socPushGroups(); } catch (e) {}
     socLoadPay(); socLoadReminders();
     if (!SOC.addChecked) { SOC.addChecked = true; socPendingAdd(); if (typeof reqTakeFromUrl === "function") reqTakeFromUrl(); }
-    socOpenPending(); pushResync(); if (typeof dealsRefresh === "function") dealsRefresh(); if (typeof projRefresh === "function") projRefresh();
+    socOpenPending(); pushResync(); if (typeof dealsRefresh === "function") dealsRefresh(); if (typeof projRefresh === "function") projRefresh(); if (typeof chalRefresh === "function") chalRefresh();
     { const paid = (SOC.out || []).flatMap(c => (c.payments || []).filter(p => p.pend && !socSeen.has("pd:" + p.id)).map(p => ({ c, p })));
       if (paid.length) {
         const { c, p } = paid[0], who = c.to ? "@" + c.to : c.guest || "Quelqu'un";
@@ -90,16 +90,22 @@ function socTagInlineHTML() {
 }
 // QR code personnel : le scanner avec l'appareil photo ouvre Bourselle et propose d'ajouter ce tag aux contacts.
 const socAddUrl = tag => location.origin + location.pathname.replace(/[^/]*$/, "") + "?add=" + encodeURIComponent(tag);
-function socShowQr() {
+// Mon QR code de profil : on le scanne avec l'appareil photo → on m'ajoute à ses proches, ou on me paie (même sans l'appli)
+const socProfileUrl = () => appBase() + "g.html#u=" + encodeURIComponent(SOC.tag) + (SOC.payToken && SOC.pay && Object.keys(SOC.pay).length ? "&p=" + SOC.payToken : "");
+async function socShowQr() {
   if (!SOC.tag || typeof QR === "undefined") return;
-  const url = socAddUrl(SOC.tag);
+  await socLoadPay();
+  const url = socProfileUrl(), canPay = url.includes("&p=");
   const f = openForm(`<div class="f2 soc-qr"><h3>Mon QR code Bourselle</h3>
-    <div class="soc-qr-img">${QR.svg(url, { px: 7 })}</div>
+    <div class="soc-qr-img">${QR.svg(url, { px: 6 })}</div>
     <div class="soc-qr-tag num">@${esc(SOC.tag)}</div>
-    <p class="hint" style="text-align:center;margin:0">Fais scanner ce code avec l'appareil photo d'un téléphone : la personne t'ajoute à ses contacts Bourselle.</p>
-    ${navigator.share ? `<button type="button" class="btn" id="socQrShare" style="align-self:center">Partager le lien</button>` : ""}</div>`, () => true);
+    <p class="hint" style="text-align:center;margin:0">On le scanne avec l'appareil photo du téléphone : ${canPay ? "on t'ajoute à ses proches, ou on te paie, même sans l'appli." : "on t'ajoute à ses proches."}</p>
+    ${canPay ? "" : `<button type="button" class="linkbtn" id="socQrPay" style="align-self:center">Ajouter un moyen de paiement pour qu'on puisse aussi te payer ›</button>`}
+    <div class="fav-btns">${navigator.share ? `<button type="button" class="btn" id="socQrShare">Partager</button>` : ""}${"BarcodeDetector" in window ? `<button type="button" class="btn" id="socQrScan">📷 Scanner un QR</button>` : ""}</div></div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
   const sh = f.querySelector("#socQrShare"); if (sh) sh.onclick = () => navigator.share({ title: "Bourselle", text: `Ajoute-moi sur Bourselle : @${SOC.tag}`, url }).catch(() => {});
+  const sc = f.querySelector("#socQrScan"); if (sc) sc.onclick = () => { closeForm(); setTimeout(socScanQr, 220); };
+  const pp = f.querySelector("#socQrPay"); if (pp) pp.onclick = () => { closeForm(); setTimeout(() => editPay(), 220); };
 }
 // Scanner le QR code d'un proche (navigateurs qui savent lire les QR codes : Chrome sur Android, notamment)
 function socScanQr() {
@@ -117,31 +123,38 @@ function socScanQr() {
       const det = new BarcodeDetector({ formats: ["qr_code"] });
       while (alive) {
         const codes = await det.detect(v).catch(() => []);
-        const tag = codes.map(c => socTagFromText(c.rawValue)).find(Boolean);
-        if (tag) { stop(); closeForm(); socOfferAdd(tag); return; }
+        const raw = codes.map(c => c.rawValue).find(v => socTagFromText(v));
+        if (raw) { stop(); closeForm(); socOfferAdd(socTagFromText(raw), socTokFromText(raw)); return; }
         await new Promise(r => setTimeout(r, 300));
       }
     } catch (e) { const m = document.getElementById("socScanMsg"); if (m) m.textContent = "Caméra indisponible. Scanne le code avec l'appareil photo de ton téléphone."; }
   })();
 }
+function socTokFromText(t) { try { return new URLSearchParams(new URL(t).hash.slice(1)).get("p") || ""; } catch (e) { return ""; } }
 function socTagFromText(t) {
-  try { const u = new URL(t); const a = u.searchParams.get("add"); if (a && /^[a-z0-9][a-z0-9_-]{2,23}$/.test(a)) return a; } catch (e) {}
+  try { const u = new URL(t), h = new URLSearchParams(u.hash.slice(1)); const a = u.searchParams.get("add") || h.get("u"); if (a && /^[a-z0-9][a-z0-9_-]{2,23}$/.test(a)) return a; } catch (e) {}
   const m = /^@?([a-z0-9][a-z0-9_-]{2,23})$/.exec(String(t || "").trim().toLowerCase()); return m ? m[1] : "";
 }
 // Proposer d'ajouter un tag (après un scan, ou en ouvrant un lien « ?add= »)
-async function socOfferAdd(tag) {
+async function socOfferAdd(tag, tok) {
   if (!socOn()) return;
   if (tag === SOC.tag) { toast("C'est ton propre tag"); return; }
-  if (socContacts().some(c => c.tag === tag)) { toast(`@${tag} est déjà dans tes contacts`); return; }
-  let found = null;
+  const known = socContacts().some(c => c.tag === tag);
+  let found = null, pay = null;
   try { const j = await socApi("/search?q=" + encodeURIComponent(tag)); found = (j.users || []).find(u => u.tag === tag); } catch (e) {}
   if (!found) { toast(`Aucun utilisateur @${tag}`); return; }
-  const f = openForm(`<div class="f2"><h3>Ajouter un contact</h3><p style="margin:0"><b>@${esc(tag)}</b>${found.name ? ` <span class="hint">${esc(found.name)}</span>` : ""}</p>
-    <p class="hint">Tu pourras lui réclamer une dette directement dans l'app.</p></div>`, () => {
-    settings.contacts = socContacts().concat([{ tag, name: found.name || "", added: todayISO() }]);
-    saveSettings(); render(); toast(`@${tag} ajouté à tes contacts`);
+  if (tok) { try { const r = await fetch(PLUS_CFG.api.replace(/\/$/, "") + "/p/" + encodeURIComponent(tok)); if (r.ok) pay = (await r.json()).pay; } catch (e) {} }
+  if (known && !pay) { toast(`@${tag} est déjà dans tes contacts`); return; }
+  const nm = found.name || (pay && pay.name) || "";
+  const f = openForm(`<div class="f2"><h3>${known ? "Ton proche" : "Ajouter un proche"}</h3><p style="margin:0"><b>@${esc(tag)}</b>${nm ? ` <span class="hint">${esc(nm)}</span>` : ""}</p>
+    <p class="hint">${known ? "Déjà dans tes proches." : "Vous pourrez partager des dépenses et vous payer en un geste."}</p>
+    ${pay ? `<button type="button" class="btn" id="offPay" style="width:100%">💸 Lui envoyer de l'argent</button>` : ""}</div>`, () => {
+    if (known) return true;
+    settings.contacts = socContacts().concat([{ tag, name: nm, added: todayISO() }]);
+    saveSettings(); render(); toast(`@${tag} ajouté à tes proches`);
   });
-  f.querySelector("button[type=submit]").textContent = "Ajouter";
+  const sb = f.querySelector("button[type=submit]"); sb.textContent = "Ajouter à mes proches"; sb.hidden = known;
+  const op = f.querySelector("#offPay"); if (op) op.onclick = () => { closeForm(); setTimeout(() => showPay(pay, 0, "", nm || "@" + tag, () => toast("Paiement noté. Pense à prévenir " + (nm || "@" + tag))), 220); };
 }
 // Lien « ?add=tag » : on le garde jusqu'à la connexion
 {
@@ -347,7 +360,7 @@ function socMergeGroup(id, r) {
   for (const [cid, c] of Object.entries(r.comments || {})) if (!com[cid] || (c.deleted && !com[cid].deleted)) com[cid] = c;
   const rx = { ...(local ? local.reacts || {} : {}) };
   for (const [k, x] of Object.entries(r.reacts || {})) if (!rx[k] || (Number(x.at) || 0) > (Number(rx[k].at) || 0)) rx[k] = x;
-  const next = { ...(local || {}), name: r.name, members: r.members, me, expenses: exp, comments: com, reacts: rx, shared: true, owner: r.owner, rev: r.rev, link: r.link || "", pays: r.pays || {}, created: (local && local.created) || r.updated || Date.now() };
+  const next = { ...(local || {}), name: r.name, members: r.members, me, expenses: exp, comments: com, reacts: rx, shared: true, owner: r.owner, ownerMid: r.ownerMid || (local && local.ownerMid) || "", rev: r.rev, link: r.link || "", pays: r.pays || {}, created: (local && local.created) || r.updated || Date.now() };
   const changed = JSON.stringify(local || null) !== JSON.stringify(next);
   if (local) { for (const k of Object.keys(local)) delete local[k]; Object.assign(local, next); } else groups[id] = next;   // même objet : un formulaire ouvert garde la bonne référence
   return changed;
