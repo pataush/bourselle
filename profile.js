@@ -6,6 +6,7 @@ const PF_GROUPS = [
   ["Budget", ["Budget mensuel par catégorie", "Opérations automatiques", "Importer un relevé bancaire", "Listes de choix", "Rappel des garanties"]],
   ["Application", ["Verrouillage et clé d'accès", "Apparence", "Langue et devise", "Version de l'app", "Installer sur ton téléphone"]],
   ["Mes données", ["Exporter mes données"]],
+  ["Bourselle", ["À propos"]],
 ];
 const PF_KEY = "bourselle-profil-ouvert";
 const pfOpen = () => { try { return new Set(JSON.parse(localStorage.getItem(PF_KEY) || "[]")); } catch (e) { return new Set(); } };
@@ -41,6 +42,8 @@ function pfOrganize() {
   }
   // Cartes non prévues (ajoutées plus tard) : à la fin, repliables aussi
   for (const c of cards) if (!used.has(c) && c.isConnected && c !== first && !lists.includes(c)) { v.appendChild(c); pfFold(c, open); }
+  // « À propos » toujours tout en bas
+  const ab = byTitle.get("À propos"); if (ab) { const h = ab.previousElementSibling; if (h && h.classList.contains("pf-sec")) v.appendChild(h); v.appendChild(ab); }
 }
 function pfFold(card, open) {
   if (card.classList.contains("pf-card")) return;

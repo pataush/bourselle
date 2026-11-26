@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "75";
+const APP_VERSION = "76";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -784,8 +784,7 @@ function renderReglages() {
   <div class="card"><h2>Version de l'app</h2>
     <div class="seg2" id="modeSeg"><button type="button" data-m="simple" aria-pressed="${isSimple()}">Simple</button><button type="button" data-m="complete" aria-pressed="${!isSimple()}">Complète</button></div>
     <p class="hint" style="margin:8px 0 0">${isSimple() ? "Simple : le budget du mois, l'année, le partage des frais, je dois / on me doit, le plan d'économies et les objectifs. Passe à la version complète pour les abonnements, les notes de frais et les garanties."
-      : "Complète : toutes les fonctions. La version simple garde l'essentiel (budget du mois, année, partage des frais, dettes, économies, objectifs) pour un usage plus léger."} Tes données ne changent pas.</p>
-    <div class="ver-row"><span class="hint">Version ${APP_VERSION}</span><button class="btn" id="forceUpdate">Charger la dernière version</button></div></div>
+      : "Complète : toutes les fonctions. La version simple garde l'essentiel (budget du mois, année, partage des frais, dettes, économies, objectifs) pour un usage plus léger."} Tes données ne changent pas.</p></div>
   <div class="card"><h2>Langue et devise</h2>
     <div class="two"><div><label class="lbl" for="setLang">Langue</label><select class="field" id="setLang"><option value="fr"${window.LANG !== "en" ? " selected" : ""}>Français</option><option value="en"${window.LANG === "en" ? " selected" : ""}>English</option></select></div>
       <div><label class="lbl" for="setCur">Devise</label><select class="field" id="setCur">${APP_CURRENCIES.map(([c, l]) => `<option value="${c}"${c === (settings.currency || "EUR") ? " selected" : ""}>${esc(c)} · ${esc(l)}</option>`).join("")}</select></div></div>
@@ -815,7 +814,11 @@ function renderReglages() {
     <label class="btn" for="importFile" style="cursor:pointer">Importer un fichier</label><input type="file" id="importFile" accept=".json,application/json" hidden></div>
     <p class="hint">Importer ajoute les données du fichier (par exemple l'export de l'ancienne version) à celles que tu as déjà, sans rien effacer.</p></div>
     <div class="card"><h2>Installer sur ton téléphone</h2><p class="hint" style="margin:0">iPhone : dans Safari, bouton Partager puis « Sur l'écran d'accueil ». Android : dans Chrome, menu ⋮ puis « Ajouter à l'écran d'accueil ».</p>
-</div>`;
+</div>
+  <div class="card"><h2>À propos</h2>
+    <p style="margin:0 0 8px"><b>Bourselle</b> : ton budget et tes partages, simplement. Chacun paie de banque à banque, sans connecter ton compte bancaire : l'argent ne passe jamais par Bourselle, et tes données restent dans ton propre cloud (Google Drive ou OneDrive).</p>
+    <div class="ver-row"><span class="hint">Version ${APP_VERSION}</span><button class="btn" id="forceUpdate">Charger la dernière version</button></div>
+    <p class="hint" style="margin:10px 0 0"><a href="privacy.html" target="_blank" rel="noopener">Confidentialité</a> · <a href="conditions.html" target="_blank" rel="noopener">Conditions d'utilisation</a></p></div>`;
   view.innerHTML = html;
   if (typeof socBindTagCard === "function") socBindTagCard();
   if (typeof accBindCard === "function") accBindCard();
