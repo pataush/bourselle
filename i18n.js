@@ -12,6 +12,10 @@
 
   // ---------- Textes fixes ----------
   const EXACT = {
+    "Pays": "Country",
+    "🌍 Tous les pays (offre internationale en ligne)": "🌍 All countries (international online offer)",
+    "Ville (vide = tout le pays)": "City (empty = whole country)",
+    "Pour te montrer les bons plans de ton pays et des commerces près de chez toi. Ta ville et ton pays restent sur ton appareil : ils ne sont envoyés à personne.": "To show you deals in your country and from shops near you. Your city and country stay on your device: they aren't sent to anyone.",
     "📍 Ta ville": "📍 Your city",
     "Pour te montrer les bons plans des commerces près de chez toi. Ta ville reste sur ton appareil : elle n'est envoyée à personne.": "To show you deals from shops near you. Your city stays on your device: it isn't sent to anyone.",
     "Ville": "City",

@@ -119,7 +119,7 @@
         <button class="btn primary" id="plGo" style="width:100%;margin-top:12px">${esc(t("Envoyer"))}</button></div>` + cta;
     $("plGo").onclick = async () => {
       const v = id => $(id).value.trim(), b = $("plGo"); b.disabled = true;
-      try { await api("/offers/lead", { company: v("plCompany"), contact: v("plContact"), email: v("plEmail"), site: v("plSite"), city: v("plCity"), offer: v("plOffer"), group: $("plGroup").checked }); $("plForm").innerHTML = `<p class="gp-ok">✓ ${esc(t("Merci ! Nous revenons vers vous rapidement."))}</p>`; }
+      try { await api("/offers/lead", { company: v("plCompany"), contact: v("plContact"), email: v("plEmail"), site: v("plSite"), city: v("plCity"), country: ((navigator.language || "").split("-")[1] || "").toUpperCase(), offer: v("plOffer"), group: $("plGroup").checked }); $("plForm").innerHTML = `<p class="gp-ok">✓ ${esc(t("Merci ! Nous revenons vers vous rapidement."))}</p>`; }
       catch (e) { b.disabled = false; toast(e.message); }
     };
   }
