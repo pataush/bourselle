@@ -86,7 +86,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 function socTagInlineHTML() {
   if (!socOn()) return "";
   return `<div class="soc-tag-row"><span class="hint">Tag Bourselle</span> ${SOC.tag ? `<b class="num">@${esc(SOC.tag)}</b>` : `<span class="hint">${SOC.err ? esc(SOC.err) : "Chargement…"}</span>`}
-    ${SOC.tag ? `<span class="soc-tag-btns"><button class="linkbtn" id="socCopy">Copier</button>${navigator.share ? `<button class="linkbtn" id="socShare">Partager</button>` : ""}<button class="linkbtn" id="socEdit">Changer</button><button class="linkbtn" id="socQr">QR code</button></span>` : ""}</div>`;
+    ${SOC.tag ? `<span class="soc-tag-btns"><button class="linkbtn" id="socCopy">Copier</button>${navigator.share ? `<button class="linkbtn" id="socShare">Partager</button>` : ""}<button class="linkbtn" id="socEdit">Modifier</button><button class="linkbtn" id="socQr">QR code</button></span>` : ""}</div>`;
 }
 // QR code personnel : le scanner avec l'appareil photo ouvre Bourselle et propose d'ajouter ce tag aux contacts.
 const socAddUrl = tag => location.origin + location.pathname.replace(/[^/]*$/, "") + "?add=" + encodeURIComponent(tag);
@@ -187,7 +187,7 @@ function socBindTagCard() {
   const qb = document.getElementById("socQr"); if (qb) qb.onclick = socShowQr;
   const sc = document.getElementById("socScan"); if (sc) sc.onclick = socScanQr;
   const ed = document.getElementById("socEdit"); if (ed) ed.onclick = () => {
-    openForm(`<div class="f2"><h3>Changer mon tag</h3>${fld("socNew", "Nouveau tag", `value="${esc(SOC.tag)}" autocapitalize="off" spellcheck="false"`)}
+    openForm(`<div class="f2"><h3>Modifier mon tag</h3>${fld("socNew", "Nouveau tag", `value="${esc(SOC.tag)}" autocapitalize="off" spellcheck="false"`)}
       <p class="hint">3 à 24 caractères : lettres minuscules, chiffres, - ou _. L'ancien tag est libéré.</p></div>`, () => {
       const t = val("socNew").trim().toLowerCase().replace(/^@/, "");
       socApi("/me/tag", { method: "POST", body: JSON.stringify({ tag: t }) }).then(j => { SOC.tag = j.tag; if (typeof driveRootName === "function") driveRootName(j.tag); closeForm(); render(); toast(`Ton tag : @${j.tag}`); }).catch(e => toast(e.message));

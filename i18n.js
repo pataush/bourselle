@@ -542,6 +542,7 @@
     "Partager": "Share",
     "Changer": "Change",
     "Changer mon tag": "Change my tag",
+    "Modifier mon tag": "Edit my tag",
     "Nouveau tag": "New tag",
     "3 à 24 caractères : lettres minuscules, chiffres, - ou _. L'ancien tag est libéré.": "3 to 24 characters: lowercase letters, digits, - or _. Your old tag is released.",
     "Tag copié": "Tag copied",
