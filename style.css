@@ -1065,3 +1065,13 @@ i.badge { font-style: normal; background: var(--bad); color: #fff; border-radius
 .ps-res { display: flex; flex-direction: column; margin-top: 8px; max-height: 50vh; overflow-y: auto; }
 .iv-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; } .iv-btns .btn { text-align: center; text-decoration: none; } .iv-wa { background: #25d366; color: #fff; border-color: #25d366; }
 .off-reward { padding: 12px 14px; border: 1.5px solid var(--accent); } .off-reward small { display: block; color: var(--muted); margin: 2px 0 6px; }
+
+/* Accueil allégé */
+.tiles.mini { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tiles.mini .tile { padding: 10px 12px; box-shadow: none; }
+.tiles.mini .tile .k { font-size: .72rem; } .tiles.mini .tile .v { font-size: 1rem; }
+.tiles.mini .tile.in { border-top: 3px solid var(--good); } .tiles.mini .tile.out { border-top: 3px solid var(--bad); } .tiles.mini .tile.sav { border-top: 3px solid var(--accent); }
+.acc-slim { display: flex; align-items: center; gap: 10px; width: 100%; margin: 0 0 12px; padding: 10px 14px; border: 1px dashed var(--accent); border-radius: 14px; background: none; font: inherit; color: var(--ink); text-align: left; cursor: pointer; font-size: .88rem; }
+.acc-slim span:nth-child(2) { flex: 1; } .acc-slim b { color: var(--accent); font-size: 1.2rem; }
+.card.today { border: 0; padding: 0; background: none; box-shadow: none; }
+.card.today .today-left { padding: 14px 16px; }

@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "99";
+const APP_VERSION = "100";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -631,7 +631,11 @@ function setHeader(label, cap, value, neutral) {
   document.getElementById("resPill").innerHTML = neutral ? "" : value > 0 ? `<span class="pill good">Positif</span>` : value < 0 ? `<span class="pill bad">Négatif</span>` : "";
 }
 
-function tilesHTML(t) {
+function tilesHTML(t, mini) {
+  if (mini) return `<div class="tiles mini">
+    <div class="tile ti in"><div><div class="k">Rentrées</div><div class="v num">${eur(t.rentree, true)}</div></div></div>
+    <div class="tile ti out"><div><div class="k">Dépenses</div><div class="v num">${eur(t.depense, true)}</div></div></div>
+    <div class="tile ti sav"><div><div class="k">Épargne</div><div class="v num">${eur((t.epargne || 0) + (t.invest || 0), true)}</div></div></div></div>`;
   return `<div class="tiles">
     <div class="tile ti in"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 4v16M5 13l7 7 7-7"/></svg></span><div><div class="k">Rentrées</div><div class="v num">${eur(t.rentree)}</div></div></div>
     <div class="tile ti out"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 20V4M5 11l7-7 7 7"/></svg></span><div><div class="k">Dépenses</div><div class="v num">${eur(t.depense)}</div></div></div>
@@ -660,7 +664,8 @@ function renderMois() {
 
   const isNow = cur.y === now.getFullYear() && cur.m === now.getMonth() + 1;
   if (isNow && typeof todayHTML === "function" && typeof offLoaded !== "undefined" && !offLoaded && !offRefresh.busy) { offRefresh.busy = true; offRefresh(false).then(() => { if (tab === "mois" && !document.querySelector("#sheet2Root.open")) render(); }); }
-  let html = banner + (isNow && typeof todayHTML === "function" ? todayHTML(t) : "") + budSeg() + tilesHTML(t) + (typeof accCardHTML === "function" ? accCardHTML(true) : "") + (typeof patriHomeHTML === "function" ? patriHomeHTML() : "") + bilanHTML() + forecastHTML(t);
+  // Accueil allégé : l'essentiel en haut ; Mois/Année et la prévision passent dans « Voir les analyses »
+  let html = banner + (isNow && typeof todayHTML === "function" ? todayHTML(t) : "") + tilesHTML(t, true) + (typeof accCardHTML === "function" ? accCardHTML(true) : "") + (typeof patriHomeHTML === "function" ? patriHomeHTML() : "") + bilanHTML();
   const todoAll = allItems().filter(x => x.type === "depense" && x.ndf && x.ndfStatus !== "rembourse");
   if (todoAll.length && !isSimple()) {
     const sum = todoAll.reduce((s, x) => s + Number(x.amount), 0);
@@ -690,6 +695,7 @@ function renderMois() {
 
   // Analyses du mois : repliées par défaut, un bouton les déroule (choix mémorisé sur l'appareil)
   const moreFrom = html.length;
+  html += budSeg() + forecastHTML(t);
   html += `<div class="card"><h2>Dépenses par catégorie<small>${list.filter(x => x.type === "depense").length} dépenses</small></h2>
     ${parts.length ? `<div class="donut-wrap">${donut(parts)}${legendHTML(parts)}</div>` : `<div class="empty">Aucune dépense ce mois-ci. Appuie sur + pour en ajouter une.</div>`}</div>`;
 
@@ -707,7 +713,7 @@ function renderMois() {
     const more = html.slice(moreFrom), open = homeMoreOpen();
     const over = budCats.filter(c => c.budget && (t.byCat[c.id] || 0) > c.budget).length;
     html = html.slice(0, moreFrom) + `<button class="more-toggle" id="moreToggle" aria-expanded="${open}"><span>${open ? "Masquer les analyses du mois" : "Voir les analyses du mois"}</span>
-      <small>${over ? `${over} budget${over > 1 ? "s" : ""} dépassé${over > 1 ? "s" : ""} · ` : ""}catégories, budget, comparaison</small><i aria-hidden="true">${open ? "▴" : "▾"}</i></button>
+      <small>${over ? `${over} budget${over > 1 ? "s" : ""} dépassé${over > 1 ? "s" : ""} · ` : ""}prévision, catégories, budget, année</small><i aria-hidden="true">${open ? "▴" : "▾"}</i></button>
       <div id="moreBox"${open ? "" : " hidden"}>${more}</div>`;
   }
 

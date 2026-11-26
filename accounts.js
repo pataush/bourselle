@@ -53,6 +53,7 @@ function accRefDay() {
 // ---------- Carte « Mes comptes » (accueil et profil) ----------
 function accCardHTML(compact) {
   const day = accRefDay(), list = accList(), total = accTotalAt(day);
+  if (!accHasBalance() && compact) return `<button class="acc-slim" id="accSetup"><span>🏦</span><span>Indique le solde de ton compte pour le suivre au jour le jour</span><b>›</b></button>`;
   if (!accHasBalance()) return `<button class="card acc-cta" id="accSetup" style="text-align:left;width:100%;cursor:pointer">
     <h2>Combien as-tu vraiment ?</h2><p class="hint" style="margin:0">Indique le solde de ton compte : Bourselle le tiendra à jour à chaque opération.</p>
     <span class="btn primary" style="margin-top:10px;display:inline-block">Indiquer mon solde</span></button>`;

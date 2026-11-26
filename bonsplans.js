@@ -335,13 +335,14 @@ function todayHTML(t) {
   const nowOffers = BPLANS.filter(o => o.status !== "off" && offTimed(o) && offNow(o) && offInCountry(o) && (!o.city || offLocal(o)));
   const todo = typeof alertsList === "function" ? alertsList().reduce((a, x) => a + x.n, 0) : 0;
   const jour = now.toLocaleDateString(window.LANG === "en" ? "en-GB" : "fr-FR", { weekday: "long", day: "numeric", month: "long" });
-  return `<div class="card today"><div class="today-h"><span>Aujourd'hui</span><small>${esc(jour)}</small></div>
+  const saved = savedTotal();
+  return `<div class="card today">
     ${budget > 0 ? `<button type="button" class="today-left ${left < 0 ? "bad" : ""}" id="tdBud"><small>${left >= 0 ? "Il te reste à dépenser ce mois-ci" : "Budget du mois dépassé de"}</small><b class="num">${esc(eur(Math.abs(left)))}</b>${left > 0 ? `<small>soit <span class="num">${esc(eur(left / daysLeft))}</span> par jour pendant ${daysLeft} jour${daysLeft > 1 ? "s" : ""}</small>` : ""}</button>`
       : `<button type="button" class="today-left" id="tdBud"><small>Fixe ton budget du mois pour savoir ce qu'il te reste à dépenser chaque jour ›</small></button>`}
-    <div class="today-row">
-      <button type="button" class="today-chip" id="tdSaved">💰 <span><b class="num">${esc(eur(savedTotal()))}</b><small>économisés grâce à Bourselle</small></span></button>
+    ${saved > 0 || todo ? `<div class="today-row">
+      ${saved > 0 ? `<button type="button" class="today-chip" id="tdSaved">💰 <span><b class="num">${esc(eur(savedTotal()))}</b><small>économisés grâce à Bourselle</small></span></button>` : ""}
       ${todo ? `<button type="button" class="today-chip" id="tdTodo">🔔 <span><b>${todo}</b><small>chose${todo > 1 ? "s" : ""} à faire</small></span></button>` : ""}
-    </div>
+    </div>` : ""}
     ${nowOffers.length ? `<div class="today-now"><small class="off-now">● En ce moment près de chez toi</small>${nowOffers.slice(0, 2).map(o => `<button type="button" class="off-mini" data-oopen="${esc(o.id)}"><span class="act-emo">${esc(o.emoji || "🎁")}</span><span class="off-tt"><b>${esc(o.title)}</b><small>${esc(o.partner)}${o.city ? ` · 📍 ${esc(o.city)}` : ""} · jusqu'à ${esc(hFmt(offNow(o).to))}</small></span></button>`).join("")}</div>` : ""}</div>`;
 }
 function todayBind(root) {
