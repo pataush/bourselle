@@ -93,7 +93,7 @@ function favAddContact() {
     <p class="hint" style="margin:8px 0 0">Sans l'appli ? Ajoute-le simplement dans un groupe (Entre proches › + Nouveau groupe) : il apparaîtra ici.</p></div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true;
   tagPicker(f.querySelector("#faFind"), f.querySelector("#faRes"), (tag, nm) => {
-    if (!socContacts().some(c => c.tag === tag)) { settings.contacts = socContacts().concat([{ tag, name: nm || "", added: todayISO() }]); }
+    if (!socContacts().some(c => c.tag === tag)) { settings.contacts = socContacts().concat([{ tag, name: nm || "", added: todayISO() }]); socAdded(tag); }
     const pins = favPins(); if (!pins.includes("@" + tag)) pins.unshift("@" + tag);
     saveSettings(); closeForm(); render(); toast(`@${tag} ajouté à tes proches ⭐`);
   });

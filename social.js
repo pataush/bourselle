@@ -150,7 +150,7 @@ async function socOfferAdd(tag, tok) {
     <p class="hint">${known ? "Déjà dans tes proches." : "Vous pourrez partager des dépenses et vous payer en un geste."}</p>
     ${pay ? `<button type="button" class="btn" id="offPay" style="width:100%">💸 Lui envoyer de l'argent</button>` : ""}</div>`, () => {
     if (known) return true;
-    settings.contacts = socContacts().concat([{ tag, name: nm, added: todayISO() }]);
+    settings.contacts = socContacts().concat([{ tag, name: nm, added: todayISO() }]); socAdded(tag);
     saveSettings(); render(); toast(`@${tag} ajouté à tes proches`);
   });
   const sb = f.querySelector("button[type=submit]"); sb.textContent = "Ajouter à mes proches"; sb.hidden = known;
@@ -212,7 +212,7 @@ function socBindTagCard() {
           ${have.has(u.tag) ? `<span class="hint">Déjà ajouté</span>` : `<button class="btn primary" data-socadd="${esc(u.tag)}" data-name="${esc(u.name || "")}">Ajouter</button>`}</div>`).join("")}</div>`
           : `<p class="hint">Aucun utilisateur trouvé.</p>`;
         out.querySelectorAll("[data-socadd]").forEach(b => b.onclick = () => {
-          settings.contacts = socContacts().concat([{ tag: b.dataset.socadd, name: b.dataset.name || "", added: todayISO() }]);
+          settings.contacts = socContacts().concat([{ tag: b.dataset.socadd, name: b.dataset.name || "", added: todayISO() }]); socAdded(b.dataset.socadd);
           saveSettings(); render(); toast(`@${b.dataset.socadd} ajouté à tes contacts`);
         });
       } catch (e) { out.innerHTML = `<p class="hint">${esc(e.message)}</p>`; }
@@ -588,3 +588,10 @@ if ("serviceWorker" in navigator) navigator.serviceWorker.addEventListener("mess
   if (d.type === "bourselle-push") { socRefresh(); if (typeof projRefresh === "function") projRefresh(); if (typeof openDeal !== "undefined" && openDeal && tab === "accueil") showDeal(openDeal); if (document.visibilityState === "visible" && d.data && d.data.body) toast(d.data.body.split("\n")[0]); }
   if (d.type === "bourselle-open") { socRefresh(); openFromUrl(d.url); }
 });
+
+// J'ajoute quelqu'un à mes proches : il est prévenu (notification et « Rappels reçus »), pour m'ajouter à son tour
+function socAdded(tag) {
+  if (!socOn() || !tag) return;
+  const u = store && store.user ? store.user() : {}, nm = String((u && u.name) || "").trim().split(/\s/)[0];
+  socApi("/me/added", { method: "POST", body: JSON.stringify({ tag, name: nm }) }).catch(() => {});
+}

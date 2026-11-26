@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "94";
+const APP_VERSION = "95";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -281,7 +281,7 @@ function alertsAll() {
   const L = [], add = (id, tab, label, items, open) => { if (items.length && (subAllowed(tab) || open)) L.push({ id, tab, label, items, open }); };
   try {
     const mk = cur.y + "-" + String(cur.m).padStart(2, "0");
-    if (typeof SOC !== "undefined" && (SOC.reminders || []).length) add("rem", "accueil", "Rappels reçus", SOC.reminders.filter(r => !remResolved(r)).map(r => ({ k: "rem:" + r.id, rem: r.id, t: `${r.from || "Quelqu'un"} : ${r.msg || `merci de régler ${fmtCur(r.amt, r.cur)}`}`, s: `${r.title || ""}${r.amt ? " · " + fmtCur(r.amt, r.cur) : ""} · ${agoText(r.at)}`, warn: !!r.warn, g: r.kind === "g" ? r.ref : "", deal: r.kind === "d" ? r.ref : "", chal: r.kind === "chal" ? r.ref : "", act: r.kind === "act" ? r.ref : "", go: r.kind === "chal" ? "Voir" : "Régler" })), true);
+    if (typeof SOC !== "undefined" && (SOC.reminders || []).length) add("rem", "accueil", "Rappels reçus", SOC.reminders.filter(r => !remResolved(r)).map(r => ({ k: "rem:" + r.id, rem: r.id, t: `${r.from || "Quelqu'un"} : ${r.msg || `merci de régler ${fmtCur(r.amt, r.cur)}`}`, s: `${r.title || ""}${r.amt ? " · " + fmtCur(r.amt, r.cur) : ""} · ${agoText(r.at)}`, warn: !!r.warn, g: r.kind === "g" ? r.ref : "", deal: r.kind === "d" ? r.ref : "", chal: r.kind === "chal" ? r.ref : "", act: r.kind === "act" ? r.ref : "", addTag: r.kind === "contact" ? r.ref : "", go: r.kind === "chal" ? "Voir" : r.kind === "contact" ? "Ajouter" : "Régler" })), true);
     if (typeof BPLANS !== "undefined") {
       add("sqinv", "bons", "Invitations bons plans", BPLANS.filter(o => o.squad && o.squad.st === "inv" && !o.squad.expired).map(o => ({ k: `sq:${o.squad.sid}`, offer: o.id, t: `${o.emoji} ${o.partner} · ${o.title}`, s: `${favFirst(o.squad.ownerName)} t'invite · ${o.squad.in} sur ${o.squad.n}`, go: "Voir" })), true);
       if (OFF_ADMIN) add("leads", "bons", "Demandes des marques", OFF_LEADS.map(l => ({ k: `lead:${l.id}`, leads: 1, t: l.company, s: (l.draft ? "📝 Offre à valider · " : "") + l.offer.slice(0, 70), go: "Voir" })), true);
@@ -317,6 +317,7 @@ function alertsAll() {
 // Un rappel reçu est réglé quand je ne dois plus rien dans ce groupe, ou que j'ai payé dans cette cagnotte / cet achat
 function remResolved(r) {
   try {
+    if (r.kind === "contact") return socContacts().some(c => c.tag === r.ref);
     if (r.kind === "act" && typeof ACTS !== "undefined") { const a = ACTS.find(x => x.id === r.ref); if (!a) return false; const me = a.members.find(m => m.id === a.me); return !me || me.st !== "due" || a.status !== "open"; }
     if (r.kind === "g") { const g = groups[r.ref]; return !!g && (groupBalances(g)[g.me] || 0) > -0.005; }
     if (r.kind === "d" && typeof DEALS !== "undefined") {
@@ -348,6 +349,7 @@ function alertGo(a, x) {
     if (x && x.deal) return showDeal(x.deal);
     if (x && x.chal && typeof chalOpen === "function") return chalOpen(x.chal);
     if (x && x.act && typeof actOpen === "function") return actOpen(x.act);
+    if (x && x.addTag && typeof socOfferAdd === "function") return socOfferAdd(x.addTag);
     if (x && x.gc && typeof gcOpen === "function") return gcOpen(x.gc);
     if (x && x.offer && typeof offersOpen === "function") return offersOpen(x.offer);
     if (x && x.leads && typeof offAdminOpen === "function") return offAdminOpen();

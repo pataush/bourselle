@@ -8,8 +8,8 @@
  * gratuites dans la limite de quelques-unes par mois, illimitées avec Bourselle Plus. QR code et lien : illimités. */
 const PM_DEFS = [
   { id: "rev", label: "Revolut", ic: "⚫", has: p => !!p.revolut, sum: p => "@" + p.revolut },
-  { id: "wero", label: "Wero", ic: "🔵", has: p => !!(p.wero || p.weroQr), sum: p => p.wero || "QR code" },
-  { id: "pp", label: "PayPal", ic: "🟡", has: p => !!(p.paypal || p.ppId), sum: p => p.paypal ? "paypal.me/" + p.paypal : p.ppId },
+  { id: "wero", label: "Wero", ic: "🟡", has: p => !!(p.wero || p.weroQr), sum: p => p.wero || "QR code" },
+  { id: "pp", label: "PayPal", ic: "🔵", has: p => !!(p.paypal || p.ppId), sum: p => p.paypal ? "paypal.me/" + p.paypal : p.ppId },
   { id: "iban", label: "Virement (RIB)", ic: "🏦", has: p => !!p.iban, sum: p => PAY.ibanFmt(p.iban).slice(0, 14) + "…" },
   { id: "momo", label: "Mobile Money", ic: "📱", has: p => !!(p.momo && (p.momo.num || p.momo.qr)), sum: p => `${p.momo.op}${p.momo.num ? " · " + p.momo.num : ""}` },
   { id: "link", label: "Autre lien", ic: "🔗", has: p => !!p.link, sum: p => String(p.link).replace(/^https:\/\/(www\.)?/, "").slice(0, 24) },
@@ -161,7 +161,7 @@ const qrBox = (has, help) => `<div class="py-qr"><div id="pyQrPrev" class="py-qr
 function payMethodEdit(id, back, prefill) {
   const p = SOC.pay || {}; prefill = prefill || {};
   if (id === "phone") {   // un numéro collé : Wero ou Mobile Money ?
-    const f = openForm(`<div class="f2"><h3>Ce numéro, c'est pour…</h3><div class="pm-tiles"><button type="button" class="pm-tile" data-k="wero"><span class="pm-ti">🔵</span><b>Wero</b></button><button type="button" class="pm-tile" data-k="momo"><span class="pm-ti">📱</span><b>Mobile Money</b></button></div></div>`, () => true);
+    const f = openForm(`<div class="f2"><h3>Ce numéro, c'est pour…</h3><div class="pm-tiles"><button type="button" class="pm-tile" data-k="wero"><span class="pm-ti">🟡</span><b>Wero</b></button><button type="button" class="pm-tile" data-k="momo"><span class="pm-ti">📱</span><b>Mobile Money</b></button></div></div>`, () => true);
     f.querySelector("button[type=submit]").hidden = true;
     f.querySelectorAll("[data-k]").forEach(b => b.onclick = () => { closeForm(); setTimeout(() => payMethodEdit(b.dataset.k, back, b.dataset.k === "wero" ? { wero: prefill.num } : { num: prefill.num }), 200); });
     return;

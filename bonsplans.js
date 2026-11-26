@@ -2,6 +2,7 @@
  * Des marques proposent une promotion (lien, code promo) ou une offre de groupe à paliers (« -10 % à 5, -15 % à 10 »).
  * On rejoint une offre de groupe ; quand le palier est atteint, chaque partant reçoit le code et achète sur le site du
  * partenaire. L'argent ne passe jamais par Bourselle. Seul le propriétaire de Bourselle publie les offres. */
+let OFF_MYINV = 0, OFF_HASREWARD = false;
 let BPLANS = [], OFF_ADMIN = false, OFF_LEADS = [], OFF_CATS = ["Resto & bars", "Coiffure & beauté", "Sport & bien-être", "Loisirs & sorties", "Shopping", "Voyage", "Autre"], OFF_INVITES = 0, offLoaded = false, offState = { focus: null, filter: "all" };
 const offBase = () => (typeof PLUS_CFG !== "undefined" && PLUS_CFG.api ? PLUS_CFG.api.replace(/\/$/, "") : "");
 async function offApi(path, body) {
@@ -12,7 +13,7 @@ async function offApi(path, body) {
 async function offRefresh(rerender) {
   if (!offBase()) return;
   try {
-    const j = await offApi("/offers"); BPLANS = j.offers || []; OFF_ADMIN = !!j.admin; OFF_LEADS = j.leads || []; if (j.cats) OFF_CATS = j.cats; OFF_INVITES = j.invites || 0; offLoaded = true; offBkNews();
+    const j = await offApi("/offers"); BPLANS = j.offers || []; OFF_ADMIN = !!j.admin; OFF_LEADS = j.leads || []; if (j.cats) OFF_CATS = j.cats; OFF_INVITES = j.invites || 0; OFF_MYINV = j.myInv || 0; OFF_HASREWARD = !!j.hasReward; offLoaded = true; offBkNews();
     if (!offRefresh.link) { offRefresh.link = true; let id = ""; try { id = sessionStorage.getItem("bourselle-offre") || ""; sessionStorage.removeItem("bourselle-offre"); } catch (e) {} if (id) setTimeout(() => offersOpen(id), 500); let ad = ""; try { ad = sessionStorage.getItem("bourselle-offadmin"); sessionStorage.removeItem("bourselle-offadmin"); } catch (e) {} if (ad && OFF_ADMIN) setTimeout(offAdminOpen, 600); }
     { const c = document.getElementById("bonsCnt"), n = BPLANS.filter(o => o.status !== "off" && offVisible(o) && offTimed(o) && offNow(o)).length; if (c) { c.hidden = !n; c.textContent = n; } }
     if (rerender !== false && typeof tab !== "undefined" && ["bons", "partage", "mois"].includes(tab) && !document.querySelector("#sheet2Root.open")) render();
@@ -86,12 +87,12 @@ function offCardHTML(o, full) {
     : `<div class="sq-box${sq.reached ? " ok" : sq.expired ? " exp" : ""}"><div class="sq-h"><b>${sq.reached ? "🎉 Groupe complet" : sq.expired ? "Délai dépassé" : `${sq.in} sur ${sq.n} partants`}</b><small>${sq.expired ? "Le groupe n'a pas été réuni à temps." : sq.reached ? `${sq.in} partants` : esc(sqLeft(sq))}</small></div>
       <div class="act-bar"><i style="width:${Math.min(100, Math.round(sq.in / sq.n * 100))}%"></i></div>
       <div class="sq-mem">${sq.members.map(m => `<span class="${m.st}">${m.st === "in" ? "✓" : m.st === "inv" ? "…" : "✕"} ${esc(favFirst(m.name || m.tag))}</span>`).join("")}</div>
-      <div class="sq-acts">${live && !sq.reached ? `<button type="button" class="btn" data-sqinv="${esc(o.id)}">+ Inviter</button>` : ""}${sq.gc ? `<button type="button" class="btn" data-sqchat="${esc(sq.gc)}">💬 Discussion</button>` : ""}${sq.reached && o.book && !sq.booked ? `<button type="button" class="btn primary" data-sqbook="${esc(o.id)}">📅 Réserver pour le groupe</button>` : ""}${sq.expired ? `<button type="button" class="btn primary" data-sqnew="${esc(o.id)}">Relancer un groupe</button>` : ""}</div>
+      <div class="sq-acts">${live && !sq.reached ? `<button type="button" class="btn" data-sqinv="${esc(o.id)}">+ Inviter</button><button type="button" class="btn" data-sqlink="${esc(sq.gc)}">🔗 Sans l'appli</button>` : ""}${sq.gc ? `<button type="button" class="btn" data-sqchat="${esc(sq.gc)}">💬 Discussion</button>` : ""}${sq.reached && o.book && !sq.booked ? `<button type="button" class="btn primary" data-sqbook="${esc(o.id)}">📅 Réserver pour le groupe</button>` : ""}${sq.expired ? `<button type="button" class="btn primary" data-sqnew="${esc(o.id)}">Relancer un groupe</button>` : ""}</div>
       ${live ? `<button type="button" class="linkbtn" data-sqleave="${esc(o.id)}" style="margin-top:6px">Quitter le groupe</button>` : ""}</div>`;
   const acts = !full ? "" : o.kind === "group"
     ? `${sqBox}${o.code ? `${code}${o.url ? `<button type="button" class="btn primary" data-ogo="${esc(o.id)}">J'en profite sur le site ›</button>` : ""}` : ""}
-       ${!sq || (sq.expired && false) ? `<button type="button" class="btn primary" data-sqnew="${esc(o.id)}">🙋 Je suis partant · je réunis mes amis</button>` : ""}<button type="button" class="linkbtn" data-oshare="${esc(o.id)}" style="margin-top:6px">Partager le lien</button>`
-    : `${code}${o.url ? `<button type="button" class="btn primary" data-ogo="${esc(o.id)}">J'en profite ›</button>` : ""}<button type="button" class="linkbtn" data-oshare="${esc(o.id)}" style="margin-top:6px">Partager</button>`;
+       ${!sq || (sq.expired && false) ? `<button type="button" class="btn primary" data-sqnew="${esc(o.id)}">🙋 Je suis partant · je réunis mes amis</button>` : ""}<button type="button" class="btn" data-ogt="${esc(o.id)}" style="width:100%;margin-top:6px">👥 Y aller ensemble</button><button type="button" class="linkbtn" data-oshare="${esc(o.id)}" style="margin-top:6px">Partager le lien</button>`
+    : `${code}${o.url ? `<button type="button" class="btn primary" data-ogo="${esc(o.id)}">J'en profite ›</button>` : ""}<button type="button" class="btn" data-ogt="${esc(o.id)}" style="width:100%;margin-top:6px">👥 Y aller ensemble</button><button type="button" class="linkbtn" data-oshare="${esc(o.id)}" style="margin-top:6px">Partager</button>`;
   const stars = o.rating && o.rating.n ? `<span class="off-rate">★ ${String(o.rating.avg).replace(".", ",")} <small>(${o.rating.n})</small></span>` : "";
   const revs = full && o.reviews && o.reviews.length ? `<details class="off-revs"><summary>Avis (${o.rating.n})</summary>${o.reviews.map(r => `<div class="off-rev"><b>${"★".repeat(r.stars)}${"☆".repeat(5 - r.stars)}</b> <span>${esc(r.name)}</span>${r.text ? `<p>${esc(r.text)}</p>` : ""}</div>`).join("")}</details>` : "";
   const canReview = full && typeof socOn === "function" && socOn() && (o.joined || (o.mybk || []).some(x => x.st === "ok") || savedList().some(x => x.oid === o.id) || (sq && sq.booked));
@@ -151,6 +152,8 @@ function offListRender(root, focus, filter) {
   f.querySelectorAll("[data-sqno]").forEach(b => b.onclick = () => sqAct(b.dataset.sqno, { action: "sqdecline" }));
   f.querySelectorAll("[data-sqleave]").forEach(b => b.onclick = e => { const q = e.currentTarget; if (!q.dataset.sure) { q.dataset.sure = "1"; q.textContent = "Toucher encore pour quitter le groupe"; return; } sqAct(b.dataset.sqleave, { action: "sqleave" }, "Tu as quitté le groupe"); });
   f.querySelectorAll("[data-sqchat]").forEach(b => b.onclick = () => gcOpen(b.dataset.sqchat));
+  f.querySelectorAll("[data-sqlink]").forEach(b => b.onclick = () => chatInvite({ ref: { gid: b.dataset.sqlink }, d: { msgs: [] }, name: "" }));
+  f.querySelectorAll("[data-ogt]").forEach(b => b.onclick = () => goTogether(find(b.dataset.ogt)));
   f.querySelectorAll("[data-sqinv]").forEach(b => b.onclick = () => squadInvite(find(b.dataset.sqinv), () => offersOpen(b.dataset.sqinv, filter)));
   f.querySelectorAll("[data-sqbook]").forEach(b => b.onclick = () => { const o = find(b.dataset.sqbook); offBook(o, () => offersOpen(o.id, filter), o.squad); });
   f.querySelectorAll("[data-orev]").forEach(b => b.onclick = () => offReview(find(b.dataset.orev), () => offersOpen(b.dataset.orev, filter)));
@@ -233,6 +236,7 @@ function offEdit(o) {
     <label class="chk"><input type="checkbox" id="oeBook" ${o.book ? "checked" : ""}> Réservation : « Je réserve » sur les créneaux, le commerçant confirme ou refuse</label>
     ${o.id ? `<button type="button" class="btn" id="oePoster" style="width:100%;margin:8px 0">🖨️ Affichette A5 pour la vitrine</button>` : ""}
     ${o.mlink ? `<div class="off-code"><span>Lien commerçant</span><b style="font-size:.8rem;letter-spacing:0;word-break:break-all">${esc(offMerchantLink(o))}</b><button type="button" class="linkbtn" id="oeMl">Partager</button></div>` : ""}
+    <label class="chk"><input type="checkbox" id="oeReward" ${o.reward ? "checked" : ""}> Récompense de parrainage (visible seulement après 3 amis invités)</label>
     <label class="chk"><input type="checkbox" id="oeFeat" ${o.featured ? "checked" : ""}> Mettre en avant (en tête et dans Partage)</label>
     <label class="chk"><input type="checkbox" id="oeOff" ${o.status === "off" ? "checked" : ""}> En pause (cachée)</label>
     ${o.id ? `<button type="button" class="linkbtn" id="oeDel" style="color:var(--bad);margin-top:10px">Supprimer l'offre</button>` : ""}</div>`, () => {
@@ -241,7 +245,7 @@ function offEdit(o) {
     (async () => {
       try {
         const slots = [...document.querySelectorAll("#oeSlots .off-slot")].map(r => ({ days: [...r.querySelectorAll("[data-d][aria-pressed=true]")].map(x => +x.dataset.d), from: r.querySelector("[data-sf]").value, to: r.querySelector("[data-st]").value })).filter(x => x.days.length && x.from && x.to);
-        await offApi("/offers", { id: o.id || "", slots, book: document.getElementById("oeBook").checked, kind, partner: v("oePartner"), emoji: v("oeEmoji"), title: v("oeTitle"), desc: v("oeDesc"), url: v("oeUrl"), code: v("oeCode"), until: v("oeUntil"), cat: document.getElementById("oeCat").value, groupDays: +v("oeDays") || 7, fromLeadId: o.fromLeadId || "", contact: o.contact || "", city: v("oeCity"), country: document.getElementById("oeCountry").value, featured: document.getElementById("oeFeat").checked, status: document.getElementById("oeOff").checked ? "off" : "on", tiers: kind === "group" ? tl : [] });
+        await offApi("/offers", { id: o.id || "", slots, book: document.getElementById("oeBook").checked, kind, partner: v("oePartner"), emoji: v("oeEmoji"), title: v("oeTitle"), desc: v("oeDesc"), url: v("oeUrl"), code: v("oeCode"), until: v("oeUntil"), cat: document.getElementById("oeCat").value, groupDays: +v("oeDays") || 7, fromLeadId: o.fromLeadId || "", contact: o.contact || "", city: v("oeCity"), country: document.getElementById("oeCountry").value, featured: document.getElementById("oeFeat").checked, reward: document.getElementById("oeReward").checked, status: document.getElementById("oeOff").checked ? "off" : "on", tiers: kind === "group" ? tl : [] });
         await offRefresh(false); render(); toast("Offre enregistrée"); setTimeout(offAdminOpen, 250);
       } catch (e) { toast(e.message); setTimeout(() => offEdit({ ...o, kind, partner: v("oePartner"), title: v("oeTitle"), desc: v("oeDesc"), url: v("oeUrl"), code: v("oeCode"), until: v("oeUntil"), city: v("oeCity"), country: document.getElementById("oeCountry").value, tiers: tl }), 300); }
     })();
@@ -394,7 +398,8 @@ function renderBons() {
   if (!offLoaded) { view.innerHTML = banner + `<div class="card"><div class="empty">Chargement des bons plans…</div></div>`; if (!offRefresh.busy) { offRefresh.busy = true; offRefresh(false).then(() => { if (tab === "bons") render(); }); } return; }
   const vis = offSort(BPLANS.filter(o => o.status !== "off" && offVisible(o)));
   const top = vis.slice().sort((a, b) => !!(offTimed(b) && offNow(b)) - !!(offTimed(a) && offNow(a)) || offLocal(b) - offLocal(a) || b.featured - a.featured).slice(0, 8);
-  view.innerHTML = banner + (top.length ? `<div class="off-carousel">${top.map(offBigCardHTML).join("")}</div>` : "") + `<button type="button" class="off-where" id="offAlert">🔔 ${settings.offAlert ? `Alerte nouveaux bons plans activée${myCity() ? ` · ${esc(myCity())}` : ""} · régler` : "Être prévenu des nouveaux bons plans près de chez moi ›"}</button>` + offNowHTML();
+  const reward = OFF_HASREWARD && OFF_MYINV < 3 && typeof socOn === "function" && socOn() ? `<div class="card off-reward"><b>🎁 Un bon plan exclusif t'attend</b><small>Invite tes amis dans tes sorties : quand 3 d'entre eux créent leur compte, il se débloque.</small><div class="act-bar"><i style="width:${Math.round(OFF_MYINV / 3 * 100)}%"></i></div><small><b>${OFF_MYINV} / 3</b> amis</small></div>` : "";
+  view.innerHTML = banner + reward + (top.length ? `<div class="off-carousel">${top.map(offBigCardHTML).join("")}</div>` : "") + `<button type="button" class="off-where" id="offAlert">🔔 ${settings.offAlert ? `Alerte nouveaux bons plans activée${myCity() ? ` · ${esc(myCity())}` : ""} · régler` : "Être prévenu des nouveaux bons plans près de chez moi ›"}</button>` + offNowHTML();
   offListRender(view, offState.focus, offState.filter);
   view.querySelectorAll("[data-ofocus]").forEach(b => b.onclick = () => { const el = document.getElementById("off-" + b.dataset.ofocus); if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); offApi("/offers/" + b.dataset.ofocus, { action: "view" }).catch(() => {}); } });
   view.querySelectorAll(".off-nowlist [data-oopen]").forEach(b => b.onclick = () => offersOpen(b.dataset.oopen));

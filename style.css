@@ -1048,3 +1048,20 @@ i.badge { font-style: normal; background: var(--bad); color: #fff; border-radius
 .off-revs { margin-top: 8px; font-size: .86rem; } .off-revs summary { cursor: pointer; color: var(--muted); } .off-rev { padding: 6px 0; border-bottom: 1px solid var(--line); } .off-rev b { color: #b8860b; } .off-rev p { margin: 2px 0 0; }
 .rev-stars { display: flex; gap: 6px; justify-content: center; margin: 6px 0 10px; } .rev-stars button { font-size: 2rem; border: 0; background: none; color: #d4a017; cursor: pointer; }
 .oa-row { border-bottom: 1px solid var(--line); padding-bottom: 6px; margin-bottom: 4px; } .oa-row .linkbtn { margin-left: 46px; font-size: .82rem; }
+/* Couleurs des moyens de paiement : PayPal bleu, Wero jaune, Revolut noir */
+.pay-pick.pm-pp, .pay-pick.pm-ppId, .pm-tile[data-pm="pp"] { border-color: #0070ba; background: color-mix(in srgb, #0070ba 8%, var(--surface, #fff)); } .pay-pick.pm-pp b, .pay-pick.pm-ppId b, .pm-tile[data-pm="pp"] b { color: #0070ba; }
+.pay-pick.pm-wero, .pm-tile[data-pm="wero"] { border-color: #f5c400; background: color-mix(in srgb, #ffd800 18%, var(--surface, #fff)); } .pay-pick.pm-wero b, .pm-tile[data-pm="wero"] b { color: #8a6d00; }
+.pay-pick.pm-rev, .pm-tile[data-pm="rev"] { border-color: #191c1f; } .pay-pick.on { box-shadow: 0 0 0 2px var(--green, #1f6b4b); }
+/* Discussions : lieux, dates, invitations */
+.dm-bar { display: flex; gap: 6px; margin-bottom: 6px; } .dm-bar .btn { flex: 1; padding: 8px 10px; font-size: .84rem; } .dm-bar .btn small { margin-left: 4px; opacity: .8; }
+.dm-guests { margin: 0 0 6px; font-size: .78rem; }
+.dm-tools { display: flex; gap: 6px; margin: 8px 0 0; } .dm-tools .btn { flex: 1; padding: 8px 6px; font-size: .84rem; }
+.dm-place .dm-cta, .dm-dates .dm-cta { flex-wrap: wrap; } .dm-place .dm-cta .btn { flex: 1 1 auto; padding: 6px 8px; font-size: .8rem; text-decoration: none; text-align: center; }
+.dm-place.best { border-color: var(--good); } .dm-place .off-teaser { margin: 4px 0; padding: 6px 10px; font-size: .8rem; }
+.dd-row { display: flex; align-items: center; gap: 6px; padding: 4px 0; font-size: .86rem; } .dd-row span { flex: 1; } .dd-row small { color: var(--muted); }
+.dd-row.best span { font-weight: 700; } .dd-row.chosen { background: var(--good-soft); border-radius: 8px; padding: 4px 6px; font-weight: 700; }
+.dd-ck { border: 0; background: none; font-size: 1.1rem; cursor: pointer; color: inherit; }
+.dm-dates .dm-cta .btn { flex: 1; padding: 6px 8px; font-size: .8rem; text-decoration: none; text-align: center; }
+.ps-res { display: flex; flex-direction: column; margin-top: 8px; max-height: 50vh; overflow-y: auto; }
+.iv-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; } .iv-btns .btn { text-align: center; text-decoration: none; } .iv-wa { background: #25d366; color: #fff; border-color: #25d366; }
+.off-reward { padding: 12px 14px; border: 1.5px solid var(--accent); } .off-reward small { display: block; color: var(--muted); margin: 2px 0 6px; }
