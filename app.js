@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "80";
+const APP_VERSION = "81";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -283,7 +283,7 @@ function alertsAll() {
     const mk = cur.y + "-" + String(cur.m).padStart(2, "0");
     if (typeof SOC !== "undefined" && (SOC.reminders || []).length) add("rem", "accueil", "Rappels reçus", SOC.reminders.filter(r => !remResolved(r)).map(r => ({ k: "rem:" + r.id, rem: r.id, t: `${r.from || "Quelqu'un"} : ${r.msg || `merci de régler ${fmtCur(r.amt, r.cur)}`}`, s: `${r.title || ""}${r.amt ? " · " + fmtCur(r.amt, r.cur) : ""} · ${agoText(r.at)}`, warn: !!r.warn, g: r.kind === "g" ? r.ref : "", deal: r.kind === "d" ? r.ref : "", go: "Régler" })), true);
     if (typeof SOC !== "undefined") add("reqin", "dettes", "Demandes de paiement reçues", (SOC.in || []).filter(c => c.kind === "req" && !["settled", "cancelled", "declined"].includes(c.status) && !reqPend(c)).map(c => ({ k: "reqin:" + c.id, t: `${c.fromName || "@" + c.from} te demande ${socMoney({ ...c, amount: reqLeft(c) })}`, s: c.name || "", reqpay: c.id, go: "Payer" })), true);
-    if (typeof SOC !== "undefined") add("reqok", "accueil", "Paiements à confirmer", (SOC.out || []).filter(c => c.kind === "req" && reqPend(c)).map(c => ({ k: "reqok:" + c.id, t: `${c.to ? "@" + c.to : c.guest || "Quelqu'un"} dit t'avoir payé ${socMoney({ ...c, amount: reqPend(c).amount })}`, s: (c.name || "Paiement") + " · confirme quand l'argent est arrivé", payme: true, go: "Confirmer" })), true);
+    if (typeof SOC !== "undefined") add("reqok", "accueil", "Paiements à confirmer", (SOC.out || []).filter(c => reqPend(c)).map(c => ({ k: "reqok:" + c.id, t: `${c.to ? "@" + c.to : c.guest || "Quelqu'un"} dit t'avoir payé ${socMoney({ ...c, amount: reqPend(c).amount })}`, s: (c.name || "Paiement") + " · confirme quand l'argent est arrivé", payme: c.kind === "req", claimout: c.kind !== "req", go: "Confirmer" })), true);
     if (typeof SOC !== "undefined") add("claims", "dettes", "Réclamations de dettes reçues", SOC.in.filter(c => c.status === "pending" && c.kind !== "req").map(c => ({ k: "claim:" + c.id, t: `@${c.from} te réclame ${socMoney(c)}`, s: [c.name, c.due ? "avant le " + frDate(c.due) : ""].filter(Boolean).join(" · "), go: "Répondre", claim: c.id })));
     if (typeof DEALS !== "undefined") add("ton", "accueil", "Cotisations à verser", DEALS.filter(d => d.ton && d.started && d.you && d.you.pid).flatMap(d => (d.rounds || []).filter(r => r.date <= addDays(todayISO(), 3) && r.ben !== d.you.pid && !((d.pays || {})[r.k + "|" + d.you.pid] || {}).st)
       .map(r => ({ k: `ton:${d.id}:${r.k}`, t: `${d.title} · tour ${r.k + 1}`, s: `${dealMoney(d.amount, d.cur)} à verser à ${(d.parts[r.ben] || {}).name || "?"} · ${frDate(r.date)}`, deal: d.id, go: "Payer" }))), true);
@@ -331,6 +331,7 @@ function alertGo(a, x) {
   setTimeout(() => {
     if (x && x.reqpay) { switchTab("dettes"); return setTimeout(() => reqPay(x.reqpay), 200); }
     if (x && x.payme) return editPay();
+    if (x && x.claimout) return switchTab("dettes");
     if (x && x.g) { if (groups[x.g]) { openGroup = x.g; return switchTab("partage"); } return switchTab("partage"); }
     if (x && x.deal) return showDeal(x.deal);
     if (x && x.pj) return showProject(x.pj);
@@ -1079,6 +1080,17 @@ function step(d) {
 }
 document.getElementById("searchBtn").onclick = () => switchTab("recherche");
 document.getElementById("bellBtn").onclick = () => showAlerts();
+// Œil : cacher / afficher les montants (pratique en public ; gardé sur cet appareil)
+function applyHideAmounts(on) {
+  document.documentElement.classList.toggle("hide-amounts", on);
+  const b = document.getElementById("eyeBtn"); if (b) { b.setAttribute("aria-pressed", String(on)); b.setAttribute("aria-label", on ? "Afficher les montants" : "Cacher les montants"); }
+}
+applyHideAmounts((() => { try { return localStorage.getItem("bourselle-hide") === "1"; } catch (e) { return false; } })());
+document.getElementById("eyeBtn").onclick = () => {
+  const on = !document.documentElement.classList.contains("hide-amounts");
+  try { localStorage.setItem("bourselle-hide", on ? "1" : "0"); } catch (e) {}
+  applyHideAmounts(on); toast(on ? "Montants cachés" : "Montants affichés");
+};
 document.getElementById("askFab").onclick = () => typeof showAssistant === "function" && showAssistant();
 { const av = document.getElementById("avatar"); av.onclick = () => showProfileMenu(); av.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showProfileMenu(); } }; }
 document.getElementById("prev").onclick = () => step(-1);

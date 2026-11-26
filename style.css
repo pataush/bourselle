@@ -849,3 +849,8 @@ html.locked #app, html.locked nav.tabs, html.locked .fab, html.locked .ask-fab, 
 .push-nudge { display: grid; grid-template-columns: auto 1fr auto auto; gap: 10px; align-items: center; padding: 10px 12px; border-radius: 14px; background: color-mix(in srgb, var(--gold) 14%, var(--surface)); border: 1px solid color-mix(in srgb, var(--gold) 45%, transparent); margin: 0 0 10px; }
 .push-nudge > span { font-size: 1.3rem; } .push-nudge b { display: block; font-size: .9rem; } .push-nudge small { color: var(--muted); font-size: .78rem; }
 .push-nudge .btn { padding: 7px 12px; font-size: .82rem; } .push-x { border: 0; background: none; color: var(--muted); font: inherit; cursor: pointer; padding: 4px; }
+
+/* Œil : montants cachés */
+#eyeBtn .eye-off { display: none; } html.hide-amounts #eyeBtn .eye-on { display: none; } html.hide-amounts #eyeBtn .eye-off { display: block; }
+html.hide-amounts :is(.num, .big, .amt, .tile .v, .pay-amt b, .rq-big, .dh-big b, .bud .t .num, .pj-r b, .rq-r b, .ton-kpi b, .cur-opt .num) { filter: blur(7px); user-select: none; }
+html.hide-amounts :is(.num, .big, .amt, .tile .v):hover { filter: blur(7px); }
