@@ -813,3 +813,5 @@ html.locked #app, html.locked nav.tabs, html.locked .fab, html.locked .ask-fab, 
 .lock-in { display: grid; justify-items: center; gap: 12px; text-align: center; max-width: 320px; }
 .lock-in img { border-radius: 18px; } .lock-in h2 { margin: 4px 0 0; } .lock-in p { margin: 0; opacity: .85; }
 .lock-in .btn { min-width: 220px; padding: 14px; font-size: 1rem; } .lock-in .linkbtn { color: inherit; opacity: .75; }
+/* Accueil : Mois / Année dans le jaune de la charte */
+.bud-seg button[aria-pressed="true"] { background: var(--gold); color: #241c00; box-shadow: 0 3px 10px color-mix(in srgb, var(--gold) 35%, transparent); }
