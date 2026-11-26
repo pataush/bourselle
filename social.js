@@ -22,7 +22,8 @@ function socMerge() {
     if (d.claimStatus !== c.status) { d.claimStatus = c.status; changed = true; }
     for (const p of c.payments || []) {
       if (p.by === mine || (d.payments || []).some(q => q.pid === p.id)) continue;
-      d.payments = (d.payments || []).concat([{ date: p.date, amount: p.amount, pid: p.id }]); changed = true;
+      const amt = d.ccur && Number(d.xr) > 0 ? Math.round(p.amount / Number(d.xr) * 100) / 100 : p.amount;   // dette convertie dans ma devise
+      d.payments = (d.payments || []).concat([{ date: p.date, amount: amt, pid: p.id }]); changed = true;
       toast(`@${mine === "from" ? c.to : c.from} : remboursement de ${socMoney({ ...c, amount: p.amount })} enregistré`);
     }
   };
@@ -220,20 +221,47 @@ function socBindRefused() {
 }
 function socBindInbox() {
   socBindRefused();
-  document.querySelectorAll("[data-soc]").forEach(b => b.onclick = async () => {
-    const c = SOC.in.find(x => x.id === b.dataset.cid); if (!c) return;
-    b.disabled = true;
+  const answer = async (c, action, b, fx) => {
+    if (b) b.disabled = true;
     try {
-      const r = await socApi("/claims/" + c.id, { method: "POST", body: JSON.stringify({ action: b.dataset.soc }) });
+      const r = await socApi("/claims/" + c.id, { method: "POST", body: JSON.stringify({ action }) });
       Object.assign(c, r);
       if (r.status === "accepted" && !socFind(c.id)[0]) {
-        debts[newId()] = { kind: "dois", name: (c.name || "Dette").slice(0, 60), who: "@" + c.from, amount: c.amount, due: c.due || "", note: [c.note, c.cur !== baseCurrency() ? `Montant en ${c.cur}` : ""].filter(Boolean).join(" · ").slice(0, 200),
+        const foreign = c.cur && c.cur !== baseCurrency();
+        const d = { kind: "dois", name: (c.name || "Dette").slice(0, 60), who: "@" + c.from, amount: c.amount, due: c.due || "", note: String(c.note || "").slice(0, 200),
           payments: [], created: Date.now(), claim: c.id, claimStatus: "accepted", rate: "", monthly: "", start: "", months: "" };
-        saveDebts(); toast(`Dette envers @${c.from} ajoutée`);
+        if (foreign && fx && fx.rate > 0) {
+          d.xr = fx.rate;
+          if (fx.keep) d.cur = c.cur;                                                            // gardée dans sa devise
+          else { d.ccur = c.cur; d.amount = Math.round(c.amount / fx.rate * 100) / 100; }      // convertie dans la mienne
+        } else if (foreign) d.note = [d.note, `Montant en ${c.cur}`].filter(Boolean).join(" · ").slice(0, 200);
+        debts[newId()] = d; saveDebts(); toast(`Dette envers @${c.from} ajoutée`);
       } else if (r.status === "declined") toast("Réclamation refusée");
       render();
-    } catch (e) { b.disabled = false; toast(e.message); }
+    } catch (e) { if (b) b.disabled = false; toast(e.message); }
+  };
+  document.querySelectorAll("[data-soc]").forEach(b => b.onclick = async () => {
+    const c = SOC.in.find(x => x.id === b.dataset.cid); if (!c) return;
+    if (b.dataset.soc === "accept" && c.cur && c.cur !== baseCurrency()) return socPickCur(c, fx => answer(c, "accept", null, fx));
+    answer(c, b.dataset.soc, b);
   });
+}
+// Réclamation dans une autre devise : convertir dans la mienne (taux du jour) ou garder la devise de celui qui réclame
+async function socPickCur(c, done) {
+  const base = baseCurrency(), fmt = (v, cur) => { try { return new Intl.NumberFormat(appLocale(), { style: "currency", currency: cur }).format(v); } catch (e) { return v + " " + cur; } };
+  let fx = null; try { fx = await fxRate(c.cur); } catch (e) {}
+  const rate = fx && fx.rate > 0 ? fx.rate : 0, conv = rate ? Math.round(c.amount / rate * 100) / 100 : 0;
+  let keep = !rate;
+  const f = openForm(`<div class="f2"><h3>Dans quelle devise ?</h3>
+    <p class="hint" style="margin:0 0 10px">@${esc(c.from)} te réclame <b>${esc(fmt(c.amount, c.cur))}</b>. Ton budget est en ${esc(base)}.</p>
+    <div class="cur-pick">
+      <button type="button" class="cur-opt" data-k="0" ${rate ? "" : "disabled"}><b>Convertir en ${esc(base)}</b><span class="num">${rate ? "≈ " + esc(fmt(conv, base)) : "taux indisponible hors ligne"}</span><small>${rate ? `1 ${esc(base)} = ${esc(numStr(fxRound(rate)))} ${esc(c.cur)}${fx.src === "fixe" ? " (parité fixe)" : " · taux du jour"}. Tes remboursements seront convertis pour @${esc(c.from)} au même taux.` : ""}</small></button>
+      <button type="button" class="cur-opt" data-k="1"><b>Garder en ${esc(c.cur)}</b><span class="num">${esc(fmt(c.amount, c.cur))}</span><small>Tu rembourses dans sa devise${rate ? ` ; tes totaux l'affichent aussi en ${esc(base)} (≈ ${esc(fmt(conv, base))})` : ""}.</small></button>
+    </div></div>`, () => { done({ rate: rate || 0, keep }); });
+  const sync = () => f.querySelectorAll(".cur-opt").forEach(o => o.setAttribute("aria-pressed", String((o.dataset.k === "1") === keep)));
+  f.querySelectorAll(".cur-opt").forEach(o => o.onclick = () => { keep = o.dataset.k === "1"; sync(); });
+  f.querySelector("button[type=submit]").textContent = "Accepter";
+  sync();
 }
 // Ligne d'état sous une dette liée à une réclamation
 const SOC_ST = { pending: "en attente de réponse", accepted: "acceptée", declined: "refusée", cancelled: "annulée", settled: "soldée des deux côtés" };
@@ -333,7 +361,7 @@ async function socPay(id, p) {
   const d = debts[id]; if (!d || !d.claim || !socOn()) return;
   const st = (SOC.in.concat(SOC.out).find(c => c.id === d.claim) || {}).status || d.claimStatus;
   if (st !== "accepted") return;
-  try { await socApi("/claims/" + d.claim, { method: "POST", body: JSON.stringify({ action: "pay", amount: p.amount, date: p.date, pid: p.pid }) }); socRefresh(); }
+  try { await socApi("/claims/" + d.claim, { method: "POST", body: JSON.stringify({ action: "pay", amount: d.ccur && Number(d.xr) > 0 ? Math.round(p.amount * Number(d.xr) * 100) / 100 : p.amount, date: p.date, pid: p.pid }) }); socRefresh(); }
   catch (e) { toast("Remboursement non transmis : " + e.message); }
 }
 async function socCancel(d) {

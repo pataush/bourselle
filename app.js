@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "64";
+const APP_VERSION = "65";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -1590,6 +1590,15 @@ function editSub(id) {
 
 // ---------- Dettes ----------
 const DEBT_KINDS = [["credit", "Crédit / prêt"], ["dois", "Je dois à quelqu'un"], ["medoit", "On me doit"]];
+// Dette gardée dans une autre devise (réclamation venue de l'étranger) : affichage dans sa devise, totaux convertis
+// au taux retenu à l'acceptation (xr = unités de la devise pour 1 unité de la devise du budget).
+const debtForeign = x => !!(x && x.cur && x.cur !== baseCurrency() && Number(x.xr) > 0);
+const debtBase = (x, v) => debtForeign(x) ? Math.round(v / Number(x.xr) * 100) / 100 : v;
+function debtFmt(x, v, short) {
+  if (!debtForeign(x)) return eur(v, short);
+  let f; try { f = new Intl.NumberFormat(appLocale(), { style: "currency", currency: x.cur }).format(v); } catch (e) { f = v + " " + x.cur; }
+  return f + (short ? "" : ` (≈ ${eur(debtBase(x, v), true)})`);
+}
 function debtCalc(x) {
   const amount = Number(x.amount) || 0, paid = (x.payments || []).reduce((a, p) => a + (Number(p.amount) || 0), 0);
   let remaining, end = "", nPaid = 0;
@@ -1609,8 +1618,8 @@ function debtCalc(x) {
 function renderDettes() {
   const list = Object.entries(debts).map(([id, x]) => ({ ...x, id, c: debtCalc(x) }));
   const open = list.filter(x => !x.c.done);
-  const iOwe = open.filter(x => x.kind !== "medoit").reduce((a, x) => a + x.c.remaining, 0);
-  const owed = open.filter(x => x.kind === "medoit").reduce((a, x) => a + x.c.remaining, 0);
+  const iOwe = open.filter(x => x.kind !== "medoit").reduce((a, x) => a + debtBase(x, x.c.remaining), 0);
+  const owed = open.filter(x => x.kind === "medoit").reduce((a, x) => a + debtBase(x, x.c.remaining), 0);
   const monthly = open.filter(x => x.kind === "credit").reduce((a, x) => a + (Number(x.monthly) || 0), 0);
   document.getElementById("periodLabel").textContent = "Dettes";
   document.getElementById("resCap").textContent = "Ce qu'il te reste à rembourser";
@@ -1627,10 +1636,10 @@ function renderDettes() {
     const pays = (x.payments || []).slice().sort((a, b) => b.date.localeCompare(a.date));
     const refused = x.kind === "medoit" && x.claimStatus === "declined";
     return `<div class="gar ${cls}${refused ? " refused" : ""}"><div class="top"><span class="n">${esc(x.name)}</span><span class="st">${esc(refused ? "Refusée" : lab)}</span></div>
-      <div class="top"><span class="amt num">${c.done ? "Remboursée" : "Reste " + esc(eur(c.remaining))}</span><span class="hint num">sur ${esc(eur(x.amount))}</span></div>
-      <div class="bar"><i style="width:${c.pct}%"></i></div>${typeof socDebtLine === "function" ? socDebtLine(x) : ""}
+      <div class="top"><span class="amt num">${c.done ? "Remboursée" : "Reste " + esc(debtFmt(x, c.remaining, true))}</span><span class="hint num">sur ${esc(debtFmt(x, Number(x.amount), true))}</span></div>
+      <div class="bar"><i style="width:${c.pct}%"></i></div>${debtForeign(x) && !c.done ? `<div class="hint debt-fx">≈ ${esc(eur(debtBase(x, c.remaining)))} · ${esc(x.cur)} gardé (1 ${esc(baseCurrency())} = ${esc(numStr(fxRound(Number(x.xr))))} ${esc(x.cur)})</div>` : x.ccur ? `<div class="hint debt-fx">Réclamé en ${esc(x.ccur)}, converti en ${esc(baseCurrency())} (1 ${esc(baseCurrency())} = ${esc(numStr(fxRound(Number(x.xr))))} ${esc(x.ccur)})</div>` : ""}${typeof socDebtLine === "function" ? socDebtLine(x) : ""}
       <div class="s">${x.who ? esc(x.who) + " · " : ""}${Math.round(c.pct)} % remboursé${x.kind === "credit" && x.monthly ? `<br>Mensualité ${esc(eur(x.monthly))}${x.rate ? ` · taux ${esc(String(x.rate).replace(".", ","))} %` : ""}${c.end ? ` · dernière échéance le ${esc(frDate(c.end))}` : ""}${x.months ? ` · ${c.nPaid}/${esc(x.months)} échéances passées` : ""}` : ""}${x.due ? `<br>À rembourser avant le ${esc(frDate(x.due))}${!c.done && daysUntil(x.due) < 0 ? ` <b style="color:var(--bad)">(en retard)</b>` : ""}` : ""}${x.note ? "<br>" + esc(x.note) : ""}</div>
-      ${pays.slice(0, 3).map(p => `<div class="pay"><span>${esc(frDate(p.date))}</span><span class="num">${x.kind === "medoit" ? "reçu" : "versé"} ${esc(eur(p.amount))}</span></div>`).join("")}${pays.length > 3 ? `<div class="pay"><span>+ ${pays.length - 3} autres remboursements</span><span></span></div>` : ""}
+      ${pays.slice(0, 3).map(p => `<div class="pay"><span>${esc(frDate(p.date))}</span><span class="num">${x.kind === "medoit" ? "reçu" : "versé"} ${esc(debtFmt(x, Number(p.amount), true))}</span></div>`).join("")}${pays.length > 3 ? `<div class="pay"><span>+ ${pays.length - 3} autres remboursements</span><span></span></div>` : ""}
       <div class="acts">${!c.done ? `<button class="btn primary" data-a="pay" data-id="${esc(x.id)}">${x.kind === "medoit" ? "J'ai reçu un remboursement" : x.kind === "credit" ? "Remboursement anticipé" : "J'ai remboursé"}</button>` : ""}
         <button class="btn" data-a="edit" data-id="${esc(x.id)}">Modifier</button>
         <button class="btn" data-a="close" data-id="${esc(x.id)}">${x.closed ? "Rouvrir" : "Marquer soldée"}</button></div></div>`;
@@ -1693,7 +1702,7 @@ function editDebt(id, preset) {
 function addPayment(x) {
   const out = x.kind !== "medoit";
   openForm(`<div class="f2"><h3>${x.kind === "medoit" ? "Remboursement reçu" : "Remboursement"} · ${esc(x.name)}</h3>
-    <div class="two"><div>${fld("pAmount", `Montant (${esc(curSym())})`, `inputmode="decimal" placeholder="0,00"`)}</div><div>${fld("pDate", "Date", `type="date" value="${todayISO()}"`)}</div></div>
+    <div class="two"><div>${fld("pAmount", `Montant (${esc(debtForeign(x) ? x.cur : curSym())})`, `inputmode="decimal" placeholder="0,00"`)}</div><div>${fld("pDate", "Date", `type="date" value="${todayISO()}"`)}</div></div>
     <label class="toggle" for="pAlso" style="margin-top:12px"><span>${out ? "L'ajouter aussi à mes dépenses (Crédits)" : "L'ajouter aussi à mes rentrées"}</span><input type="checkbox" id="pAlso" ${x.kind === "credit" ? "" : "checked"}></label></div>`,
     () => {
       const amount = parseAmount(val("pAmount")), date = val("pDate");
@@ -1702,7 +1711,7 @@ function addPayment(x) {
       const d = debts[x.id], pay = { date, amount, pid: Math.random().toString(36).slice(2, 10) }; d.payments = (d.payments || []).concat([pay]);
       saveDebts(); if (typeof socPay === "function") socPay(x.id, pay);
       if (document.getElementById("pAlso").checked)
-        addTx(out ? { type: "depense", amount, cat: "credits", date, note: x.name, fixe: false } : { type: "rentree", amount, cat: "Remboursement", date, note: x.name });
+        addTx(out ? { type: "depense", amount: debtBase(x, amount), cat: "credits", date, note: x.name, fixe: false } : { type: "rentree", amount: debtBase(x, amount), cat: "Remboursement", date, note: x.name });
       render(); toast("Remboursement enregistré");
     }, null);
 }
@@ -1820,7 +1829,7 @@ function upcomingThisMonth() {
   for (const x of Object.values(debts)) {
     if (x.kind !== "dois" || x.closed || !x.due || x.due > eom) continue;
     const c = debtCalc(x); if (c.done) continue;
-    up.push({ date: x.due, name: `${x.name}${x.who ? " (" + x.who + ")" : ""}`, amount: c.remaining, type: "depense", src: x.due < today ? "Dette en retard" : "Dette" });
+    up.push({ date: x.due, name: `${x.name}${x.who ? " (" + x.who + ")" : ""}`, amount: debtBase(x, c.remaining), type: "depense", src: x.due < today ? "Dette en retard" : "Dette" });
   }
   // Ce que je dois dans mes groupes partagés
   for (const g of Object.values(groups)) {
@@ -1836,9 +1845,9 @@ function upcomingThisMonth() {
 function forecastExtras() {
   // Argent qu'on te doit : notes de frais, prêts, groupes (pas compté dans la prévision principale)
   const ndf = allItems().filter(x => x.type === "depense" && x.ndf && x.ndfStatus !== "rembourse").reduce((a, x) => a + Number(x.amount), 0);
-  const owed = Object.values(debts).filter(x => x.kind === "medoit" && !x.closed).reduce((a, x) => a + debtCalc(x).remaining, 0);
+  const owed = Object.values(debts).filter(x => x.kind === "medoit" && !x.closed).reduce((a, x) => a + debtBase(x, debtCalc(x).remaining), 0);
   const grp = Object.values(groups).reduce((a, g) => a + Math.max(0, groupBalances(g)[g.me] || 0), 0);
-  const noDue = Object.values(debts).filter(x => x.kind === "dois" && !x.closed && !x.due).reduce((a, x) => a + debtCalc(x).remaining, 0);
+  const noDue = Object.values(debts).filter(x => x.kind === "dois" && !x.closed && !x.due).reduce((a, x) => a + debtBase(x, debtCalc(x).remaining), 0);
   // Objectifs : ce qu'il faudrait encore verser ce mois-ci pour rester dans les temps
   const key = ym(cur.y, cur.m);
   let goalsNeed = 0;
@@ -2125,6 +2134,8 @@ function renderPartage() {
       <div class="top"><span class="n">${esc(g.name)}</span><span class="st">${b > 0.004 ? "On te doit" : b < -0.004 ? "Tu dois" : "Équilibré"}</span></div>
       <div class="top"><span class="amt num">${esc(eur(Math.abs(b)))}</span><span class="hint">${g.members.length} personnes · ${Object.values(liveExp(g)).filter(e => e.kind !== "transfer").length} dépenses</span></div>
       ${g.shared ? `<div class="hint" style="margin-top:4px">${g.owner && typeof SOC !== "undefined" && g.owner !== SOC.tag ? `<span>Partagé par</span> @${esc(g.owner)}` : "Partagé avec les membres Bourselle"}</div>` : ""}</button>`;
+    const owers = settle(g.bal).filter(x => x.to === g.me);
+    if (owers.length) html += `<button type="button" class="btn gr-rem" data-grem="${esc(g.id)}">🔔 Relancer ${owers.length > 1 ? `les ${owers.length} personnes qui te doivent` : esc((g.members.find(m => m.id === owers[0].from) || {}).name || "")}</button>`;
   }
   if (list.length) html = html.replace(banner, banner + `<div class="hub-sec"><span>Dépenses partagées</span><button class="linkbtn" id="grNew">+ Nouveau groupe</button></div>`);
   else html += `<button class="btn primary" id="grNew" style="width:100%">+ Créer un groupe</button>`;
@@ -2134,7 +2145,30 @@ function renderPartage() {
   view.innerHTML = html;
   view.querySelectorAll("[data-open]").forEach(b => b.onclick = () => { openGroup = b.dataset.open; render(); window.scrollTo(0, 0); });
   { const n = document.getElementById("grNew"); if (n) n.onclick = () => editGroup(null); }
+  view.querySelectorAll("[data-grem]").forEach(b => b.onclick = () => { const g = groups[b.dataset.grem]; groupRemind(b.dataset.grem, settle(groupBalances(g)).filter(x => x.to === g.me)); });
   view.querySelectorAll("[data-ev]").forEach(b => b.onclick = () => { const e = act[Number(b.dataset.ev)]; if (e && e.gid) { openGroup = e.gid; render(); window.scrollTo(0, 0); } });
+}
+// Relancer ceux qui me doivent dans un groupe : notification à ceux qui ont l'appli (groupe partagé),
+// message prêt à envoyer (avec le lien du groupe ou mon lien de paiement) pour les autres
+async function groupRemind(gid, list) {
+  const g = groups[gid]; if (!g || !list.length) return;
+  const nm = id => (g.members.find(m => m.id === id) || {}).name || "";
+  let notified = [], recent = [], share = list.slice();
+  if (g.shared && typeof socOn === "function" && socOn() && list.some(s => (g.members.find(m => m.id === s.from) || {}).tag)) {
+    try {
+      const r = await socApi("/groups/" + gid + "/remind", { method: "POST", body: JSON.stringify({ cur: g.cur || baseCurrency(), to: list.map(s => ({ id: s.from, amount: s.amount })) }) });
+      share = []; for (const s of list) { const v = (r.res || {})[s.from]; (v === "notified" ? notified : v === "recent" ? recent : share).push(s); }
+    } catch (e) { share = list.slice(); }
+  }
+  if (notified.length) toast(`Rappel envoyé à ${notified.map(s => nm(s.from)).join(", ")} dans son appli`);
+  if (recent.length && !share.length) setTimeout(() => toast(`${recent.map(s => nm(s.from)).join(", ")} : déjà relancé il y a moins de 6 h`), notified.length ? 1800 : 0);
+  if (!share.length) return;
+  if (typeof socLoadPay === "function") await socLoadPay();
+  const total = share.reduce((a, s) => a + s.amount, 0);
+  const url = g.link ? groupLinkUrl(g.link) : typeof payLinkUrl === "function" ? payLinkUrl(share.length === 1 ? share[0].amount : 0, g.name) : "";
+  const txt = share.length === 1 ? `Petit rappel 🙂 ${nm(share[0].from)}, tu me dois ${eur(share[0].amount)} pour « ${g.name} ».${url ? " Tu peux payer ici :" : ""}`
+    : `Petit rappel 🙂 pour « ${g.name} » : ${share.map(s => `${nm(s.from)} me doit ${eur(s.amount)}`).join(", ")} (${eur(total)} en tout).${url ? " Pour payer :" : ""}`;
+  setTimeout(() => shareText(txt, url || undefined), notified.length ? 1200 : 0);
 }
 function groupRecapText(g) {
   const bal = groupBalances(g), st = settle(bal);
@@ -2155,7 +2189,8 @@ function renderGroup(gid) {
   let html = banner + `<button class="btn" id="gBack" style="align-self:flex-start">‹ Entre proches</button>
     <div class="card"><h2>Soldes</h2>${g.members.map(m => `<div class="fc-it" style="grid-template-columns:1fr auto"><span>${esc(mName(g, m.id))}</span><b class="num" style="color:${bal[m.id] > 0.004 ? "var(--good)" : bal[m.id] < -0.004 ? "var(--bad)" : "var(--muted)"}">${bal[m.id] > 0 ? "+" : ""}${esc(eur(bal[m.id]))}</b></div>`).join("")}</div>
     <div class="card"><h2>Qui doit à qui</h2>${st.length ? st.map((s, i) => `<div class="ndf-item"><div><div class="n">${esc(mName(g, s.from))} → ${esc(mName(g, s.to))}</div></div><div class="num" style="font-weight:700">${esc(eur(s.amount))}</div>
-        <div class="acts">${s.from === g.me && g.pays && g.pays[s.to] ? `<button class="btn primary" data-gpay="${i}">Payer</button>` : ""}${s.to === g.me && typeof socOn === "function" && socOn() ? `<button class="btn" data-gask="${i}">Demander</button>` : ""}<button class="btn ${s.from === g.me && g.pays && g.pays[s.to] ? "" : "primary"}" data-settle="${i}">Marquer comme remboursé</button></div></div>`).join("") : `<div class="empty">Tout le monde est quitte.</div>`}
+        <div class="acts">${s.from === g.me && g.pays && g.pays[s.to] ? `<button class="btn primary" data-gpay="${i}">Payer</button>` : ""}${s.to === g.me ? `<button class="btn" data-gask="${i}">🔔 Relancer</button>` : ""}<button class="btn ${s.from === g.me && g.pays && g.pays[s.to] ? "" : "primary"}" data-settle="${i}">Marquer comme remboursé</button></div></div>`).join("") : `<div class="empty">Tout le monde est quitte.</div>`}
+      ${st.filter(s => s.to === g.me).length > 1 ? `<button class="btn gr-remall" id="gRemAll">🔔 Relancer tous ceux qui me doivent (${st.filter(s => s.to === g.me).length})</button>` : ""}
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn" id="gShare">Copier le récap</button><button class="btn" id="gEdit">Modifier le groupe</button></div></div>
     ${typeof socGroupLink === "function" ? `<div class="card"><h2>Inviter par lien</h2><p class="hint" style="margin:0 0 10px">${g.link ? "Toute personne qui a le lien voit le groupe, peut ajouter une dépense ou dire qu'elle a remboursé, sans compte Bourselle." : "Envoie un lien : tes amis voient le groupe et qui doit quoi, ajoutent leurs dépenses et paient, sans créer de compte."}</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" id="gLink">${g.link ? "Partager le lien" : "Créer le lien d'invitation"}</button>${g.link && (!g.owner || typeof SOC === "undefined" || g.owner === SOC.tag) ? `<button class="btn" id="gLinkOff">Désactiver le lien</button>` : ""}</div></div>` : ""}
@@ -2183,13 +2218,8 @@ function renderGroup(gid) {
       saveGroups(); render(); toast("Remboursement enregistré");
     });
   });
-  view.querySelectorAll("[data-gask]").forEach(b => b.onclick = async () => {
-    const s = st[Number(b.dataset.gask)], who = (g.members.find(m => m.id === s.from) || {}).name || "";
-    if (typeof socLoadPay === "function") await socLoadPay();
-    const url = g.link ? groupLinkUrl(g.link) : payLinkUrl(s.amount, g.name);
-    if (!url) { toast("Ajoute d'abord tes moyens de paiement (Profil › Me faire payer)"); return editPay(); }
-    shareText(`${who ? who + ", tu" : "Tu"} me dois ${eur(s.amount)} pour « ${g.name} ». Tu peux payer ici :`, url);
-  });
+  view.querySelectorAll("[data-gask]").forEach(b => b.onclick = () => groupRemind(gid, [st[Number(b.dataset.gask)]]));
+  { const r = document.getElementById("gRemAll"); if (r) r.onclick = () => groupRemind(gid, st.filter(s => s.to === g.me)); }
   { const l = document.getElementById("gLink"); if (l) l.onclick = () => g.link && !(g.owner && typeof SOC !== "undefined" && g.owner !== SOC.tag) ? shareText(`Rejoins le groupe « ${g.name} » sur Bourselle :`, groupLinkUrl(g.link)) : socGroupLink(gid); }
   { const l = document.getElementById("gLinkOff"); if (l) l.onclick = () => { if (l.dataset.c !== "1") { l.dataset.c = "1"; l.textContent = "Confirmer ?"; return; } socGroupLink(gid, true); }; }
   view.querySelectorAll("[data-exp]").forEach(b => b.onclick = () => editGroupExpense(gid, b.dataset.exp));
@@ -2264,7 +2294,7 @@ function editGroupExpense(gid, eid) {
     <span class="lbl">Pour qui</span><div class="chips" id="geSplit"></div>
     <span class="lbl">Répartition</span><div class="seg2" id="geMode" style="grid-template-columns:repeat(4,1fr)">${SPLIT_MODES.map(([k, l]) => `<button type="button" data-mode="${k}">${l}</button>`).join("")}</div>
     <div id="geDetail" class="ge-detail"></div>
-    <p class="hint" id="geShare" style="margin:6px 0 0"></p>
+    <div class="hint" id="geShare" style="margin:6px 0 0"></div>
     <span class="lbl">Ticket</span><div id="gePhoto" class="ge-photo"></div>
     ${eid ? `<span class="lbl">Commentaires</span><div id="geCom" class="ge-com"></div>` : ""}
     ${eid ? "" : `<label class="toggle" for="geMine" style="margin-top:12px"><span>Ajouter ma part à mes dépenses</span><input type="checkbox" id="geMine" checked></label>
@@ -2327,11 +2357,18 @@ function editGroupExpense(gid, eid) {
   drawCom();
   const share = () => {
     const a = parseAmount(val("geAmount")) || 0, ids = g.members.map(m => m.id).filter(id => split.has(id)), hint = document.getElementById("geShare");
+    hint.className = "hint"; hint.innerHTML = "";
     if (!ids.length) { hint.textContent = ""; return; }
     if (mode === "equal") { hint.textContent = a > 0 ? `Soit ${eur(a / ids.length)} par personne.` : ""; return; }
     const t = ids.reduce((s2, id) => s2 + (Number(w[id]) || 0), 0);
-    if (mode === "amounts") { const rest = Math.round((a - t) * 100) / 100; hint.textContent = Math.abs(rest) < 0.01 ? "Le compte est bon." : rest > 0 ? `Reste ${eur(rest)} à répartir.` : `${eur(-rest)} de trop.`; }
-    else if (mode === "percent") { const rest = Math.round((100 - t) * 100) / 100; hint.textContent = Math.abs(rest) < 0.01 ? "Total : 100 %." : `Total : ${String(Math.round(t * 100) / 100).replace(".", ",")} % (il manque ${String(rest).replace(".", ",")} %).`; }
+    // Montants ou % saisis à la main : on montre tout de suite si ça tombe juste
+    const sumBox = (st, main, sub, pct) => { hint.className = "ge-sum " + st; hint.innerHTML = `<span class="ge-sum-i">${st === "ok" ? "✓" : st === "over" ? "!" : "…"}</span><span><b>${esc(main)}</b><small>${esc(sub)}</small></span><i style="width:${Math.max(0, Math.min(100, pct)).toFixed(1)}%"></i>`; };
+    if (mode === "amounts") {
+      const rest = Math.round((a - t) * 100) / 100, tot = `Total saisi : ${eur(t)} sur ${eur(a)}`;
+      if (!(a > 0)) sumBox("under", `Total saisi : ${eur(t)}`, "Indique le montant de la dépense pour vérifier", 0);
+      else sumBox(Math.abs(rest) < 0.01 ? "ok" : rest > 0 ? "under" : "over", tot, Math.abs(rest) < 0.01 ? "Le compte est bon : ça correspond au total." : rest > 0 ? `Reste ${eur(rest)} à répartir.` : `${eur(-rest)} de trop : corrige un montant.`, t / a * 100);
+    }
+    else if (mode === "percent") { const rest = Math.round((100 - t) * 100) / 100, tp = String(Math.round(t * 100) / 100).replace(".", ","); sumBox(Math.abs(rest) < 0.01 ? "ok" : rest > 0 ? "under" : "over", `Total : ${tp} % sur 100 %`, Math.abs(rest) < 0.01 ? "Le compte est bon." : rest > 0 ? `Il manque ${String(rest).replace(".", ",")} %.` : `${String(-rest).replace(".", ",")} % de trop.`, t); }
     else hint.textContent = `${String(t).replace(".", ",")} part${t > 1 ? "s" : ""} au total.`;
     const o = computeOwed(a, ids, mode, w);
     document.querySelectorAll("#geDetail [data-owed]").forEach(el => { el.textContent = a > 0 ? eur(o[el.dataset.owed] || 0) : ""; });

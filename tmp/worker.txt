@@ -871,6 +871,24 @@ async function social(req, env, url, cors) {
     if (req.method === "GET" && ph[2]) return json({ data: await getPhoto(env, ph[1], ph[2]) }, 200, cors);
     throw new HttpErr(405, "méthode non permise");
   }
+  // Relancer des membres d'un groupe partagé qui me doivent de l'argent : notification à ceux qui ont l'appli (une fois toutes les 6 h)
+  const gr = /^\/groups\/([a-z0-9]{6,24})\/remind$/.exec(path);
+  if (gr && req.method === "POST") {
+    const g = await kvJ(env, "grp:" + gr[1]);
+    if (!g || g.deleted || (g.ownerEmail !== me.email && !(g.memberEmails || []).includes(me.email))) throw new HttpErr(403, "pas ton groupe");
+    const myTagV = await myTag(env, me), meM = (g.members || []).find(m => m.tag === myTagV), from = (meM && meM.name) || me.name || "@" + myTagV;
+    const items = (Array.isArray(body.to) ? body.to : []).slice(0, 30), cur = String(body.cur || g.cur || "EUR").slice(0, 3).toUpperCase(), res = {};
+    for (const it of items) {
+      const m = (g.members || []).find(x => x.id === String(it.id || "")); if (!m) continue;
+      const amt = Math.round(Number(it.amount) * 100) / 100; if (!(amt > 0 && amt < 1e8)) continue;
+      const em = m.tag ? await env.CODES.get("tag:" + m.tag) : ""; if (!em || em === me.email) { res[m.id] = "share"; continue; }
+      const rk = "grr:" + gr[1] + ":" + m.id; if (await env.CODES.get(rk)) { res[m.id] = "recent"; continue; }
+      await env.CODES.put(rk, "1", { expirationTtl: 6 * 3600 });
+      notify(env, [em], l => ({ title: g.name, body: l === "en" ? `${from} reminds you: you owe them ${fmtMoney(amt, cur, l)} in “${g.name}”.` : `${from} te relance : tu lui dois ${fmtMoney(amt, cur, l)} dans « ${g.name} ».`, url: "./?g=" + gr[1], tag: "g-" + gr[1] + "-r" }));
+      res[m.id] = "notified";
+    }
+    return json({ res }, 200, cors);
+  }
   const gm = /^\/groups\/([a-z0-9]{6,24})$/.exec(path);
   if (gm && req.method === "POST") {
     const id = gm[1], cur = await kvJ(env, "grp:" + id), b = body.group || {};

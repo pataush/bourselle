@@ -761,3 +761,25 @@ html.ios nav.tabs { bottom: 0; transform: translateZ(0); }
 .bud-edit { margin-left: auto; font-size: .78rem; padding: 6px 12px; white-space: nowrap; flex: none; }
 .pf-flash { animation: pfFlash 1.8s ease-out 1; }
 @keyframes pfFlash { 0%, 40% { box-shadow: 0 0 0 3px var(--gold); } 100% { box-shadow: 0 0 0 0 transparent; } }
+
+/* Répartition à la main : le total saisi correspond-il ? */
+.ge-sum { position: relative; overflow: hidden; display: grid; grid-template-columns: 26px 1fr; gap: 10px; align-items: center; padding: 10px 12px 12px; border-radius: 12px; border: 1.5px solid var(--line); background: var(--surface); }
+.ge-sum b { display: block; font-size: .9rem; color: var(--ink); } .ge-sum small { color: var(--muted); font-size: .78rem; }
+.ge-sum-i { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; color: #fff; background: var(--pj-sent, #e0a800); }
+.ge-sum > i { position: absolute; left: 0; bottom: 0; height: 4px; background: var(--pj-sent, #e0a800); transition: width .2s; }
+.ge-sum.ok { border-color: color-mix(in srgb, var(--good, #1f8a5b) 55%, transparent); background: color-mix(in srgb, var(--good, #1f8a5b) 8%, var(--surface)); }
+.ge-sum.ok .ge-sum-i, .ge-sum.ok > i { background: var(--good, #1f8a5b); } .ge-sum.ok small { color: var(--good, #1f8a5b); font-weight: 600; }
+.ge-sum.over { border-color: color-mix(in srgb, var(--bad) 55%, transparent); background: color-mix(in srgb, var(--bad) 7%, var(--surface)); }
+.ge-sum.over .ge-sum-i, .ge-sum.over > i { background: var(--bad); } .ge-sum.over small { color: var(--bad); font-weight: 600; }
+.ge-sum.under small { color: color-mix(in srgb, var(--pj-sent, #e0a800) 60%, var(--ink)); font-weight: 600; }
+/* Entre proches : relancer */
+.gr-rem { width: 100%; margin-top: -6px; font-size: .85rem; }
+.gr-remall { width: 100%; margin-top: 10px; }
+
+/* Réclamation dans une autre devise : choix */
+.cur-pick { display: grid; gap: 10px; }
+.cur-opt { display: grid; gap: 2px; text-align: left; padding: 12px 14px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+.cur-opt b { font-size: .95rem; } .cur-opt .num { font-size: 1.15rem; font-weight: 800; } .cur-opt small { color: var(--muted); font-size: .76rem; }
+.cur-opt[aria-pressed="true"] { border-color: var(--green, #1f6b4f); box-shadow: 0 0 0 2px color-mix(in srgb, var(--green, #1f6b4f) 25%, transparent); background: color-mix(in srgb, var(--green, #1f6b4f) 7%, var(--surface)); }
+.cur-opt:disabled { opacity: .5; cursor: default; }
+.debt-fx { margin-top: 4px; font-size: .76rem; }
