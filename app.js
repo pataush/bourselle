@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "78";
+const APP_VERSION = "79";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -817,7 +817,7 @@ function renderReglages() {
 </div>
   <div class="card about"><h2>À propos</h2>
     <p style="margin:0 0 10px"><b>Bourselle</b> : ton budget et tes partages, simplement.</p>
-    <div class="about-ndf"><h3>⭐ Notes de frais, sans prise de tête</h3>
+    <details class="about-ndf"><summary><h3>⭐ Notes de frais, sans prise de tête</h3><small>Photo du ticket, rangement dans ton Drive, classeur Excel prêt à envoyer.</small><span class="about-more">Lire la suite</span></summary>
       <ul>
         <li><b>Photographie ton ticket</b> : le montant et la TVA sont lus automatiquement, même dans une autre devise (au taux du jour du ticket).</li>
         <li><b>Tout est rangé pour toi</b> dans ton Drive : Notes de frais › année › mois, chaque ticket nommé « date - libellé - montant ».</li>
@@ -825,7 +825,7 @@ function renderReglages() {
         <li><b>Tes déplacements</b> avec le barème kilométrique (+20 % pour un véhicule électrique).</li>
         <li><b>Le suivi du remboursement</b> : à rembourser ou remboursé, avec une alerte tant que ce n'est pas réglé.</li>
       </ul>
-      <p class="hint" style="margin:8px 0 0">Gratuit : illimité le premier mois, puis ${FREE.ndf} tickets par mois ; illimité avec Bourselle Plus.</p>${!isSimple() ? `<button type="button" class="btn primary" id="aboutNdf" style="margin-top:10px">Ouvrir mes notes de frais</button>` : `<button type="button" class="btn" id="aboutNdf" style="margin-top:10px">Activer la version complète pour les notes de frais</button>`}</div>
+      <p class="hint" style="margin:8px 0 0">Gratuit : illimité le premier mois, puis ${FREE.ndf} tickets par mois ; illimité avec Bourselle Plus.</p>${!isSimple() ? `<button type="button" class="btn primary" id="aboutNdf" style="margin-top:10px">Ouvrir mes notes de frais</button>` : `<button type="button" class="btn" id="aboutNdf" style="margin-top:10px">Activer la version complète pour les notes de frais</button>`}</details>
     <h3>Ce que tu peux faire</h3>
     <ul>
       <li><b>Ton budget</b> : dépenses, rentrées, épargne, budget par catégorie, prévision de fin de mois, et l'année d'un coup d'œil.</li>
