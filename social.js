@@ -57,6 +57,7 @@ async function socRefresh() {
   try {
     const j = await socApi("/claims");
     SOC.tag = j.tag || SOC.tag; SOC.in = j.in || []; SOC.out = j.out || []; SOC.loaded = true; SOC.err = "";
+    if (typeof driveRootName === "function") driveRootName(SOC.tag);
     const changed = socMerge();
     try { await socPullGroups(); await socPushGroups(); } catch (e) {}
     socLoadPay(); socLoadReminders();
@@ -170,7 +171,7 @@ function socBindTagCard() {
     openForm(`<div class="f2"><h3>Changer mon tag</h3>${fld("socNew", "Nouveau tag", `value="${esc(SOC.tag)}" autocapitalize="off" spellcheck="false"`)}
       <p class="hint">3 à 24 caractères : lettres minuscules, chiffres, - ou _. L'ancien tag est libéré.</p></div>`, () => {
       const t = val("socNew").trim().toLowerCase().replace(/^@/, "");
-      socApi("/me/tag", { method: "POST", body: JSON.stringify({ tag: t }) }).then(j => { SOC.tag = j.tag; closeForm(); render(); toast(`Ton tag : @${j.tag}`); }).catch(e => toast(e.message));
+      socApi("/me/tag", { method: "POST", body: JSON.stringify({ tag: t }) }).then(j => { SOC.tag = j.tag; if (typeof driveRootName === "function") driveRootName(j.tag); closeForm(); render(); toast(`Ton tag : @${j.tag}`); }).catch(e => toast(e.message));
       return false;
     });
   };

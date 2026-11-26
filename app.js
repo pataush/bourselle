@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "70";
+const APP_VERSION = "71";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -1410,6 +1410,7 @@ document.getElementById("sheet").onsubmit = e => {
   const k = date.slice(0, 7).split("-");
   if (tab === "mois" || tab === "reglages") { cur.y = Number(k[0]); cur.m = Number(k[1]); }
   upsertTx(tx, old);
+  if (!isNdf) fileFolderSync(tx);   // fichiers rangés dans le dossier de la catégorie
   if (repeat) {
     const rid = newId();
     recs[rid] = { type: tx.type, amount: tx.amount, cat: tx.cat, note: tx.note, freq: repeat, next: advance(date, repeat), until: "", active: true, created: Date.now() };
@@ -1418,6 +1419,40 @@ document.getElementById("sheet").onsubmit = e => {
   }
   toast(old ? "Opération modifiée" : isNdf ? "Note de frais ajoutée" : "Opération ajoutée");
 };
+
+// ---------- Rangement des fichiers dans le Drive : un dossier par catégorie ----------
+// Bourselle @tag / Logement, Courses… (dépenses) · Rentrées · Épargne · Investissements. Les notes de frais ont leur propre rangement.
+const TYPE_DIR = { rentree: "Rentrées", epargne: "Épargne", invest: "Investissements" };
+const fileDir = tx => tx.type === "depense" ? catById(tx.cat).name : TYPE_DIR[tx.type] || "Autres";
+async function fileFolderSync(tx) {
+  if (!assets || !store || !store.placeFile || tx.ndf || !(tx.files || []).length) return;
+  const dir = fileDir(tx); let ch = false;
+  for (const f of tx.files) {
+    if (f.dir === dir) continue;
+    try {
+      const ext = (String(f.name).split(".").pop() || "").toLowerCase(), base = String(f.name).replace(/\.[^.]+$/, "");
+      await store.placeFile(f.id, [dir], `${tx.date} ${(tx.note || base || dir).slice(0, 60)}${ext && ext.length <= 4 ? "." + ext : ""}`);
+      f.dir = dir; ch = true;
+    } catch (e) {}
+  }
+  if (ch) { const k = tx.date.slice(0, 7); if (months[k] && months[k].items[tx.id]) { months[k].items[tx.id].files = tx.files; saveMonth(k); } }
+}
+// Crée d'avance les dossiers des catégories (une fois par liste de catégories)
+async function driveFoldersInit() {
+  if (!assets || !store || !store.ensureFolder || store.id === "local") return;
+  const dirs = [...settings.cats.map(c => c.name), ...Object.values(TYPE_DIR)];
+  const sig = store.id + ":" + dirs.join("|");
+  try { if (localStorage.getItem("bourselle-dirs") === sig) return; } catch (e) {}
+  for (const d of dirs) { try { await store.ensureFolder([d]); } catch (e) { return; } }
+  try { localStorage.setItem("bourselle-dirs", sig); } catch (e) {}
+}
+// Dossier racine au nom de l'utilisateur : « Bourselle @tag » (Google Drive ; dans OneDrive, c'est le dossier d'app Bourselle)
+async function driveRootName(tag) {
+  if (!tag || !store || !store.renameRoot) return;
+  const name = "Bourselle @" + tag, k = "bourselle-root:" + store.id;
+  try { if (localStorage.getItem(k) === name) return; } catch (e) {}
+  try { await store.renameRoot(name); localStorage.setItem(k, name); } catch (e) {}
+}
 
 // ---------- Visionneuse de justificatifs ----------
 let vFile = null;
@@ -3164,6 +3199,7 @@ async function connect(id, interactive, existing, claim) {
       localStorage.removeItem(DEMO_KEY); localStorage.removeItem(MIGRATE_KEY);
     }
     hideLogin(); applyRecurring(); render();
+    if (id !== "local") setTimeout(() => driveFoldersInit(), 4000);
     if (moved >= 0) toast(moved ? `Tes données d'essai (${moved} élément${moved > 1 ? "s" : ""}) sont maintenant dans ton ${st.label}.` : `Connecté à ton ${st.label}.`);
     if (recovered) toast("Tes dernières saisies, pas encore enregistrées dans le Drive, ont été récupérées.");
     if ((!r.data || moved > 0 || recovered) && id !== "local") { dirty = true; flush(); }

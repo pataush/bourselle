@@ -132,8 +132,15 @@
         body: JSON.stringify({ name, mimeType: "application/vnd.google-apps.folder", parents: [parent] }) })).json();
       return c.id;
     }
+    // Dossier racine : « Bourselle @tag » (ou « Bourselle » avant de connaître le tag)
+    async function findRoot() {
+      const query = `mimeType='application/vnd.google-apps.folder' and 'root' in parents and trashed=false and (name='${FOLDER}' or name contains '${FOLDER} @')`;
+      const r = await (await api(`${API}/files?q=${q(query)}&fields=files(id,name)&spaces=drive&orderBy=createdTime`)).json();
+      if (r.files && r.files.length) return r.files[0].id;
+      return findOrCreateFolder(FOLDER, "root");
+    }
     async function ensureFolders() {
-      if (!folderId) folderId = await findOrCreateFolder(FOLDER, "root");
+      if (!folderId) folderId = await findRoot();
       if (!filesFolderId) filesFolderId = await findOrCreateFolder(FILES_FOLDER, folderId);
     }
     const folderCache = {};
@@ -236,6 +243,14 @@
         return { id, url: `https://drive.google.com/file/d/${id}/view` };
       },
       async folderLink(path) { return `https://drive.google.com/drive/folders/${await folderPath(path)}`; },
+      async ensureFolder(path) { return folderPath(path); },
+      // Renomme le dossier racine (ex. « Bourselle @anne-x4k2 »)
+      async renameRoot(name) {
+        await ensureFolders(); name = safeName(name);
+        const cur = await (await api(`${API}/files/${folderId}?fields=name`)).json();
+        if (cur.name !== name) await api(`${API}/files/${folderId}?fields=id`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+        return true;
+      },
       signOut() {
         if (token && window.google && google.accounts) google.accounts.oauth2.revoke(token, () => {});
         token = null; localStorage.removeItem("mb-google-hint"); try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {}
@@ -373,6 +388,7 @@
         return { id: item.id, url: item.webUrl || "" };
       },
       async folderLink(folder) { return (await msFolder(folder)).webUrl || (root && root.webUrl) || ""; },
+      async ensureFolder(folder) { return msFolder(folder); },
       signOut() {
         const a = account; account = null;
         if (msal && a) msal.logoutRedirect({ account: a, postLogoutRedirectUri: redirectUri }).catch(() => {});
