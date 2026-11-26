@@ -2,7 +2,7 @@
  * Des marques proposent une promotion (lien, code promo) ou une offre de groupe à paliers (« -10 % à 5, -15 % à 10 »).
  * On rejoint une offre de groupe ; quand le palier est atteint, chaque partant reçoit le code et achète sur le site du
  * partenaire. L'argent ne passe jamais par Bourselle. Seul le propriétaire de Bourselle publie les offres. */
-let BPLANS = [], OFF_ADMIN = false, OFF_LEADS = [], offLoaded = false, offState = { focus: null, filter: "all" };
+let BPLANS = [], OFF_ADMIN = false, OFF_LEADS = [], OFF_CATS = ["Resto & bars", "Coiffure & beauté", "Sport & bien-être", "Loisirs & sorties", "Shopping", "Voyage", "Autre"], OFF_INVITES = 0, offLoaded = false, offState = { focus: null, filter: "all" };
 const offBase = () => (typeof PLUS_CFG !== "undefined" && PLUS_CFG.api ? PLUS_CFG.api.replace(/\/$/, "") : "");
 async function offApi(path, body) {
   if (typeof socOn === "function" && socOn()) return socApi(path, body ? { method: "POST", body: JSON.stringify(body) } : {});
@@ -12,12 +12,13 @@ async function offApi(path, body) {
 async function offRefresh(rerender) {
   if (!offBase()) return;
   try {
-    const j = await offApi("/offers"); BPLANS = j.offers || []; OFF_ADMIN = !!j.admin; OFF_LEADS = j.leads || []; offLoaded = true; offBkNews();
-    if (!offRefresh.link) { offRefresh.link = true; let id = ""; try { id = sessionStorage.getItem("bourselle-offre") || ""; sessionStorage.removeItem("bourselle-offre"); } catch (e) {} if (id) setTimeout(() => offersOpen(id), 500); }
+    const j = await offApi("/offers"); BPLANS = j.offers || []; OFF_ADMIN = !!j.admin; OFF_LEADS = j.leads || []; if (j.cats) OFF_CATS = j.cats; OFF_INVITES = j.invites || 0; offLoaded = true; offBkNews();
+    if (!offRefresh.link) { offRefresh.link = true; let id = ""; try { id = sessionStorage.getItem("bourselle-offre") || ""; sessionStorage.removeItem("bourselle-offre"); } catch (e) {} if (id) setTimeout(() => offersOpen(id), 500); let ad = ""; try { ad = sessionStorage.getItem("bourselle-offadmin"); sessionStorage.removeItem("bourselle-offadmin"); } catch (e) {} if (ad && OFF_ADMIN) setTimeout(offAdminOpen, 600); }
     { const c = document.getElementById("bonsCnt"), n = BPLANS.filter(o => o.status !== "off" && offVisible(o) && offTimed(o) && offNow(o)).length; if (c) { c.hidden = !n; c.textContent = n; } }
     if (rerender !== false && typeof tab !== "undefined" && ["bons", "partage", "mois"].includes(tab) && !document.querySelector("#sheet2Root.open")) render();
   } catch (e) {}
 }
+{ const q = new URLSearchParams(location.search); if (q.get("offres") === "admin") { try { sessionStorage.setItem("bourselle-offadmin", "1"); } catch (e) {} history.replaceState(null, "", location.pathname); } }
 { const o = new URLSearchParams(location.search).get("offre"); if (o && /^[a-z0-9]{10}$/.test(o)) { try { sessionStorage.setItem("bourselle-offre", o); } catch (e) {} history.replaceState(null, "", location.pathname); } }
 
 // Bons plans près de chez moi : ma ville reste sur mon appareil (dans mes réglages) ; le tri se fait ici, sans l'envoyer.
@@ -79,16 +80,27 @@ function offCardHTML(o, full) {
   const tiers = o.kind === "group" ? `<div class="off-tiers">${o.tiers.map(t => `<span class="${o.count >= t.n ? "on" : ""}"><b>-${t.pct} %</b><small>${t.n} pers.</small></span>`).join("")}</div>
     <div class="act-bar"><i style="width:${Math.min(100, Math.round(o.count / Math.max(...o.tiers.map(t => t.n)) * 100))}%"></i></div><p class="off-st">${esc(offStatus(o))}</p>` : "";
   const code = o.code ? `<div class="off-code"><span>Code</span><b class="num">${esc(o.code)}</b><button type="button" class="linkbtn" data-ocopy="${esc(o.id)}">Copier</button></div>` : "";
+  const sq = o.squad, live = sq && !sq.expired;
+  const sqBox = !sq ? "" : sq.st === "inv" && !sq.expired
+    ? `<div class="sq-box inv"><b>${esc(favFirst(sq.ownerName))} t'invite</b><small>Il faut ${sq.n} partants · déjà ${sq.in} · ${esc(sqLeft(sq))}</small><div class="dm-cta"><button type="button" class="btn primary" data-sqok="${esc(o.id)}">🙋 Je suis partant</button><button type="button" class="btn" data-sqno="${esc(o.id)}">Non merci</button></div></div>`
+    : `<div class="sq-box${sq.reached ? " ok" : sq.expired ? " exp" : ""}"><div class="sq-h"><b>${sq.reached ? "🎉 Groupe complet" : sq.expired ? "Délai dépassé" : `${sq.in} sur ${sq.n} partants`}</b><small>${sq.expired ? "Le groupe n'a pas été réuni à temps." : sq.reached ? `${sq.in} partants` : esc(sqLeft(sq))}</small></div>
+      <div class="act-bar"><i style="width:${Math.min(100, Math.round(sq.in / sq.n * 100))}%"></i></div>
+      <div class="sq-mem">${sq.members.map(m => `<span class="${m.st}">${m.st === "in" ? "✓" : m.st === "inv" ? "…" : "✕"} ${esc(favFirst(m.name || m.tag))}</span>`).join("")}</div>
+      <div class="sq-acts">${live && !sq.reached ? `<button type="button" class="btn" data-sqinv="${esc(o.id)}">+ Inviter</button>` : ""}${sq.gc ? `<button type="button" class="btn" data-sqchat="${esc(sq.gc)}">💬 Discussion</button>` : ""}${sq.reached && o.book && !sq.booked ? `<button type="button" class="btn primary" data-sqbook="${esc(o.id)}">📅 Réserver pour le groupe</button>` : ""}${sq.expired ? `<button type="button" class="btn primary" data-sqnew="${esc(o.id)}">Relancer un groupe</button>` : ""}</div>
+      ${live ? `<button type="button" class="linkbtn" data-sqleave="${esc(o.id)}" style="margin-top:6px">Quitter le groupe</button>` : ""}</div>`;
   const acts = !full ? "" : o.kind === "group"
-    ? (o.joined ? `${o.unlocked ? `${code}<button type="button" class="btn primary" data-ogo="${esc(o.id)}">J'en profite sur le site ›</button>` : `<p class="hint" style="margin:0 0 6px">Tu es partant ✓ Tu recevras le code dès que le palier est atteint.</p>`}
-        <div class="fav-btns"><button type="button" class="btn" data-oshare="${esc(o.id)}">Inviter mes proches</button><button type="button" class="btn" data-oleave="${esc(o.id)}">Je ne suis plus partant</button></div>`
-      : `<button type="button" class="btn primary" data-ojoin="${esc(o.id)}">🙋 Je suis partant</button><button type="button" class="linkbtn" data-oshare="${esc(o.id)}" style="margin-top:6px">Inviter mes proches</button>`)
+    ? `${sqBox}${o.code ? `${code}${o.url ? `<button type="button" class="btn primary" data-ogo="${esc(o.id)}">J'en profite sur le site ›</button>` : ""}` : ""}
+       ${!sq || (sq.expired && false) ? `<button type="button" class="btn primary" data-sqnew="${esc(o.id)}">🙋 Je suis partant · je réunis mes amis</button>` : ""}<button type="button" class="linkbtn" data-oshare="${esc(o.id)}" style="margin-top:6px">Partager le lien</button>`
     : `${code}${o.url ? `<button type="button" class="btn primary" data-ogo="${esc(o.id)}">J'en profite ›</button>` : ""}<button type="button" class="linkbtn" data-oshare="${esc(o.id)}" style="margin-top:6px">Partager</button>`;
+  const stars = o.rating && o.rating.n ? `<span class="off-rate">★ ${String(o.rating.avg).replace(".", ",")} <small>(${o.rating.n})</small></span>` : "";
+  const revs = full && o.reviews && o.reviews.length ? `<details class="off-revs"><summary>Avis (${o.rating.n})</summary>${o.reviews.map(r => `<div class="off-rev"><b>${"★".repeat(r.stars)}${"☆".repeat(5 - r.stars)}</b> <span>${esc(r.name)}</span>${r.text ? `<p>${esc(r.text)}</p>` : ""}</div>`).join("")}</details>` : "";
+  const canReview = full && typeof socOn === "function" && socOn() && (o.joined || (o.mybk || []).some(x => x.st === "ok") || savedList().some(x => x.oid === o.id) || (sq && sq.booked));
   return `<div class="card off-card${o.featured ? " feat" : ""}" ${full ? `id="off-${esc(o.id)}"` : `data-oopen="${esc(o.id)}" role="button" tabindex="0"`}>
-    <div class="off-top"><span class="act-emo">${esc(o.emoji || "🎁")}</span><span class="off-tt"><small><span class="off-tag">Partenaire</span> ${esc(o.partner)}${o.city ? ` · <span class="off-city${offLocal(o) ? " near" : ""}">📍 ${esc(o.city)}</span>` : ""}${o.country && (OFF_ADMIN || o.country !== myCountry()) ? ` · ${flag(o.country)}` : ""}${o.until ? ` · jusqu'au ${esc(frDate(o.until))}` : ""}</small><b>${esc(o.title)}</b></span>${o.kind === "group" ? `<span class="act-chip warn">Groupe</span>` : ""}</div>
+    <div class="off-top"><span class="act-emo">${esc(o.emoji || "🎁")}</span><span class="off-tt"><small><span class="off-tag">Partenaire</span> ${esc(o.partner)}${o.city ? ` · <span class="off-city${offLocal(o) ? " near" : ""}">📍 ${esc(o.city)}</span>` : ""}${o.country && (OFF_ADMIN || o.country !== myCountry()) ? ` · ${flag(o.country)}` : ""}${o.until ? ` · jusqu'au ${esc(frDate(o.until))}` : ""}</small><b>${esc(o.title)}</b>${stars}</span>${o.kind === "group" ? `<span class="act-chip warn">Groupe</span>` : ""}</div>
     ${offTimed(o) ? `<div class="off-slots">${offNow(o) ? `<span class="off-now">● En ce moment · jusqu'à ${esc(hFmt(offNow(o).to))}</span>` : offLaterToday(o) ? `<span class="off-soon">Aujourd'hui dès ${esc(hFmt(offLaterToday(o).from))}</span>` : ""}${o.slots.map(sl => `<small>🕑 ${esc(slotTxt(sl))}</small>`).join("")}</div>` : ""}
     ${full && o.desc ? `<p class="off-desc">${esc(o.desc)}</p>` : ""}${tiers}${acts}${full && o.book ? offBookHTML(o) : ""}
-    ${full && (o.kind !== "group" || o.unlocked && o.joined) ? `<button type="button" class="linkbtn off-used" data-oused="${esc(o.id)}">💰 J'ai utilisé ce bon plan${(() => { const n = savedList().filter(x => x.oid === o.id).reduce((a, x) => a + x.amount, 0); return n ? ` · ${eur(n)} économisés` : ""; })()}</button>` : ""}</div>`;
+    ${revs}${canReview ? `<button type="button" class="linkbtn off-used" data-orev="${esc(o.id)}">${o.myReview ? `⭐ Ton avis : ${"★".repeat(o.myReview.stars)}` : "⭐ Donner mon avis"}</button>` : ""}
+    ${full && (o.kind !== "group" || o.code) ? `<button type="button" class="linkbtn off-used" data-oused="${esc(o.id)}">💰 J'ai utilisé ce bon plan${(() => { const n = savedList().filter(x => x.oid === o.id).reduce((a, x) => a + x.amount, 0); return n ? ` · ${eur(n)} économisés` : ""; })()}</button>` : ""}</div>`;
 }
 // Dans « Partage » : les bons plans mis en avant
 // « En ce moment » : les offres à créneau actives maintenant (ou plus tard aujourd'hui) près de chez moi
@@ -133,6 +145,15 @@ function offListRender(root, focus, filter) {
   f.querySelectorAll("[data-of]").forEach(b => b.onclick = () => { closeForm(); setTimeout(() => offersOpen(null, b.dataset.of), 200); });
   const find = id => BPLANS.find(o => o.id === id);
   const upd = o => { const i = BPLANS.findIndex(x => x.id === o.id); if (i >= 0) BPLANS[i] = o; };
+  const sqAct = async (id, body, msg) => { try { const r = await offApi("/offers/" + id, body); if (r.offer) upd({ ...find(id), ...r.offer }); if (msg) toast(msg); focus = id; reopen(); if (typeof ensRefresh === "function") ensRefresh(); } catch (e) { toast(e.message); } };
+  f.querySelectorAll("[data-sqnew]").forEach(b => b.onclick = () => { if (!(typeof socOn === "function" && socOn())) { toast("Connecte-toi avec Google ou Microsoft pour réunir tes amis"); return; } squadNew(find(b.dataset.sqnew), () => offersOpen(b.dataset.sqnew, filter)); });
+  f.querySelectorAll("[data-sqok]").forEach(b => b.onclick = () => sqAct(b.dataset.sqok, { action: "sqaccept", name: (typeof ensName === "function" ? ensName() : "") }, "Tu es partant ✓"));
+  f.querySelectorAll("[data-sqno]").forEach(b => b.onclick = () => sqAct(b.dataset.sqno, { action: "sqdecline" }));
+  f.querySelectorAll("[data-sqleave]").forEach(b => b.onclick = e => { const q = e.currentTarget; if (!q.dataset.sure) { q.dataset.sure = "1"; q.textContent = "Toucher encore pour quitter le groupe"; return; } sqAct(b.dataset.sqleave, { action: "sqleave" }, "Tu as quitté le groupe"); });
+  f.querySelectorAll("[data-sqchat]").forEach(b => b.onclick = () => gcOpen(b.dataset.sqchat));
+  f.querySelectorAll("[data-sqinv]").forEach(b => b.onclick = () => squadInvite(find(b.dataset.sqinv), () => offersOpen(b.dataset.sqinv, filter)));
+  f.querySelectorAll("[data-sqbook]").forEach(b => b.onclick = () => { const o = find(b.dataset.sqbook); offBook(o, () => offersOpen(o.id, filter), o.squad); });
+  f.querySelectorAll("[data-orev]").forEach(b => b.onclick = () => offReview(find(b.dataset.orev), () => offersOpen(b.dataset.orev, filter)));
   f.querySelectorAll("[data-ojoin]").forEach(b => b.onclick = async () => {
     if (!(typeof socOn === "function" && socOn())) { toast("Connecte-toi avec Google ou Microsoft pour rejoindre une offre de groupe"); return; }
     try { const r = await offApi("/offers/" + b.dataset.ojoin, { action: "join" }); upd(r.offer); toast(r.offer.code ? `🎉 Débloqué : -${r.offer.unlocked.pct} % !` : "Tu es partant ✓ Invite tes proches pour atteindre le palier"); focus = r.offer.id; reopen(); } catch (e) { toast(e.message); }
@@ -175,11 +196,19 @@ function offLeadForm() {
 function offAdminOpen() {
   const f = openForm(`<div class="f2"><h3>⚙️ Gérer les bons plans</h3>
     <button type="button" class="btn primary" id="oaNew" style="width:100%">+ Nouvelle offre</button>
-    <span class="lbl">Offres (${BPLANS.length})</span>${BPLANS.map(o => `<button type="button" class="pm-row" data-oaedit="${esc(o.id)}"><span class="pm-t"><b>${esc(o.emoji)} ${esc(o.partner)} · ${esc(o.title)}</b><small>${flag(o.country)} ${o.city ? `📍 ${esc(o.city)} · ` : ""}${o.status === "off" ? "En pause · " : ""}${o.kind === "group" ? `${o.count} partants · ` : ""}${o.book ? `📅 ${o.bkPending || 0} demande${(o.bkPending || 0) > 1 ? "s" : ""} en attente · ` : ""}${o.clicks || 0} clic${(o.clicks || 0) > 1 ? "s" : ""} · ${o.views || 0} vue${(o.views || 0) > 1 ? "s" : ""}${o.until ? ` · jusqu'au ${frDate(o.until)}` : ""}</small></span><span class="pm-chev">›</span></button>`).join("") || `<p class="hint">Aucune offre.</p>`}
-    <span class="lbl">Demandes des marques (${OFF_LEADS.length})</span>${OFF_LEADS.map(l => `<div class="card off-lead"><b>${esc(l.company)}</b>${l.city || l.country ? ` <small style="display:inline">${l.country ? flag(l.country) + " " : ""}${l.city ? "📍 " + esc(l.city) : ""}</small>` : ""}${l.group ? ` <span class="act-chip warn">Groupe</span>` : ""}<small>${esc(l.contact || "")} · <a href="mailto:${esc(l.email)}">${esc(l.email)}</a>${l.site ? ` · <a href="${esc(/^https?:/.test(l.site) ? l.site : "https://" + l.site)}" target="_blank" rel="noopener">site</a>` : ""} · ${esc(agoText(l.at))}</small><p>${esc(l.offer)}</p><button type="button" class="linkbtn" data-oalead="${esc(l.id)}">Traité ✓</button></div>`).join("") || `<p class="hint">Aucune demande pour l'instant. Partage le formulaire : ${esc(appBase())}g.html#partenaire</p>`}</div>`, () => true);
+    ${OFF_INVITES ? `<p class="hint" style="margin:8px 0 0">👥 Nouveaux comptes venus d'une invitation : <b>${OFF_INVITES}</b></p>` : ""}
+    <span class="lbl">Offres (${BPLANS.length})</span>${BPLANS.map(o => `<div class="oa-row"><button type="button" class="pm-row" data-oaedit="${esc(o.id)}"><span class="pm-t"><b>${esc(o.emoji)} ${esc(o.partner)} · ${esc(o.title)}</b><small>${flag(o.country)} ${o.city ? `📍 ${esc(o.city)} · ` : ""}${o.status === "off" ? "En pause · " : ""}${o.kind === "group" ? `${o.count} partants · ` : ""}${o.book ? `📅 ${o.bkPending || 0} demande${(o.bkPending || 0) > 1 ? "s" : ""} en attente · ` : ""}${o.clicks || 0} clic${(o.clicks || 0) > 1 ? "s" : ""} · ${o.views || 0} vue${(o.views || 0) > 1 ? "s" : ""}${o.until ? ` · jusqu'au ${frDate(o.until)}` : ""}</small></span><span class="pm-chev">›</span></button>${o.mlink ? `<button type="button" class="linkbtn" data-oaml="${esc(o.id)}">📊 Envoyer son espace au commerçant</button>` : ""}</div>`).join("") || `<p class="hint">Aucune offre.</p>`}
+    <span class="lbl">Demandes des marques (${OFF_LEADS.length})</span>${OFF_LEADS.map(l => `<div class="card off-lead"><b>${esc(l.company)}</b>${l.city || l.country ? ` <small style="display:inline">${l.country ? flag(l.country) + " " : ""}${l.city ? "📍 " + esc(l.city) : ""}</small>` : ""}${l.group ? ` <span class="act-chip warn">Groupe</span>` : ""}<small>${esc(l.contact || "")} · <a href="mailto:${esc(l.email)}">${esc(l.email)}</a>${l.site ? ` · <a href="${esc(/^https?:/.test(l.site) ? l.site : "https://" + l.site)}" target="_blank" rel="noopener">site</a>` : ""} · ${esc(agoText(l.at))}</small><p>${esc(l.offer)}</p>${l.draft ? `<p class="hint" style="margin:0 0 6px">📝 Offre saisie par la marque : <b>${esc(l.draft.title || "")}</b>${l.draft.kind === "group" ? ` · groupe (${(l.draft.tiers || []).map(t => `-${t.pct} % à ${t.n}`).join(", ")})` : l.draft.code ? ` · code ${esc(l.draft.code)}` : ""}${(l.draft.slots || []).length ? " · créneaux" : ""}</p>` : ""}
+      <div class="dm-cta">${l.draft ? `<button type="button" class="btn primary" data-oapub="${esc(l.id)}">✓ Valider et publier</button>` : ""}<button type="button" class="btn${l.draft ? "" : " primary"}" data-oamake="${esc(l.id)}">${l.draft ? "Vérifier" : "Créer l'offre"}</button></div><button type="button" class="linkbtn" data-oalead="${esc(l.id)}" style="margin-top:6px">Traité ✓ (retirer)</button></div>`).join("") || `<p class="hint">Aucune demande pour l'instant. Partage le formulaire : ${esc(appBase())}g.html#partenaire</p>`}</div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
   f.querySelector("#oaNew").onclick = () => { closeForm(); setTimeout(() => offEdit(null), 220); };
   f.querySelectorAll("[data-oaedit]").forEach(b => b.onclick = () => { closeForm(); setTimeout(() => offEdit(BPLANS.find(o => o.id === b.dataset.oaedit)), 220); });
+  const lead = id => OFF_LEADS.find(l => l.id === id);
+  f.querySelectorAll("[data-oamake]").forEach(b => b.onclick = () => { const l = lead(b.dataset.oamake), d = l.draft || {};
+    closeForm(); setTimeout(() => offEdit({ ...d, partner: l.company, title: d.title || l.offer.slice(0, 100), desc: d.desc || l.offer, url: d.url || (/^https:\/\//.test(l.site) ? l.site : ""), city: d.city || l.city, country: d.country || l.country, kind: d.kind || (l.group ? "group" : "promo"), emoji: d.emoji || "🎁", tiers: d.tiers || [], slots: d.slots || [], status: "on", fromLeadId: l.id, contact: l.email }), 220); });
+  f.querySelectorAll("[data-oapub]").forEach(b => b.onclick = async () => { const l = lead(b.dataset.oapub);
+    try { const r = await offApi("/offers", { fromLead: l.id }); await offRefresh(false); closeForm(); render(); toast(`${l.company} : offre publiée ✓`); setTimeout(() => offMerchantSend(r.offer, l.email), 250); } catch (e) { toast(e.message); } });
+  f.querySelectorAll("[data-oaml]").forEach(b => b.onclick = () => { const o = BPLANS.find(x => x.id === b.dataset.oaml); offMerchantSend(o, o.contact || ""); });
   f.querySelectorAll("[data-oalead]").forEach(b => b.onclick = async () => { try { await offApi("/offers", { leadDone: b.dataset.oalead }); OFF_LEADS = OFF_LEADS.filter(l => l.id !== b.dataset.oalead); closeForm(); setTimeout(offAdminOpen, 220); } catch (e) { toast(e.message); } });
 }
 const slotRow = (sl, i) => `<div class="off-slot" data-si="${i}"><div class="off-days">${[1, 2, 3, 4, 5, 6, 7].map(d => `<button type="button" data-d="${d}" aria-pressed="${(sl.days || []).includes(d)}" title="${DAYS_FR[d]}">${DAYS_S[d]}</button>`).join("")}</div><input class="field" type="time" data-sf value="${esc(sl.from || "")}" aria-label="De"><span>→</span><input class="field" type="time" data-st value="${esc(sl.to || "")}" aria-label="À"></div>`;
@@ -195,9 +224,10 @@ function offEdit(o) {
     <label class="lbl" for="oeDesc">Description</label><textarea class="field" id="oeDesc" rows="3" maxlength="800">${esc(o.desc || "")}</textarea>
     ${fld("oeUrl", "Lien (partenaire ou affilié, https://)", `maxlength="500" value="${esc(o.url || "")}"`)}
     <div class="two"><div>${fld("oeCode", "Code promo", `maxlength="30" value="${esc(o.code || "")}"`)}</div><div>${fld("oeUntil", "Jusqu'au", `type="date" value="${esc(o.until || "")}"`)}</div></div>
-    <div id="oeTiers" ${kind === "group" ? "" : "hidden"}><span class="lbl">Paliers (personnes, réduction, code donné aux partants)</span>${tiers.map(tierRow).join("")}</div>
+    <div id="oeTiers" ${kind === "group" ? "" : "hidden"}><span class="lbl">Paliers (personnes, réduction, code donné aux partants)</span>${tiers.map(tierRow).join("")}
+      ${fld("oeDays", "Délai pour réunir un groupe (jours)", `type="number" min="1" max="60" value="${esc(o.groupDays || 7)}"`)}</div>
     <label class="lbl" for="oeCountry">Pays</label><select class="field" id="oeCountry"><option value="">🌍 Tous les pays (offre internationale en ligne)</option>${[...new Set([o.country, myCountry(), ...OFF_COUNTRIES].filter(Boolean))].map(c => `<option value="${c}" ${c === (o.id ? o.country : myCountry()) ? "selected" : ""}>${flag(c)} ${esc(countryName(c))}</option>`).join("")}</select>
-    <div class="two"><div>${fld("oeCity", "Ville (vide = tout le pays)", `maxlength="60" placeholder="ex. Lyon" value="${esc(o.city || "")}"`)}</div><div>${fld("oeCat", "Catégorie", `maxlength="30" placeholder="Resto, Sport…" value="${esc(o.cat || "")}"`)}</div></div>
+    <div class="two"><div>${fld("oeCity", "Ville (vide = tout le pays)", `maxlength="60" placeholder="ex. Lyon" value="${esc(o.city || "")}"`)}</div><div><label class="lbl" for="oeCat">Catégorie</label><select class="field" id="oeCat"><option value="">—</option>${OFF_CATS.map(c => `<option ${o.cat === c ? "selected" : ""}>${esc(c)}</option>`).join("")}</select></div></div>
     <span class="lbl">Créneaux horaires (facultatif : l'offre ne vaut qu'à ces moments)</span><div id="oeSlots">${(o.slots && o.slots.length ? o.slots : []).concat([{ days: [] }]).map((sl, i) => slotRow(sl, i)).join("")}</div>
     <button type="button" class="linkbtn" id="oeSlotAdd">+ Un autre créneau</button>
     <label class="chk"><input type="checkbox" id="oeBook" ${o.book ? "checked" : ""}> Réservation : « Je réserve » sur les créneaux, le commerçant confirme ou refuse</label>
@@ -211,7 +241,7 @@ function offEdit(o) {
     (async () => {
       try {
         const slots = [...document.querySelectorAll("#oeSlots .off-slot")].map(r => ({ days: [...r.querySelectorAll("[data-d][aria-pressed=true]")].map(x => +x.dataset.d), from: r.querySelector("[data-sf]").value, to: r.querySelector("[data-st]").value })).filter(x => x.days.length && x.from && x.to);
-        await offApi("/offers", { id: o.id || "", slots, book: document.getElementById("oeBook").checked, kind, partner: v("oePartner"), emoji: v("oeEmoji"), title: v("oeTitle"), desc: v("oeDesc"), url: v("oeUrl"), code: v("oeCode"), until: v("oeUntil"), cat: v("oeCat"), city: v("oeCity"), country: document.getElementById("oeCountry").value, featured: document.getElementById("oeFeat").checked, status: document.getElementById("oeOff").checked ? "off" : "on", tiers: kind === "group" ? tl : [] });
+        await offApi("/offers", { id: o.id || "", slots, book: document.getElementById("oeBook").checked, kind, partner: v("oePartner"), emoji: v("oeEmoji"), title: v("oeTitle"), desc: v("oeDesc"), url: v("oeUrl"), code: v("oeCode"), until: v("oeUntil"), cat: document.getElementById("oeCat").value, groupDays: +v("oeDays") || 7, fromLeadId: o.fromLeadId || "", contact: o.contact || "", city: v("oeCity"), country: document.getElementById("oeCountry").value, featured: document.getElementById("oeFeat").checked, status: document.getElementById("oeOff").checked ? "off" : "on", tiers: kind === "group" ? tl : [] });
         await offRefresh(false); render(); toast("Offre enregistrée"); setTimeout(offAdminOpen, 250);
       } catch (e) { toast(e.message); setTimeout(() => offEdit({ ...o, kind, partner: v("oePartner"), title: v("oeTitle"), desc: v("oeDesc"), url: v("oeUrl"), code: v("oeCode"), until: v("oeUntil"), city: v("oeCity"), country: document.getElementById("oeCountry").value, tiers: tl }), 300); }
     })();
@@ -226,10 +256,10 @@ function offEdit(o) {
 }
 
 // Réserver un créneau : le commerçant reçoit la demande et la confirme ou la refuse
-function offBook(o, back) {
+function offBook(o, back, sq) {
   const dates = offBookDates(o); if (!dates.length) { toast("Plus de créneau disponible ces 15 prochains jours"); return; }
   const u = store && store.user ? store.user() : {};
-  const f = openForm(`<div class="f2"><h3>📅 Réserver · ${esc(o.partner)}</h3><p class="hint" style="margin:0 0 8px">${esc(o.title)} · ${o.slots.map(slotTxt).map(esc).join(" ; ")}</p>
+  const f = openForm(`<div class="f2"><h3>📅 Réserver · ${esc(o.partner)}</h3><p class="hint" style="margin:0 0 8px">${esc(o.title)} · ${o.slots.map(slotTxt).map(esc).join(" ; ")}${sq ? ` · <b>pour le groupe (${sq.in} personnes)</b>` : ""}</p>
     <span class="lbl">Quel jour ?</span><div class="chips" id="bkDays">${dates.map((d, i) => `<button type="button" class="chip" data-di="${i}" aria-pressed="${i === 0}">${esc(bkDay(d.iso))}</button>`).join("")}</div>
     <span class="lbl">À quelle heure ?</span><div class="chips" id="bkTimes"></div>
     <div class="two"><div>${fld("bkPeople", "Nombre de personnes", `type="number" min="1" max="50" value="1"`)}</div><div>${fld("bkName", "À quel nom ?", `maxlength="40" value="${esc(favFirst(u.name || ""))}"`)}</div></div>
@@ -237,7 +267,7 @@ function offBook(o, back) {
     <p class="hint" style="margin:8px 0 0">${esc(o.partner)} confirme ou refuse ta demande : tu es prévenu dans l'appli.</p></div>`, () => {
     if (!time) { toast("Choisis l'heure"); return false; }
     (async () => {
-      try { const r = await offApi("/offers/" + o.id, { action: "book", date: dates[di].iso, time, people: +document.getElementById("bkPeople").value || 1, name: document.getElementById("bkName").value.trim(), note: document.getElementById("bkNote").value.trim() }); o.mybk = r.mybk; offBkSeenMark(); toast(`Demande envoyée à ${o.partner} : tu seras prévenu de sa réponse`); if (back) setTimeout(back, 250); }
+      try { const r = await offApi("/offers/" + o.id, { action: "book", ...(sq ? { sid: sq.sid } : {}), date: dates[di].iso, time, people: +document.getElementById("bkPeople").value || 1, name: document.getElementById("bkName").value.trim(), note: document.getElementById("bkNote").value.trim() }); o.mybk = r.mybk; if (r.offer) Object.assign(o, r.offer); offBkSeenMark(); toast(`Demande envoyée à ${o.partner} : tu seras prévenu de sa réponse`); if (back) setTimeout(back, 250); }
       catch (e) { toast(e.message); }
     })();
   });
@@ -364,10 +394,11 @@ function renderBons() {
   if (!offLoaded) { view.innerHTML = banner + `<div class="card"><div class="empty">Chargement des bons plans…</div></div>`; if (!offRefresh.busy) { offRefresh.busy = true; offRefresh(false).then(() => { if (tab === "bons") render(); }); } return; }
   const vis = offSort(BPLANS.filter(o => o.status !== "off" && offVisible(o)));
   const top = vis.slice().sort((a, b) => !!(offTimed(b) && offNow(b)) - !!(offTimed(a) && offNow(a)) || offLocal(b) - offLocal(a) || b.featured - a.featured).slice(0, 8);
-  view.innerHTML = banner + (top.length ? `<div class="off-carousel">${top.map(offBigCardHTML).join("")}</div>` : "") + offNowHTML();
+  view.innerHTML = banner + (top.length ? `<div class="off-carousel">${top.map(offBigCardHTML).join("")}</div>` : "") + `<button type="button" class="off-where" id="offAlert">🔔 ${settings.offAlert ? `Alerte nouveaux bons plans activée${myCity() ? ` · ${esc(myCity())}` : ""} · régler` : "Être prévenu des nouveaux bons plans près de chez moi ›"}</button>` + offNowHTML();
   offListRender(view, offState.focus, offState.filter);
   view.querySelectorAll("[data-ofocus]").forEach(b => b.onclick = () => { const el = document.getElementById("off-" + b.dataset.ofocus); if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); offApi("/offers/" + b.dataset.ofocus, { action: "view" }).catch(() => {}); } });
   view.querySelectorAll(".off-nowlist [data-oopen]").forEach(b => b.onclick = () => offersOpen(b.dataset.oopen));
+  view.querySelector("#offAlert").onclick = () => offAlertsOpen();
 }
 // Dans « Entre proches » : juste un petit rappel vers l'onglet Bons plans
 function offTeaserHTML() {
@@ -375,4 +406,91 @@ function offTeaserHTML() {
   const vis = BPLANS.filter(o => o.status !== "off" && offVisible(o)), now = vis.filter(o => offTimed(o) && offNow(o));
   if (!vis.length) return "";
   return `<button type="button" class="off-teaser" data-oall>🎁 <span>${now.length ? `<b>${now.length} bon${now.length > 1 ? "s" : ""} plan${now.length > 1 ? "s" : ""} en ce moment</b> près de chez toi` : `<b>${vis.length} bon${vis.length > 1 ? "s" : ""} plan${vis.length > 1 ? "s" : ""}</b> pour sortir entre proches`}</span><span class="pm-chev">›</span></button>`;
+}
+
+// ---------- Réunir ses amis autour d'une offre de groupe ----------
+function sqLeft(sq) { const ms = sq.deadline - Date.now(); if (ms <= 0) return "délai dépassé"; const d = Math.floor(ms / 864e5), h = Math.floor(ms % 864e5 / 36e5); return d >= 1 ? `encore ${d} j ${h} h` : `encore ${h} h ${Math.floor(ms % 36e5 / 6e4)} min`; }
+function sqPeoplePicker(f, boxSel, findSel, resSel, pick, exclude) {
+  const tog = b => { const t = b.dataset.tag; pick.has(t) ? pick.delete(t) : pick.add(t); b.setAttribute("aria-pressed", pick.has(t)); };
+  f.querySelectorAll(`${boxSel} [data-tag]`).forEach(b => b.onclick = () => tog(b));
+  tagPicker(f.querySelector(findSel), f.querySelector(resSel), (tag, nm) => {
+    if ((exclude || new Set()).has(tag)) { toast(`@${tag} est déjà dans le groupe`); return; }
+    let b = f.querySelector(`${boxSel} [data-tag="${tag}"]`);
+    if (!b) { const c = f.querySelector(boxSel); c.insertAdjacentHTML("beforeend", `<button type="button" class="chip" data-tag="${esc(tag)}" aria-pressed="false">${esc(nm || "@" + tag)}</button>`); b = c.lastElementChild; b.onclick = () => tog(b); }
+    if (!pick.has(tag)) tog(b); f.querySelector(findSel).value = "";
+  });
+}
+function squadNew(o, back) {
+  const tiers = o.tiers.slice().sort((a, b) => a.n - b.n), pick = new Set(), people = prochesTagged().slice(0, 14);
+  let n = tiers[0].n, days = 7;
+  const f = openForm(`<div class="f2"><h3>🙋 Je réunis mes amis</h3><p class="hint" style="margin:0 0 8px">${esc(o.emoji)} ${esc(o.partner)} · ${esc(o.title)}</p>
+    <span class="lbl">Combien serez-vous ?</span><div class="chips" id="sqN">${tiers.map(t => `<button type="button" class="chip" data-n="${t.n}" aria-pressed="${t.n === n}">${t.n} personnes · -${t.pct} %</button>`).join("")}</div>
+    <span class="lbl">Qui inviter ?</span><div class="chips" id="sqP">${people.map(p => `<button type="button" class="chip" data-tag="${esc(p.tag)}" aria-pressed="false">${esc(p.name || "@" + p.tag)}</button>`).join("")}</div>
+    <input class="field" id="sqFind" placeholder="Chercher un @tag…" autocapitalize="off" spellcheck="false" autocomplete="off" style="margin-top:8px"><div id="sqRes"></div>
+    <span class="lbl">Date limite pour réunir le groupe</span><div class="chips" id="sqD">${[3, 7, 14].map(d => `<button type="button" class="chip" data-d="${d}" aria-pressed="${d === days}">${d} jours</button>`).join("")}</div>
+    <p class="hint" style="margin:8px 0 0">Tes amis reçoivent l'invitation dans l'appli et une discussion de groupe s'ouvre pour vous organiser. Une fois le groupe complet, le code se débloque${o.book ? " et vous réservez ensemble" : ""}. Ceux qui n'ont pas l'appli : partage-leur le lien.</p></div>`, () => {
+    (async () => {
+      try { const r = await offApi("/offers/" + o.id, { action: "squad", n, days, tags: [...pick], name: typeof ensName === "function" ? ensName() : "" }); Object.assign(o, r.offer); toast(pick.size ? `Groupe lancé : ${pick.size} invitation${pick.size > 1 ? "s" : ""} envoyée${pick.size > 1 ? "s" : ""}` : "Groupe lancé : invite tes amis"); if (typeof ensRefresh === "function") ensRefresh(); if (back) setTimeout(back, 250); }
+      catch (e) { toast(e.message); }
+    })();
+  });
+  f.querySelector("button[type=submit]").textContent = "Lancer le groupe";
+  f.querySelectorAll("#sqN [data-n]").forEach(b => b.onclick = () => { n = +b.dataset.n; f.querySelectorAll("#sqN [data-n]").forEach(x => x.setAttribute("aria-pressed", x === b)); });
+  f.querySelectorAll("#sqD [data-d]").forEach(b => b.onclick = () => { days = +b.dataset.d; f.querySelectorAll("#sqD [data-d]").forEach(x => x.setAttribute("aria-pressed", x === b)); });
+  sqPeoplePicker(f, "#sqP", "#sqFind", "#sqRes", pick);
+}
+function squadInvite(o, back) {
+  const sq = o.squad, inSq = new Set(sq.members.map(m => m.tag)), pick = new Set(), people = prochesTagged().filter(p => !inSq.has(p.tag)).slice(0, 14);
+  const f = openForm(`<div class="f2"><h3>Inviter au groupe</h3><p class="hint" style="margin:0 0 8px">${sq.in} sur ${sq.n} partants · ${esc(sqLeft(sq))}</p>
+    <div class="chips" id="siP">${people.map(p => `<button type="button" class="chip" data-tag="${esc(p.tag)}" aria-pressed="false">${esc(p.name || "@" + p.tag)}</button>`).join("")}</div>
+    <input class="field" id="siFind" placeholder="Chercher un @tag…" autocapitalize="off" spellcheck="false" autocomplete="off" style="margin-top:8px"><div id="siRes"></div>
+    <button type="button" class="btn" id="siLink" style="width:100%;margin-top:10px">🔗 Envoyer le lien à quelqu'un sans l'appli</button></div>`, () => {
+    if (!pick.size) { toast("Choisis au moins une personne"); return false; }
+    (async () => { try { const r = await offApi("/offers/" + o.id, { action: "sqinvite", sid: sq.sid, tags: [...pick] }); Object.assign(o, r.offer); toast(r.invited ? `${r.invited} invitation${r.invited > 1 ? "s" : ""} envoyée${r.invited > 1 ? "s" : ""}` : "Déjà dans le groupe"); if (back) setTimeout(back, 250); } catch (e) { toast(e.message); } })();
+  });
+  f.querySelector("button[type=submit]").textContent = "Inviter";
+  sqPeoplePicker(f, "#siP", "#siFind", "#siRes", pick, inSq);
+  f.querySelector("#siLink").onclick = () => shareText(`${o.emoji} ${o.partner} : ${o.title}. On se fait ça ? Il faut ${sq.n} personnes, on est déjà ${sq.in} :`, appBase() + "?offre=" + o.id, "Lien copié");
+}
+// ---------- Avis après la visite ----------
+function offReview(o, back) {
+  let stars = (o.myReview || {}).stars || 0;
+  const f = openForm(`<div class="f2"><h3>⭐ Ton avis sur ${esc(o.partner)}</h3>
+    <div class="rev-stars" id="rvS">${[1, 2, 3, 4, 5].map(i => `<button type="button" data-s="${i}" aria-label="${i} étoile${i > 1 ? "s" : ""}">${i <= stars ? "★" : "☆"}</button>`).join("")}</div>
+    <label class="lbl" for="rvT">Un petit mot (facultatif)</label><textarea class="field" id="rvT" rows="3" maxlength="300" placeholder="Accueil, ambiance, qualité…">${esc((o.myReview || {}).text || "")}</textarea>
+    <p class="hint" style="margin:6px 0 0">Ton avis est visible par les autres utilisateurs, avec ton prénom.</p></div>`, () => {
+    if (!stars) { toast("Choisis une note"); return false; }
+    (async () => { try { const r = await offApi("/offers/" + o.id, { action: "review", stars, text: document.getElementById("rvT").value.trim(), name: typeof ensName === "function" ? ensName() : "" }); Object.assign(o, r.offer); toast("Merci pour ton avis ⭐"); if (back) setTimeout(back, 250); } catch (e) { toast(e.message); } })();
+  });
+  f.querySelector("button[type=submit]").textContent = "Publier mon avis";
+  const draw = () => f.querySelectorAll("#rvS [data-s]").forEach(b => b.textContent = +b.dataset.s <= stars ? "★" : "☆");
+  f.querySelectorAll("#rvS [data-s]").forEach(b => b.onclick = () => { stars = +b.dataset.s; draw(); });
+}
+// ---------- Alerte « nouveaux bons plans dans ma ville » ----------
+async function offAlertsOpen() {
+  if (!(typeof socOn === "function" && socOn())) { toast("Connecte-toi avec Google ou Microsoft pour recevoir les alertes"); return; }
+  if (!myCity()) { offCityAsk(() => offAlertsOpen()); return; }
+  let st = { on: false }, cats = []; try { const j = await offApi("/offers/alerts"); st = j.alerts || st; cats = j.cats || []; } catch (e) { toast(e.message); return; }
+  const sel = new Set(st.cats || []);
+  const f = openForm(`<div class="f2"><h3>🔔 Alerte nouveaux bons plans</h3><p class="hint" style="margin:0 0 8px">Reçois une notification quand un nouveau bon plan arrive à <b>${esc(myCity())}</b>. Pour ça, ta ville est enregistrée sur le serveur de Bourselle, uniquement pour cette alerte.</p>
+    <span class="lbl">Ce qui t'intéresse (rien de coché = tout)</span><div class="chips" id="alC">${cats.map(c => `<button type="button" class="chip" data-c="${esc(c)}" aria-pressed="${sel.has(c)}">${esc(c)}</button>`).join("")}</div>
+    ${typeof pushNudgeHTML === "function" ? pushNudgeHTML() : ""}
+    ${st.on ? `<button type="button" class="linkbtn" id="alOff" style="margin-top:10px;color:var(--bad)">Désactiver l'alerte</button>` : ""}</div>`, () => {
+    (async () => { try { await offApi("/offers/alerts", { on: true, city: myCity(), country: myCountry(), cats: [...sel] }); settings.offAlert = true; saveSettings(); toast(`🔔 Alerte activée pour ${myCity()}`); render(); } catch (e) { toast(e.message); } })();
+  });
+  f.querySelector("button[type=submit]").textContent = st.on ? "Mettre à jour" : "Activer l'alerte";
+  if (typeof pushNudgeBind === "function") pushNudgeBind(f);
+  f.querySelectorAll("#alC [data-c]").forEach(b => b.onclick = () => { const c = b.dataset.c; sel.has(c) ? sel.delete(c) : sel.add(c); b.setAttribute("aria-pressed", sel.has(c)); });
+  const off = f.querySelector("#alOff"); if (off) off.onclick = async () => { try { await offApi("/offers/alerts", { on: false }); settings.offAlert = false; saveSettings(); closeForm(); render(); toast("Alerte désactivée"); } catch (e) { toast(e.message); } };
+}
+
+// Envoyer au commerçant le lien de son espace (statistiques, réservations) : par e-mail si on l'a, sinon partage
+function offMerchantSend(o, email) {
+  if (!o || !o.mlink) return;
+  const url = offMerchantLink(o), txt = `Bonjour,\n\nVotre offre « ${o.title} » est en ligne sur Bourselle.\nVoici votre espace commerçant (gardez ce lien pour vous) : vous y voyez chaque semaine les vues, les clics, les personnes partantes, les réservations et les avis${o.book ? ", et vous confirmez les réservations" : ""}.\n\n${url}\n\nÀ bientôt !`;
+  const f = openForm(`<div class="f2"><h3>📊 Espace commerçant · ${esc(o.partner)}</h3><p class="hint" style="margin:0 0 8px">Envoie ce lien au commerçant : il y suit ses statistiques et ses réservations, sans compte.</p>
+    <div class="off-code"><b style="font-size:.78rem;letter-spacing:0;word-break:break-all">${esc(url)}</b></div>
+    <div class="dm-cta">${email ? `<a class="btn primary" href="mailto:${esc(email)}?subject=${encodeURIComponent("Votre espace Bourselle")}&body=${encodeURIComponent(txt)}">✉️ Par e-mail</a>` : ""}<button type="button" class="btn" id="omShare">Partager</button></div></div>`, () => true);
+  f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
+  f.querySelector("#omShare").onclick = () => shareText(txt.replace(url, "").trim(), url, "Lien copié");
 }

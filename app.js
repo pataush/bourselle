@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "93";
+const APP_VERSION = "94";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -282,6 +282,10 @@ function alertsAll() {
   try {
     const mk = cur.y + "-" + String(cur.m).padStart(2, "0");
     if (typeof SOC !== "undefined" && (SOC.reminders || []).length) add("rem", "accueil", "Rappels reçus", SOC.reminders.filter(r => !remResolved(r)).map(r => ({ k: "rem:" + r.id, rem: r.id, t: `${r.from || "Quelqu'un"} : ${r.msg || `merci de régler ${fmtCur(r.amt, r.cur)}`}`, s: `${r.title || ""}${r.amt ? " · " + fmtCur(r.amt, r.cur) : ""} · ${agoText(r.at)}`, warn: !!r.warn, g: r.kind === "g" ? r.ref : "", deal: r.kind === "d" ? r.ref : "", chal: r.kind === "chal" ? r.ref : "", act: r.kind === "act" ? r.ref : "", go: r.kind === "chal" ? "Voir" : "Régler" })), true);
+    if (typeof BPLANS !== "undefined") {
+      add("sqinv", "bons", "Invitations bons plans", BPLANS.filter(o => o.squad && o.squad.st === "inv" && !o.squad.expired).map(o => ({ k: `sq:${o.squad.sid}`, offer: o.id, t: `${o.emoji} ${o.partner} · ${o.title}`, s: `${favFirst(o.squad.ownerName)} t'invite · ${o.squad.in} sur ${o.squad.n}`, go: "Voir" })), true);
+      if (OFF_ADMIN) add("leads", "bons", "Demandes des marques", OFF_LEADS.map(l => ({ k: `lead:${l.id}`, leads: 1, t: l.company, s: (l.draft ? "📝 Offre à valider · " : "") + l.offer.slice(0, 70), go: "Voir" })), true);
+    }
     if (typeof DMS !== "undefined") add("dm", "accueil", "Messages", DMS.filter(t => t.unread).map(t => ({ k: `dm:${chatKey(t)}:${t.last.id}`, dm: t.tag || "", gc: t.gid || "", t: `${chatTitle(t)} · ${t.unread} message${t.unread > 1 ? "s" : ""}`, s: t.last.kind === "idea" ? "💡 " + t.last.idea.title : (t.last.text || "").slice(0, 70), go: "Répondre" })), true);
     if (typeof ACTS !== "undefined") add("act", "accueil", "Activités ensemble", ACTS.filter(a => a.status === "open").flatMap(a => {
       const me = a.members.find(m => m.id === a.me), out = [];
@@ -345,6 +349,8 @@ function alertGo(a, x) {
     if (x && x.chal && typeof chalOpen === "function") return chalOpen(x.chal);
     if (x && x.act && typeof actOpen === "function") return actOpen(x.act);
     if (x && x.gc && typeof gcOpen === "function") return gcOpen(x.gc);
+    if (x && x.offer && typeof offersOpen === "function") return offersOpen(x.offer);
+    if (x && x.leads && typeof offAdminOpen === "function") return offAdminOpen();
     if (x && x.dm && typeof dmOpen === "function") return dmOpen(x.dm);
     if (x && x.pj) return showProject(x.pj);
     if (x && x.sub) { switchTab("abos"); return editSub(x.sub); }
