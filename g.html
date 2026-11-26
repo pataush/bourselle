@@ -160,8 +160,9 @@
       main.querySelectorAll("[data-pk]").forEach(b => b.onclick = async () => { await ensureMe(false); const m = J.chat.msgs.find(x => x.id === b.dataset.pk), cur = new Set(((m.picks || {})["g:" + id.gid]) || []), i = +b.dataset.i; cur.has(i) ? cur.delete(i) : cur.add(i); await post({ action: "pick", mid: m.id, picks: [...cur] }); draw(); });
       $("gqPlGo").onclick = async () => {
         const v = $("gqPlace").value.trim(); if (v.length < 2) return;
-        let res = []; try { res = await (await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=5&accept-language=${EN ? "en" : "fr"}&q=${encodeURIComponent(v)}`)).json(); } catch (e) {}
-        const list = [{ name: v, addr: "" }, ...res.map(x => ({ name: x.name || x.display_name.split(",")[0], addr: x.display_name.split(",").slice(1, 4).join(",").trim(), lat: +x.lat, lon: +x.lon }))];
+        const ctr = [...J.chat.msgs].reverse().find(m => m.kind === "place" && m.place && m.place.lat); let res = [];
+        try { res = (await (await fetch(`https://photon.komoot.io/api/?limit=5&lang=${EN ? "en" : "fr"}&q=${encodeURIComponent(v)}${ctr ? `&lat=${ctr.place.lat}&lon=${ctr.place.lon}` : ""}`)).json()).features.map(x => { const p = x.properties, c = x.geometry.coordinates; return { name: p.name || [p.housenumber, p.street].filter(Boolean).join(" ") || p.city, addr: [p.name ? [p.housenumber, p.street].filter(Boolean).join(" ") : "", [p.postcode, p.city].filter(Boolean).join(" ")].filter(Boolean).join(", "), lat: c[1], lon: c[0] }; }).filter(x => x.name); } catch (e) {}
+        const list = [{ name: v, addr: "" }, ...res];
         $("gqPlRes").innerHTML = list.map((p, i) => `<button class="btn gq-pl" data-pl="${i}">📍 ${esc(p.name)}${p.addr ? ` <small>${esc(p.addr)}</small>` : ""}</button>`).join("");
         main.querySelectorAll("[data-pl]").forEach(b => b.onclick = async () => { await ensureMe(false); await post({ place: list[+b.dataset.pl] }); draw(); });
       };

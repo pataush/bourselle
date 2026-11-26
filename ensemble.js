@@ -404,17 +404,36 @@ function icsDownload(title, x, ctx) {
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([ics], { type: "text/calendar" })); a.download = "sortie.ics"; document.body.append(a); a.click(); setTimeout(() => a.remove(), 500);
 }
 // Chercher un lieu : d'abord nos partenaires avec un bon plan, puis la carte (OpenStreetMap)
+// Recherche de lieux : Google (si la clé est posée sur le serveur), sinon Photon (OpenStreetMap), centré sur ta ville
+let PLACE_SRC = "";
+async function placeCenter() {
+  const c = typeof myCity === "function" ? myCity() : ""; if (!c) return null;
+  try { const m = JSON.parse(localStorage.getItem("bourselle-citypos") || "null"); if (m && m.c === c) return m; } catch (e) {}
+  try { const j = await (await fetch("https://photon.komoot.io/api/?limit=1&q=" + encodeURIComponent(c))).json(); const g = j.features[0].geometry.coordinates; const m = { c, lat: g[1], lon: g[0] }; localStorage.setItem("bourselle-citypos", JSON.stringify(m)); return m; } catch (e) { return null; }
+}
+async function placeLookup(v, sess) {
+  const ctr = await placeCenter();
+  if (PLACE_SRC !== "osm" && typeof socOn === "function" && socOn()) {
+    try { const j = await socApi("/me/places", { method: "POST", body: JSON.stringify({ q: v, s: sess, lat: ctr && ctr.lat, lon: ctr && ctr.lon, lang: window.LANG === "en" ? "en" : "fr" }) });
+      if (j.src === "google") { PLACE_SRC = "google"; return j.res.map(x => ({ name: x.name, addr: x.addr, gid: x.id })); } PLACE_SRC = "osm"; } catch (e) { PLACE_SRC = "osm"; }
+  }
+  try {
+    const j = await (await fetch(`https://photon.komoot.io/api/?limit=6&lang=${window.LANG === "en" ? "en" : "fr"}&q=${encodeURIComponent(v)}${ctr ? `&lat=${ctr.lat}&lon=${ctr.lon}` : ""}`)).json();
+    return j.features.map(x => { const p = x.properties, c = x.geometry.coordinates; return { name: p.name || [p.housenumber, p.street].filter(Boolean).join(" ") || p.city, addr: [p.name ? [p.housenumber, p.street].filter(Boolean).join(" ") : "", [p.postcode, p.city].filter(Boolean).join(" ")].filter(Boolean).join(", "), lat: c[1], lon: c[0] }; }).filter(x => x.name);
+  } catch (e) { return []; }
+}
+async function placeDetail(id, sess) { try { const j = await socApi("/me/place", { method: "POST", body: JSON.stringify({ id, s: sess }) }); return { addr: j.addr || "", lat: j.lat, lon: j.lon }; } catch (e) { return {}; } }
 function placeSearch(onPick) {
   const f = openForm(`<div class="f2"><h3>📍 Proposer un lieu</h3><input class="field" id="psQ" placeholder="ex. bar Versailles, Le Comptoir…" autocomplete="off"><div id="psRes" class="ps-res"></div>
-    <p class="hint" style="margin:8px 0 0">Résultats de la carte : © OpenStreetMap. Les partenaires Bourselle avec un bon plan apparaissent en premier.</p></div>`, () => true);
+    <p class="hint" style="margin:8px 0 0" id="psSrc">Les partenaires Bourselle avec un bon plan apparaissent en premier.</p></div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true;
-  const q = f.querySelector("#psQ"), res = f.querySelector("#psRes"); let timer = null, seq = 0;
+  const q = f.querySelector("#psQ"), res = f.querySelector("#psRes"), sess = Math.random().toString(36).slice(2) + Date.now().toString(36); let timer = null, seq = 0;
   const draw = (partners, places) => {
     res.innerHTML = partners.map((o, i) => `<button type="button" class="pm-row" data-pp="${i}"><span class="pm-ic">${esc(o.emoji || "🎁")}</span><span class="pm-t"><b>${esc(o.partner)}</b><small>🎁 ${esc(o.title)}${o.city ? " · " + esc(o.city) : ""}</small></span></button>`).join("")
       + places.map((p, i) => `<button type="button" class="pm-row" data-pl="${i}"><span class="pm-ic">📍</span><span class="pm-t"><b>${esc(p.name)}</b><small>${esc(p.addr)}</small></span></button>`).join("")
       + (q.value.trim().length > 1 ? `<button type="button" class="pm-row" data-free="1"><span class="pm-ic">✏️</span><span class="pm-t"><b>« ${esc(q.value.trim())} »</b><small>Proposer ce nom tel quel</small></span></button>` : "");
     res.querySelectorAll("[data-pp]").forEach(b => b.onclick = () => { const o = partners[+b.dataset.pp]; closeForm(); onPick({ name: o.partner, addr: o.city || "", offer: o.id }); });
-    res.querySelectorAll("[data-pl]").forEach(b => b.onclick = () => { const p = places[+b.dataset.pl]; const o = typeof BPLANS !== "undefined" ? BPLANS.find(x => cityKey(x.partner) && cityKey(p.name).includes(cityKey(x.partner))) : null; closeForm(); onPick({ ...p, offer: o ? o.id : "" }); });
+    res.querySelectorAll("[data-pl]").forEach(b => b.onclick = async () => { let p = places[+b.dataset.pl]; if (p.gid) p = { ...p, ...(await placeDetail(p.gid, sess)) }; delete p.gid; const o = typeof BPLANS !== "undefined" ? BPLANS.find(x => cityKey(x.partner) && cityKey(p.name).includes(cityKey(x.partner))) : null; closeForm(); onPick({ ...p, offer: o ? o.id : "" }); });
     const fr = res.querySelector("[data-free]"); if (fr) fr.onclick = () => { closeForm(); onPick({ name: q.value.trim(), addr: "" }); };
   };
   q.addEventListener("input", () => {
@@ -423,12 +442,9 @@ function placeSearch(onPick) {
     draw(partners, []);
     if (v.length < 3) return;
     timer = setTimeout(async () => {
-      try {
-        const r = await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&accept-language=${window.LANG === "en" ? "en" : "fr"}&q=${encodeURIComponent(v + (myCity() && !cityKey(v).includes(cityKey(myCity())) ? " " + myCity() : ""))}`);
-        const j = await r.json(); if (my !== seq) return;
-        draw(partners, j.map(x => ({ name: x.name || x.display_name.split(",")[0], addr: x.display_name.split(",").slice(1, 4).join(",").trim(), lat: +x.lat, lon: +x.lon })));
-      } catch (e) {}
-    }, 450);
+      const places = await placeLookup(v, sess); if (my !== seq) return;
+      draw(partners, places); const h = f.querySelector("#psSrc"); if (h) h.textContent = (PLACE_SRC === "google" ? "Résultats : Google Maps. " : "Résultats : © OpenStreetMap. ") + "Les partenaires Bourselle avec un bon plan apparaissent en premier.";
+    }, 350);
   });
   setTimeout(() => q.focus(), 80);
 }

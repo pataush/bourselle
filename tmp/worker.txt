@@ -1515,6 +1515,26 @@ async function social(req, env, url, cors) {
     notify(env, [em], lang => ({ title: "👋 Bourselle", body: lang === "en" ? `${nm} added you to their people. Add them back?` : `${nm} t'a ajouté à ses proches. Ajoute-le à ton tour ?`, url: "./?add=" + mt, tag: "add-" + mt }));
     return json({ ok: true }, 200, cors);
   }
+  // Recherche de lieux via Google (clé GOOGLE_PLACES_KEY posée en secret sur Cloudflare) ; sans clé, l'appli utilise OpenStreetMap
+  if (path === "/me/places" && req.method === "POST") {
+    const key = env.GOOGLE_PLACES_KEY; if (!key) return json({ src: "none" }, 200, cors);
+    const q = String(body.q || "").slice(0, 100).trim(); if (q.length < 2) return json({ src: "google", res: [] }, 200, cors);
+    const rq = { input: q, languageCode: body.lang === "en" ? "en" : "fr", sessionToken: String(body.s || "").slice(0, 60) || undefined };
+    if (Number.isFinite(body.lat) && Number.isFinite(body.lon)) rq.locationBias = { circle: { center: { latitude: body.lat, longitude: body.lon }, radius: 30000 } };
+    const r = await fetch("https://places.googleapis.com/v1/places:autocomplete", { method: "POST", headers: { "Content-Type": "application/json", "X-Goog-Api-Key": key }, body: JSON.stringify(rq) });
+    if (!r.ok) return json({ src: "none" }, 200, cors);
+    const j = await r.json();
+    const res = (j.suggestions || []).filter(x => x.placePrediction).slice(0, 6).map(x => { const p = x.placePrediction, f = p.structuredFormat || {}; return { id: p.placeId, name: (f.mainText || {}).text || (p.text || {}).text || "", addr: (f.secondaryText || {}).text || "" }; });
+    return json({ src: "google", res }, 200, cors);
+  }
+  if (path === "/me/place" && req.method === "POST") {
+    const key = env.GOOGLE_PLACES_KEY, id = String(body.id || ""); if (!key || !/^[\w-]{10,300}$/.test(id)) return json({}, 200, cors);
+    const s = String(body.s || "").slice(0, 60);
+    const r = await fetch(`https://places.googleapis.com/v1/places/${id}?languageCode=fr${s ? "&sessionToken=" + encodeURIComponent(s) : ""}`, { headers: { "X-Goog-Api-Key": key, "X-Goog-FieldMask": "formattedAddress,location" } });
+    if (!r.ok) return json({}, 200, cors);
+    const j = await r.json();
+    return json({ addr: j.formattedAddress || "", lat: j.location && j.location.latitude, lon: j.location && j.location.longitude }, 200, cors);
+  }
   if (path === "/me/claim" && req.method === "POST") return json(await claimInvite(env, me, body.c), 200, cors);
   if (path === "/me/reminders") {
     const l = await kvJ(env, "rem:" + me.email, []) || [];
