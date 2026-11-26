@@ -321,7 +321,7 @@ function socDebtLine(x) {
 async function socSendClaim(id) {
   const d = debts[id]; if (!d || d.claim || !d.claimTo) return;
   try {
-    const r = await socApi("/claims", { method: "POST", body: JSON.stringify({ kind: "req", to: d.claimTo, amount: d.amount, cur: baseCurrency(), name: d.name, note: d.note, due: d.due, plus: settings.licence || "" }) });
+    const r = await socApi("/claims", { method: "POST", body: JSON.stringify({ kind: "req", to: d.claimTo, amount: d.amount, cur: d.cur || baseCurrency(), name: d.name, note: d.note, due: d.due, plus: settings.licence || "" }) });
     d.claim = r.id; d.claimStatus = r.status; saveDebts(); SOC.out.unshift(r); render();
     toast(`Demande envoyée à @${d.claimTo}`); if (!isPlus() && SOC.quota) SOC.quota.used++;
   } catch (e) { toast(e.message); if (e.status === 402) showPlus("claim"); }
@@ -336,7 +336,7 @@ function socSendShares(gid, label, amount, order, date, owed) {
   for (const m of targets) {
     const key = newId();
     debts[key] = { kind: "medoit", name: `${g.name} : ${label}`.slice(0, 60), who: m.name, amount: shareOf(m.id), due: "", note: `Partage « ${g.name} »`, payments: [], created: Date.now(),
-      claimTo: m.tag, group: gid, rate: "", monthly: "", start: "", months: "" };
+      claimTo: m.tag, group: gid, rate: "", monthly: "", start: "", months: "", ...(g.cur && g.cur !== baseCurrency() ? { cur: g.cur } : {}) };
     socSendClaim(key);
   }
   saveDebts();
@@ -360,7 +360,7 @@ function socMergeGroup(id, r) {
   for (const [cid, c] of Object.entries(r.comments || {})) if (!com[cid] || (c.deleted && !com[cid].deleted)) com[cid] = c;
   const rx = { ...(local ? local.reacts || {} : {}) };
   for (const [k, x] of Object.entries(r.reacts || {})) if (!rx[k] || (Number(x.at) || 0) > (Number(rx[k].at) || 0)) rx[k] = x;
-  const next = { ...(local || {}), name: r.name, members: r.members, me, expenses: exp, comments: com, reacts: rx, shared: true, owner: r.owner, ownerMid: r.ownerMid || (local && local.ownerMid) || "", rev: r.rev, link: r.link || "", pays: r.pays || {}, created: (local && local.created) || r.updated || Date.now() };
+  const next = { ...(local || {}), name: r.name, cur: r.cur || (local && local.cur) || undefined, members: r.members, me, expenses: exp, comments: com, reacts: rx, shared: true, owner: r.owner, ownerMid: r.ownerMid || (local && local.ownerMid) || "", rev: r.rev, link: r.link || "", pays: r.pays || {}, created: (local && local.created) || r.updated || Date.now() };
   const changed = JSON.stringify(local || null) !== JSON.stringify(next);
   if (local) { for (const k of Object.keys(local)) delete local[k]; Object.assign(local, next); } else groups[id] = next;   // même objet : un formulaire ouvert garde la bonne référence
   return changed;
@@ -373,7 +373,7 @@ async function socPushGroups() {
     const sig = socSig(g);
     if (g._sent === sig) continue;
     try {
-      const r = await socApi("/groups/" + id, { method: "POST", body: JSON.stringify({ group: { name: g.name, me: g.me, cur: baseCurrency(), members: (g.members || []).map(m => ({ id: m.id, name: m.name, tag: m.tag || "" })), expenses: g.expenses || {}, comments: g.comments || {}, reacts: g.reacts || {} } }) });
+      const r = await socApi("/groups/" + id, { method: "POST", body: JSON.stringify({ group: { name: g.name, me: g.me, cur: g.cur || baseCurrency(), members: (g.members || []).map(m => ({ id: m.id, name: m.name, tag: m.tag || "" })), expenses: g.expenses || {}, comments: g.comments || {}, reacts: g.reacts || {} } }) });
       if (r.deleted) { delete groups[id]; changed = true; continue; }
       changed = socMergeGroup(id, r) || changed;
       groups[id]._sent = socSig(groups[id]);
@@ -487,7 +487,7 @@ async function socGroupLink(gid, off) {
   if (!socIOwn(g)) { if (g.link) return shareText(`Rejoins le groupe « ${g.name} » sur Bourselle :`, groupLinkUrl(g.link)); toast(`Demande le lien à @${g.owner}`); return; }
   try {
     g.shared = true;
-    const r = await socApi("/groups/" + gid, { method: "POST", body: JSON.stringify({ link: !off, group: { name: g.name, me: g.me, cur: baseCurrency(), members: (g.members || []).map(m => ({ id: m.id, name: m.name, tag: m.tag || "" })), expenses: g.expenses || {}, comments: g.comments || {}, reacts: g.reacts || {} } }) });
+    const r = await socApi("/groups/" + gid, { method: "POST", body: JSON.stringify({ link: !off, group: { name: g.name, me: g.me, cur: g.cur || baseCurrency(), members: (g.members || []).map(m => ({ id: m.id, name: m.name, tag: m.tag || "" })), expenses: g.expenses || {}, comments: g.comments || {}, reacts: g.reacts || {} } }) });
     socMergeGroup(gid, r); groups[gid]._sent = socSig(groups[gid]);
     saveGroups(); render();
     if (off) { toast("Lien d'invitation désactivé"); return; }
@@ -502,7 +502,7 @@ async function socPhotoUpload(gid, data) {
   if (!socOn()) throw new Error("Connecte-toi avec Google ou Microsoft pour joindre un ticket");
   if (!g._sent) {   // le groupe doit exister sur le serveur pour y ranger la photo
     g.shared = true;
-    const r = await socApi("/groups/" + gid, { method: "POST", body: JSON.stringify({ group: { name: g.name, me: g.me, cur: baseCurrency(), members: (g.members || []).map(m => ({ id: m.id, name: m.name, tag: m.tag || "" })), expenses: g.expenses || {}, comments: g.comments || {}, reacts: g.reacts || {} } }) });
+    const r = await socApi("/groups/" + gid, { method: "POST", body: JSON.stringify({ group: { name: g.name, me: g.me, cur: g.cur || baseCurrency(), members: (g.members || []).map(m => ({ id: m.id, name: m.name, tag: m.tag || "" })), expenses: g.expenses || {}, comments: g.comments || {}, reacts: g.reacts || {} } }) });
     socMergeGroup(gid, r); groups[gid]._sent = socSig(groups[gid]);
   }
   const j = await socApi("/groups/" + gid + "/photo", { method: "POST", body: JSON.stringify({ data }) });

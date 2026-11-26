@@ -30,12 +30,14 @@ function prochesList() {
       p.score += 2 + exps.filter(e => e.paidBy === m.id || (e.split || []).includes(m.id)).length * 0.2; p.groups.push(gid); p.last = Math.max(p.last, last);
       p.mid = p.mid || {}; p.mid[gid] = m.id;
     }
-    for (const s of settle(groupBalances(g))) {
+    for (const s of settle(groupBalances(typeof gCut === "function" ? gCut(g) : g))) {
       const other = s.to === g.me ? s.from : s.from === g.me ? s.to : null; if (!other) continue;
       const m = (g.members || []).find(x => x.id === other); if (!m) continue;
       const p = get(tagOf(m), m.name); if (!p) continue;
-      if (s.to === g.me) { p.owe += s.amount; p.items.push({ k: "g", gid, s, dir: "in", label: g.name, amount: s.amount }); }
-      else { p.due += s.amount; p.items.push({ k: "g", gid, s, dir: "out", label: g.name, amount: s.amount }); }
+      // Groupe dans une autre devise : compté dans les totaux après conversion (au taux connu), affiché dans sa devise
+      const cv = typeof gToBase === "function" ? gToBase(g, s.amount) : s.amount, cur = typeof gForeign === "function" && gForeign(g) ? gCur(g) : undefined;
+      if (s.to === g.me) { p.owe += cv || 0; p.items.push({ k: "g", gid, s, dir: "in", label: g.name, amount: s.amount, cur }); }
+      else { p.due += cv || 0; p.items.push({ k: "g", gid, s, dir: "out", label: g.name, amount: s.amount, cur }); }
     }
   }
   // Dettes entre personnes (pas les crédits)
@@ -54,7 +56,7 @@ function prochesList() {
   if (typeof SOC !== "undefined") {
     // Une part de groupe envoyée en demande est déjà comptée dans le groupe
     const gNames = new Set(Object.values(groups || {}).map(g => `Partage « ${g.name} »`));
-    const open = c => !["settled", "cancelled", "declined"].includes(c.status) && !linked.has(c.id) && !gNames.has(c.note || "");
+    const open = c => !["settled", "cancelled", "declined"].includes(c.status) && !linked.has(c.id) && !gNames.has(c.note || "") && !(settings.shareCutoff && (c.created || 0) < settings.shareCutoff);
     for (const c of SOC.in || []) if (c.kind === "req" && open(c) && !reqPend(c)) { const p = get(c.from, c.fromName); if (!p) continue; const v = reqLeft(c); if (c.cur === baseCurrency()) p.due += v; p.items.push({ k: "rin", id: c.id, dir: "out", label: c.name || "Demande de paiement", amount: v, cur: c.cur }); p.score += 1; p.last = Math.max(p.last, c.updated || 0); }
     for (const c of SOC.out || []) if (c.kind === "req" && c.to && open(c)) { const p = get(c.to, ""); if (!p) continue; const v = reqLeft(c); if (c.cur === baseCurrency()) p.owe += v; p.items.push({ k: "rout", id: c.id, dir: "in", label: c.name || "Demande de paiement", amount: v, cur: c.cur, pend: !!reqPend(c) }); p.score += 1; p.last = Math.max(p.last, c.updated || 0); }
   }

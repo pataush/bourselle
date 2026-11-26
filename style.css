@@ -1078,3 +1078,7 @@ i.badge { font-style: normal; background: var(--bad); color: #fff; border-radius
 
 .fb-it { border-top: 1px solid var(--line); padding: 10px 0; } .fb-h { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; } .fb-h small { color: var(--muted); font-size: .75rem; }
 .fb-it p { margin: 6px 0; white-space: normal; } .fb-a { display: flex; gap: 8px; margin-top: 6px; }
+
+.reset-card { border: 1.5px dashed var(--bad); } .reset-btns { display: grid; gap: 8px; }
+.reset-btns .btn.danger, .btn.danger { color: var(--bad); border-color: var(--bad); }
+.btn.primary.danger { background: var(--bad); color: #fff; border-color: var(--bad); }

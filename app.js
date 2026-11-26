@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "105";
+const APP_VERSION = "106";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -887,7 +887,8 @@ function renderReglages() {
     <p style="margin:0">Bourselle est gratuite. Quelques services ont une limite par mois : ${FREE.import} imports de relevés, ${FREE.compta} exports comptables et 3 demandes de paiement vers un utilisateur Bourselle (le QR code et le lien de paiement restent illimités).</p>` : `<h3>Gratuit, et Bourselle Plus</h3>
     <p style="margin:0">Le budget au quotidien est gratuit. Bourselle Plus débloque l'illimité (scan de tickets, imports, groupes, notes de frais, demandes de paiement), les exports comptables et le forfait famille.${typeof showPlus === "function" ? ` <button type="button" class="linkbtn" id="aboutPlus">Découvrir Plus</button>` : ""}</p>`}
     <div class="ver-row"><span class="hint">Version ${APP_VERSION}</span><button class="btn" id="forceUpdate">Charger la dernière version</button></div>
-    <p class="hint" style="margin:10px 0 0"><a href="privacy.html" target="_blank" rel="noopener">Confidentialité</a> · <a href="conditions.html" target="_blank" rel="noopener">Conditions d'utilisation</a></p></div>`;
+    <p class="hint" style="margin:10px 0 0"><a href="privacy.html" target="_blank" rel="noopener">Confidentialité</a> · <a href="conditions.html" target="_blank" rel="noopener">Conditions d'utilisation</a></p></div>
+    ${typeof resetCardHTML === "function" ? resetCardHTML() : ""}`;
   view.innerHTML = html;
   if (typeof socBindTagCard === "function") socBindTagCard();
   if (typeof accBindCard === "function") accBindCard();
@@ -900,6 +901,7 @@ function renderReglages() {
   const fu = document.getElementById("forceUpdate");
   if (fu) fu.onclick = () => forceUpdate();
   if (typeof fbBind === "function") fbBind();
+  if (typeof resetBind === "function") resetBind();
   { const ap = document.getElementById("aboutPlus"); if (ap) ap.onclick = () => showPlus(); }
   { const an = document.getElementById("aboutNdf"); if (an) an.onclick = () => { if (isSimple()) setMode("complete"); switchTab("frais"); }; }
   view.querySelectorAll("[data-f]").forEach(inp => inp.onchange = () => {
@@ -1291,7 +1293,19 @@ function convertAll(R, to) {
   for (const x of Object.values(recs)) x.amount = r2(x.amount);
   for (const x of Object.values(goals)) { x.target = r2(x.target); if (x.initial) x.initial = r2(x.initial); }
   for (const x of Object.values(debts)) { x.amount = r2(x.amount); if (x.monthly) x.monthly = r2(x.monthly); for (const p of x.payments || []) p.amount = r2(p.amount); }
-  for (const g of Object.values(groups)) for (const e of Object.values(g.expenses || {})) if (!e.deleted) { e.amount = r2(e.amount); e.updated = Date.now(); }
+  // Groupes : un groupe partagé ou dans sa propre devise garde ses montants (ils sont aussi ceux des autres membres) ;
+  // les autres groupes sont convertis, parts comprises
+  const from = baseCurrency();
+  for (const g of Object.values(groups)) {
+    if (g.cur && g.cur !== from) continue;
+    if (g.shared || (g.members || []).some(m => m.tag)) { g.cur = from; continue; }
+    for (const e of Object.values(g.expenses || {})) if (!e.deleted) {
+      e.amount = r2(e.amount);
+      if (e.owed) for (const k in e.owed) e.owed[k] = r2(e.owed[k]);
+      if (e.mode === "amounts" && e.weights) for (const k in e.weights) e.weights[k] = r2(e.weights[k]);
+      e.updated = Date.now();
+    }
+  }
   for (const t of Object.values(tontines)) if (t.rate) t.rate = Math.round(Number(t.rate) / R * 1e6) / 1e6;   // taux = devise de la tontine pour 1 unité du budget
   for (const a of Object.values(accounts)) if (a.anchor) a.anchor.amount = r2(a.anchor.amount);
   for (const a of Object.values((patri && patri.items) || {})) for (const p of a.hist || []) p.v = r2(p.v);
@@ -1302,7 +1316,8 @@ function convertAll(R, to) {
 function changeCurrency(to) {
   const from = baseCurrency(), sel = document.getElementById("setCur");
   if (to === from) return;
-  const hasData = Object.values(months).some(d => Object.keys(d.items || {}).length) || Object.keys(subs).length || Object.keys(debts).length || Object.keys(goals).length || Object.keys(recs).length;
+  const hasData = Object.values(months).some(d => Object.keys(d.items || {}).length) || Object.keys(subs).length || Object.keys(debts).length || Object.keys(goals).length || Object.keys(recs).length
+    || Object.values(groups).some(g => Object.keys(liveExp(g)).length) || Object.keys(tontines || {}).length || Object.keys(accounts || {}).length;
   if (!hasData) { settings.currency = to; applyCurrency(); saveSettings(); render(); toast(`Devise : ${to}`); return; }
   let mode = "convert";
   const f = openForm(`<div class="f2"><h3>Passer de ${esc(from)} à ${esc(to)}</h3>
@@ -2309,6 +2324,24 @@ function geBadges(g, e) {
   const n = Object.values(g.comments || {}).filter(c => c && !c.deleted && c.eid === e.id).length;
   return e.photo || n ? `<div class="ge-badges">${e.photo ? `<span class="ge-badge">📎 <span>ticket</span></span>` : ""}${n ? `<span class="ge-badge">💬 ${n}</span>` : ""}</div>` : "";
 }
+// Devise d'un groupe : celle de son créateur (groupe partagé) ou une devise choisie (voyage) ; sinon celle du budget
+const gCur = g => (g && g.cur) || baseCurrency();
+const gForeign = g => gCur(g) !== baseCurrency();
+function gMoney(g, v, short) { return gForeign(g) ? fmtCur(v, gCur(g)) : eur(v, short); }
+// Taux connu sans attendre (1 unité du budget = r unités de la devise), ou 0
+function fxQuick(cur) {
+  const base = baseCurrency(), fx = fxFixed(cur, base); if (fx) return fx;
+  const c = typeof fxCache === "function" ? fxCache() : null; if (c && c.base === base && c.rates && c.rates[cur]) return c.rates[cur];
+  return (settings.fxLast || {})[cur] || 0;
+}
+// Montant d'un groupe ramené dans la devise du budget (null si le taux est inconnu)
+function gToBase(g, v) { if (!gForeign(g)) return v; const r = fxQuick(gCur(g)); return r ? Math.round(v / r * 100) / 100 : null; }
+// Après « Recommencer à zéro » sans reprendre les partages : seules les dépenses de groupe ajoutées depuis comptent chez moi
+function gCut(g) {
+  const c = settings.shareCutoff; if (!c) return g;
+  const ex = {}; for (const [k, e] of Object.entries(g.expenses || {})) if (e && (Number(e.created) || Number(e.updated) || 0) >= c) ex[k] = e;
+  return { ...g, expenses: ex };
+}
 function liveExp(g) { const o = {}; for (const [k, e] of Object.entries(g.expenses || {})) if (e && !e.deleted) o[k] = e; return o; }
 // Supprimer une dépense : dans un groupe partagé on garde une trace datée, pour que la suppression arrive chez les autres membres
 function dropExp(g, eid) { if (g.shared || (g.members || []).some(m => m.tag)) g.expenses[eid] = { deleted: true, updated: Date.now() }; else delete g.expenses[eid]; }
@@ -2343,8 +2376,8 @@ let epSub = (() => { try { return localStorage.getItem("bourselle-ep") || "group
 function renderPartage() {
   if (openGroup && !groups[openGroup]) openGroup = null;
   if (openGroup) return renderGroup(openGroup);
-  const list = Object.entries(groups).map(([id, g]) => ({ ...g, id, bal: groupBalances(g) }));
-  const mineG = list.reduce((a, g) => a + (g.bal[g.me] || 0), 0);
+  const list = Object.entries(groups).map(([id, g]) => ({ ...g, id, bal: groupBalances(gCut(g)) }));
+  const mineG = list.reduce((a, g) => a + (gToBase(g, g.bal[g.me] || 0) || 0), 0);
   const hb = typeof hubBalances === "function" ? hubBalances() : { owed: 0, owe: 0 };
   const owed = Math.max(0, mineG) + hb.owed, owe = Math.max(0, -mineG) + hb.owe, mine = Math.round((owed - owe) * 100) / 100;
   document.getElementById("periodLabel").textContent = "Entre proches";
@@ -2378,7 +2411,7 @@ function renderPartage() {
       const b = g.bal[g.me] || 0;
       html += `<button class="gar ${b > 0.004 ? "owed" : b < -0.004 ? "debt" : "done"}" data-open="${esc(g.id)}" style="text-align:left;width:100%;cursor:pointer;font:inherit;color:inherit">
       <div class="top"><span class="n">${esc(g.name)}</span><span class="st">${b > 0.004 ? "On te doit" : b < -0.004 ? "Tu dois" : "Équilibré"}</span></div>
-      <div class="top"><span class="amt num">${esc(eur(Math.abs(b)))}</span><span class="hint">${g.members.length} personnes · ${Object.values(liveExp(g)).filter(e => e.kind !== "transfer").length} dépenses</span></div>
+      <div class="top"><span class="amt num">${esc(gMoney(g, Math.abs(b)))}</span><span class="hint">${g.members.length} personnes · ${Object.values(liveExp(g)).filter(e => e.kind !== "transfer").length} dépenses</span></div>
       ${g.shared ? `<div class="hint" style="margin-top:4px">${g.owner && typeof SOC !== "undefined" && g.owner !== SOC.tag ? `<span>Partagé par</span> @${esc(g.owner)}` : "Partagé avec les membres Bourselle"}</div>` : ""}</button>`;
       const owers = settle(g.bal).filter(x => x.to === g.me);
       if (owers.length) html += `<button type="button" class="btn gr-rem" data-grem="${esc(g.id)}">🔔 Relancer ${owers.length > 1 ? `les ${owers.length} personnes qui te doivent` : esc((g.members.find(m => m.id === owers[0].from) || {}).name || "")}</button>`;
@@ -2424,6 +2457,7 @@ function remindPick(who, amountTxt, context, opts) {
 // message prêt à envoyer (avec le lien du groupe ou mon lien de paiement) pour les autres
 async function groupRemind(gid, list) {
   const g = groups[gid]; if (!g || !list.length) return;
+  const eur = v => gMoney(g, v);
   const nm = id => (g.members.find(m => m.id === id) || {}).name || "";
   const msg = await remindPick(list.length === 1 ? nm(list[0].from) : `${list.length} personnes`, list.length === 1 ? eur(list[0].amount) : "ce que tu me dois", g.name);
   if (!msg) return;
@@ -2446,6 +2480,7 @@ async function groupRemind(gid, list) {
   setTimeout(() => shareText(txt, url || undefined), notified.length ? 1200 : 0);
 }
 function groupRecapText(g) {
+  const eur = v => gMoney(g, v);
   const bal = groupBalances(g), st = settle(bal);
   const total = Object.values(liveExp(g)).filter(e => e.kind !== "transfer").reduce((a, e) => a + Number(e.amount), 0);
   return [`${g.name} — récap Bourselle`, `Dépenses du groupe : ${eur(total)}`, "",
@@ -2455,6 +2490,7 @@ function groupRecapText(g) {
 }
 function renderGroup(gid) {
   const g = groups[gid], bal = groupBalances(g), st = settle(bal), me = bal[g.me] || 0;
+  const eur = (v, s) => gMoney(g, v, s);   // montants du groupe dans sa devise
   document.getElementById("periodLabel").textContent = g.name;
   document.getElementById("resCap").textContent = me >= 0 ? "Dans ce groupe, on te doit" : "Dans ce groupe, tu dois";
   const big = document.getElementById("resBig"); big.textContent = eur(Math.abs(me)); big.className = "big num " + (me > 0.004 ? "good" : me < -0.004 ? "bad" : "");
@@ -2506,6 +2542,8 @@ function editGroup(id) {
   const profName = (() => { const u = store && store.id !== "local" && store.user ? store.user() : {}; const f = String((u && u.name) || "").trim().split(/[\s@._]/)[0]; return f ? f.charAt(0).toUpperCase() + f.slice(1) : ""; })();
   openForm(`<div class="f2"><h3>${id ? "Modifier le groupe" : "Nouveau groupe"}</h3>
     ${fld("grName", "Nom du groupe", `placeholder="ex. Maison, Vacances Bretagne, Coloc" value="${esc(g.name)}"`)}
+    ${(() => { const has = Object.keys(liveExp(g)).length, cur = gCur(g); return `<label class="lbl" for="grCur">Devise des dépenses</label><select class="field" id="grCur"${has ? " disabled" : ""}>${APP_CURRENCIES.map(([c, l]) => `<option value="${c}"${c === cur ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>
+      <p class="hint" style="margin:4px 0 0">${has ? "La devise ne change plus une fois des dépenses ajoutées." : `Pour un voyage à l'étranger, choisis la devise locale : chaque dépense est aussi convertie en ${esc(baseCurrency())} au taux du jour.`}</p>`; })()}
     ${!id && profName ? `<label class="toggle gr-me" for="grMeUse"><span><span>Moi :</span> <b>${esc(profName)}</b>${typeof SOC !== "undefined" && SOC.tag ? ` <small class="hint">@${esc(SOC.tag)}</small>` : ""}</span><input type="checkbox" id="grMeUse" checked></label>` : ""}
     <div id="grMeWrap" ${!id && profName ? "hidden" : ""}>${fld("grMe", !id && profName ? "Autre nom pour moi dans ce groupe" : "Ton prénom", `placeholder="ex. Marie" value="${esc(id ? (g.members.find(m => m.id === g.me) || {}).name || "" : "")}"`)}</div>
     ${fld("grOthers", "Les autres membres (séparés par des virgules)", `placeholder="ex. Paul, Léa, Hugo" value="${esc(id ? g.members.filter(m => m.id !== g.me && !m.tag).map(m => m.name).join(", ") : "")}"`)}
@@ -2528,7 +2566,8 @@ function editGroup(id) {
       const lost = old.filter(m => used.has(m.id) && !members.some(x => x.id === m.id));
       if (lost.length) { toast(`${lost.map(m => m.name).join(", ")} a des dépenses dans le groupe : garde ce nom.`); return false; }
       const nid = id || newId();
-      groups[nid] = { ...g, name: name.slice(0, 60), members, me: meM.id, created: g.created || Date.now() };
+      const curSel = document.getElementById("grCur"), cur = curSel && !curSel.disabled ? curSel.value : g.cur;
+      groups[nid] = { ...g, name: name.slice(0, 60), members, me: meM.id, created: g.created || Date.now(), cur: cur && (cur !== baseCurrency() || g.shared) ? cur : undefined };
       saveGroups(); openGroup = nid; render(); toast(id ? "Groupe modifié" : "Groupe créé");
     },
     id ? () => { if (typeof socDeleteGroup === "function") socDeleteGroup(id, groups[id]); delete groups[id]; openGroup = null; saveGroups(); render(); toast("Groupe supprimé"); } : null);
@@ -2560,12 +2599,17 @@ function editGroup(id) {
 }
 function editGroupExpense(gid, eid, pre) {
   pre = pre || {};
-  const g = groups[gid], e = eid ? clone(g.expenses[eid]) : { label: pre.label || "", amount: pre.amount ?? "", date: pre.date || todayISO(), paidBy: g.me, split: g.members.map(m => m.id) };
+  const g0 = groups[gid];
+  if (!eid && gForeign(g0) && pre.orig && pre.orig.cur === gCur(g0)) pre = { ...pre, amount: pre.orig.amount };   // dépense payée dans la devise du groupe
+  else if (!eid && gForeign(g0) && pre.amount) { const r = fxQuick(gCur(g0)); pre = { ...pre, amount: r ? Math.round(pre.amount * r * 100) / 100 : pre.amount }; }
+  const g = g0, e = eid ? clone(g.expenses[eid]) : { label: pre.label || "", amount: pre.amount ?? "", date: pre.date || todayISO(), paidBy: g.me, split: g.members.map(m => m.id) };
+  const eur = (v, s) => gMoney(g, v, s);
   let paidBy = e.paidBy, split = new Set(e.split), cat = "loisirs", mode = e.mode || "equal", photo = e.photo || "";
   const w = { ...(e.weights || {}) };
   openForm(`<div class="f2"><h3>${eid ? "Modifier la dépense" : "Dépense du groupe"} · ${esc(g.name)}</h3>
     ${fld("geLabel", "Quoi ?", `placeholder="ex. Courses, Location, Restaurant" value="${esc(e.label)}"`)}
-    <div class="two"><div>${fld("geAmount", `Montant (${esc(curSym())})`, `inputmode="decimal" value="${e.amount === "" ? "" : esc(String(e.amount).replace(".", ","))}"`)}</div><div>${fld("geDate", "Date", `type="date" value="${esc(e.date)}"`)}</div></div>
+    <div class="two"><div>${fld("geAmount", `Montant (${esc(gForeign(g) ? curSymOf(gCur(g)) : curSym())})`, `inputmode="decimal" value="${e.amount === "" ? "" : esc(String(e.amount).replace(".", ","))}"`)}</div><div>${fld("geDate", "Date", `type="date" value="${esc(e.date)}"`)}</div></div>
+    ${gForeign(g) ? `<p class="hint" id="geFx" style="margin:4px 0 0"></p>` : ""}
     <span class="lbl">Payé par</span><div class="chips" id="gePaid"></div>
     <span class="lbl">Pour qui</span><div class="chips" id="geSplit"></div>
     <span class="lbl">Répartition</span><div class="seg2" id="geMode" style="grid-template-columns:repeat(4,1fr)">${SPLIT_MODES.map(([k, l]) => `<button type="button" data-mode="${k}">${l}</button>`).join("")}</div>
@@ -2591,7 +2635,10 @@ function editGroupExpense(gid, eid, pre) {
       g.expenses[eid || newId()] = { ...e, label: label.slice(0, 60), amount, date, paidBy, split: order, mode, weights: mode === "equal" ? undefined : weights, owed, photo: photo || undefined, created: e.created || Date.now(), updated: Date.now() };
       if (!eid && paidBy === g.me && typeof socSendShares === "function") setTimeout(() => socSendShares(gid, label.slice(0, 60), amount, order, date, owed), 50);
       const mine = document.getElementById("geMine");
-      if (mine && mine.checked && split.has(g.me)) addTx({ type: "depense", amount: owed[g.me] || 0, cat, date, note: `${g.name} : ${label}`.slice(0, 80), fixe: false });
+      if (mine && mine.checked && split.has(g.me)) {
+        const part = owed[g.me] || 0, conv = gToBase(g, part);
+        addTx({ type: "depense", amount: conv != null ? conv : part, cat, date, note: `${g.name} : ${label}`.slice(0, 80), fixe: false, ...(gForeign(g) && conv ? { orig: { amount: part, cur: gCur(g), rate: Math.round(part / conv * 1e6) / 1e6 } } : {}) });
+      }
       saveGroups(); render(); toast(eid ? "Dépense modifiée" : "Dépense ajoutée au groupe");
     },
     eid ? () => { dropExp(g, eid); saveGroups(); render(); toast("Dépense supprimée"); } : null);
@@ -2675,6 +2722,15 @@ function editGroupExpense(gid, eid, pre) {
   };
   draw(); detail();
   document.getElementById("geAmount").addEventListener("input", share);
+  // Groupe dans une autre devise : la conversion dans la devise du budget, au taux du jour
+  if (gForeign(g)) {
+    const fxBox = document.getElementById("geFx"), cur = gCur(g);
+    const drawFx = () => { if (!fxBox) return; const a = parseAmount(val("geAmount")) || 0, r = fxQuick(cur);
+      fxBox.textContent = r ? `${a > 0 ? `≈ ${eur0(a / r)} · ` : ""}1 ${curSymOf(baseCurrency())} = ${String(Math.round(r * 10000) / 10000).replace(".", ",")} ${curSymOf(cur)} (taux du jour)` : "Taux de change indisponible hors ligne : la conversion se fera plus tard."; };
+    const eur0 = v => fmtCur(Math.round(v * 100) / 100, baseCurrency());
+    drawFx(); document.getElementById("geAmount").addEventListener("input", drawFx);
+    fxRate(cur).then(x => { if (x && x.rate) { settings.fxLast = settings.fxLast || {}; settings.fxLast[cur] = x.rate; } drawFx(); }).catch(() => {});
+  }
   if (!eid) {
     chipsPick("geCat", settings.cats.map(c => [c.id, c.name]), cat, v => cat = v);
     const mine = document.getElementById("geMine");
