@@ -959,3 +959,8 @@ i.badge { font-style: normal; background: var(--bad); color: #fff; border-radius
 .act-emos { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
 .act-emos button { width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line); background: var(--surface); font-size: 1.2rem; cursor: pointer; }
 .act-emos button[aria-pressed="true"] { border-color: var(--good); background: var(--good-soft); }
+.fav-av.grp { background: var(--bg); color: var(--ink); font-size: 1.1rem; }
+.dm-hd { flex: 1; min-width: 0; } .dm-hd h3 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dm-add { padding: 6px 12px; font-size: .85rem; white-space: nowrap; }
+.dm-sys { align-self: center; text-align: center; font-size: .74rem; color: var(--muted); background: var(--surface); border-radius: 99px; padding: 3px 10px; max-width: 90%; }
+.dm-addform { display: flex; flex-direction: column; gap: 8px; padding: 12px; margin: 0 0 8px; }

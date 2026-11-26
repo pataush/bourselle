@@ -7,7 +7,7 @@ let ACTS = [], DMS = [], dmPoll = null, dmSeen = new Set();
 try { dmSeen = new Set(JSON.parse(localStorage.getItem("bourselle-dm-seen") || "[]")); } catch (e) {}
 const ensMoney = (v, c) => typeof fmtCur === "function" ? fmtCur(v, c || baseCurrency()) : eur(v);
 const ensName = () => favFirst((store && store.user ? store.user() : {}).name || "");
-const dmUnread = tag => (DMS.find(t => t.tag === tag) || {}).unread || 0;
+const dmUnread = tag => (DMS.find(t => !t.gid && t.tag === tag) || {}).unread || 0;
 const dmTime = at => { const d = new Date(at), t = d.toTimeString().slice(0, 5); return Date.now() - at < 864e5 && d.getDate() === new Date().getDate() ? t : `${frDate(d.toISOString().slice(0, 10)).slice(0, 5)} ${t}`; };
 const linkify = s => esc(s).replace(/https?:\/\/[^\s<]+/g, u => `<a href="${u}" target="_blank" rel="noopener">${u}</a>`);
 
@@ -17,15 +17,15 @@ async function ensRefresh() {
     const [d, a] = await Promise.all([socApi("/dm"), socApi("/acts")]);
     DMS = d.threads || []; ACTS = a.acts || [];
     // Nouveaux messages : un petit mot tout de suite (en plus de la notification sur le téléphone)
-    const fresh = DMS.filter(t => t.unread && !dmSeen.has(t.tag + ":" + t.last.id) && !document.querySelector(`.dm-sheet[data-tag="${t.tag}"]`));
+    const fresh = DMS.filter(t => t.unread && !dmSeen.has(chatKey(t) + ":" + t.last.id) && !document.querySelector(`.dm-sheet[data-chat="${chatKey(t)}"]`));
     if (fresh.length) {
-      const t = fresh[0]; toast(fresh.length === 1 ? `💬 ${t.name || "@" + t.tag} : ${t.last.kind === "idea" ? "💡 " + t.last.idea.title : (t.last.text || "").slice(0, 80)}` : `💬 ${fresh.length} nouveaux messages`);
-      fresh.forEach(x => dmSeen.add(x.tag + ":" + x.last.id)); try { localStorage.setItem("bourselle-dm-seen", JSON.stringify([...dmSeen].slice(-300))); } catch (e) {}
+      const t = fresh[0]; toast(fresh.length === 1 ? `💬 ${chatTitle(t)} : ${t.last.kind === "idea" ? "💡 " + t.last.idea.title : (t.last.text || "").slice(0, 80)}` : `💬 ${fresh.length} nouveaux messages`);
+      fresh.forEach(x => dmSeen.add(chatKey(x) + ":" + x.last.id)); try { localStorage.setItem("bourselle-dm-seen", JSON.stringify([...dmSeen].slice(-300))); } catch (e) {}
     }
     if (!ensRefresh.link) {
-      ensRefresh.link = true; let dm = "", act = "";
-      try { dm = sessionStorage.getItem("bourselle-dm") || ""; act = sessionStorage.getItem("bourselle-act") || ""; sessionStorage.removeItem("bourselle-dm"); sessionStorage.removeItem("bourselle-act"); } catch (e) {}
-      if (dm) setTimeout(() => dmOpen(dm), 400); else if (act) setTimeout(() => actOpen(act), 400);
+      ensRefresh.link = true; let dm = "", act = "", gc = "";
+      try { dm = sessionStorage.getItem("bourselle-dm") || ""; act = sessionStorage.getItem("bourselle-act") || ""; gc = sessionStorage.getItem("bourselle-gc") || ""; ["dm", "act", "gc"].forEach(k => sessionStorage.removeItem("bourselle-" + k)); } catch (e) {}
+      if (dm) setTimeout(() => dmOpen(dm), 400); else if (gc) setTimeout(() => gcOpen(gc), 400); else if (act) setTimeout(() => actOpen(act), 400);
     }
     if (typeof refreshBell === "function") refreshBell();
     if (typeof tab !== "undefined" && tab === "partage" && !openGroup && !document.querySelector("#sheet2Root.open")) render();
@@ -33,9 +33,9 @@ async function ensRefresh() {
 }
 // Liens des notifications : « ?dm=tag » et « ?act=id », gardés jusqu'à la connexion
 {
-  const q = new URLSearchParams(location.search), dm = q.get("dm"), act = q.get("act");
-  if ((dm && /^[a-z0-9][a-z0-9_-]{2,23}$/.test(dm)) || (act && /^[a-z0-9]{12}$/.test(act))) {
-    try { if (dm) sessionStorage.setItem("bourselle-dm", dm); if (act) sessionStorage.setItem("bourselle-act", act); } catch (e) {}
+  const q = new URLSearchParams(location.search), dm = q.get("dm"), act = q.get("act"), gc = q.get("gc");
+  if ((dm && /^[a-z0-9][a-z0-9_-]{2,23}$/.test(dm)) || (act && /^[a-z0-9]{12}$/.test(act)) || (gc && /^[a-z0-9]{12}$/.test(gc))) {
+    try { if (dm) sessionStorage.setItem("bourselle-dm", dm); if (act) sessionStorage.setItem("bourselle-act", act); if (gc) sessionStorage.setItem("bourselle-gc", gc); } catch (e) {}
     history.replaceState(null, "", location.pathname);
   }
 }
@@ -46,8 +46,8 @@ function ensHTML() {
   let h = "";
   const threads = DMS.slice().sort((a, b) => b.at - a.at).slice(0, 3);
   if (threads.length) h += `<div class="hub-sec"><span>Discussions</span>${DMS.some(t => t.unread) ? `<small>${DMS.reduce((a, t) => a + t.unread, 0)} non lu${DMS.reduce((a, t) => a + t.unread, 0) > 1 ? "s" : ""}</small>` : ""}</div>
-    <div class="card dm-list">${threads.map(t => `<button type="button" class="dm-th${t.unread ? " unread" : ""}" data-dm="${esc(t.tag)}"><span class="fav-av" style="background:${favColor("@" + t.tag)}">${esc(favFirst(t.name || t.tag).charAt(0))}</span>
-      <span class="dm-tx"><b>${esc(t.name || "@" + t.tag)}</b><small>${t.last.mine ? "Toi : " : ""}${esc(t.last.kind === "idea" ? "💡 " + t.last.idea.title : t.last.kind === "act" ? "📅 " + (t.last.text || "Activité") : t.last.del ? "Message supprimé" : t.last.text || "")}</small></span>
+    <div class="card dm-list">${threads.map(t => `<button type="button" class="dm-th${t.unread ? " unread" : ""}" ${t.gid ? `data-gc="${esc(t.gid)}"` : `data-dm="${esc(t.tag)}"`}>${t.gid ? `<span class="fav-av grp">👥</span>` : `<span class="fav-av" style="background:${favColor("@" + t.tag)}">${esc(favFirst(t.name || t.tag).charAt(0))}</span>`}
+      <span class="dm-tx"><b>${esc(chatTitle(t))}</b><small>${t.last.from === "sys" ? "" : t.last.mine ? "Toi : " : t.gid ? esc(favFirst(t.last.name || t.last.from)) + " : " : ""}${esc(t.last.kind === "idea" ? "💡 " + t.last.idea.title : t.last.kind === "act" ? "📅 " + (t.last.text || "Activité") : t.last.del ? "Message supprimé" : t.last.text || "")}</small></span>
       <span class="dm-meta"><small>${esc(agoText(t.at))}</small>${t.unread ? `<i>${t.unread}</i>` : ""}</span></button>`).join("")}</div>`;
   const acts = ACTS.filter(a => a.status === "open").sort((a, b) => b.invited - a.invited || (a.when || "9") .localeCompare(b.when || "9"));
   h += `<div class="hub-sec"><span>Activités ensemble</span><button class="linkbtn" id="actNew">+ Créer une activité</button></div>`;
@@ -60,79 +60,132 @@ function ensHTML() {
 }
 function ensBind(root) {
   root.querySelectorAll("[data-dm]").forEach(b => b.onclick = () => dmOpen(b.dataset.dm));
+  root.querySelectorAll("[data-gc]").forEach(b => b.onclick = () => gcOpen(b.dataset.gc));
   root.querySelectorAll("[data-act]").forEach(b => b.onclick = () => actOpen(b.dataset.act));
   ["#actNew", "#actNew2"].forEach(s => { const b = root.querySelector(s); if (b) b.onclick = () => actNew(); });
 }
 
-// ---------- Messagerie ----------
-async function dmOpen(tag, nameHint) {
+// ---------- Messagerie (à deux, ou à plusieurs) ----------
+// ref = { tag } pour une conversation à deux, { gid } pour une discussion à plusieurs
+const chatKey = t => t.gid ? "g:" + t.gid : t.tag;
+const chatPath = ref => ref.gid ? "/gc/" + ref.gid : "/dm/" + encodeURIComponent(ref.tag);
+const chatTitle = t => t.gid ? (t.title || t.members.map(m => favFirst(m.name || m.tag)).join(", ")) : (t.name || "@" + t.tag);
+const chatNorm = (ref, j) => ref.gid ? { msgs: j.gc.msgs, title: j.gc.title, members: j.gc.members } : { msgs: j.msgs, peer: j.peer };
+const dmOpen = (tag, nameHint) => chatOpen({ tag, nameHint });
+const gcOpen = gid => chatOpen({ gid });
+async function chatOpen(ref) {
   if (!(typeof socOn === "function" && socOn())) { toast("Connecte-toi avec Google ou Microsoft pour écrire à tes proches"); return; }
-  let j; try { j = await socApi("/dm/" + encodeURIComponent(tag)); } catch (e) { toast(e.message); return; }
-  const th = DMS.find(t => t.tag === tag); if (th) th.unread = 0;
-  const name = j.peer.name || nameHint || "@" + tag;
-  const f = openForm(`<div class="f2 dm-sheet" data-tag="${esc(tag)}"><div class="dm-head"><span class="fav-av" style="background:${favColor("@" + tag)}">${esc(favFirst(name).charAt(0))}</span><div><h3 style="margin:0">${esc(name)}</h3><small class="hint">@${esc(tag)}</small></div></div>
+  let d; try { d = chatNorm(ref, await socApi(chatPath(ref))); } catch (e) { toast(e.message); return; }
+  const th = DMS.find(t => chatKey(t) === chatKey(ref)); if (th) th.unread = 0;
+  const group = !!ref.gid, others = group ? d.members.filter(m => !m.me) : [];
+  const name = group ? (d.title || others.map(m => favFirst(m.name || m.tag)).join(", ")) : d.peer.name || ref.nameHint || "@" + ref.tag;
+  const av = group ? `<span class="fav-av grp">👥</span>` : `<span class="fav-av" style="background:${favColor("@" + ref.tag)}">${esc(favFirst(name).charAt(0))}</span>`;
+  const f = openForm(`<div class="f2 dm-sheet" data-chat="${esc(chatKey(ref))}"><div class="dm-head">${av}<div class="dm-hd"><h3 style="margin:0">${esc(name)}</h3><small class="hint">${group ? `${d.members.length} personnes` : "@" + esc(ref.tag)}</small></div>
+      <button type="button" class="btn dm-add" id="dmAdd" title="Ajouter des personnes">👥 +</button></div>
     <div class="dm-box" id="dmBox"></div>
     <button type="button" class="dm-idea-btn" id="dmIdea">💡 Proposer de financer quelque chose ensemble</button>
-    <div class="dm-in"><textarea class="field" id="dmText" rows="1" maxlength="1000" placeholder="Écris un message…"></textarea><button type="button" class="btn primary" id="dmSend" aria-label="Envoyer">➤</button></div></div>`, () => true);
+    <div class="dm-in"><textarea class="field" id="dmText" rows="1" maxlength="1000" placeholder="Écris un message…"></textarea><button type="button" class="btn primary" id="dmSend" aria-label="Envoyer">➤</button></div>
+    ${group ? `<button type="button" class="linkbtn" id="dmLeave" style="margin-top:10px;color:var(--bad)">Quitter la discussion</button>` : ""}</div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
-  let msgs = j.msgs, last = "";
+  let last = "";
+  const ctx = { ref, group, d, name };
   const draw = () => {
     const box = f.querySelector("#dmBox"); if (!box) return;
-    const sig = JSON.stringify(msgs); if (sig === last) return; last = sig;
+    const sig = JSON.stringify(ctx.d.msgs); if (sig === last) return; last = sig;
     const atBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 60;
-    box.innerHTML = msgs.length ? msgs.map(m => dmMsgHTML(m, tag, name)).join("") : `<p class="hint" style="text-align:center;margin:30px 0">Dis bonjour à ${esc(favFirst(name))} 👋<br>Vous pouvez aussi décider ici de financer quelque chose ensemble.</p>`;
-    dmMsgBind(box, msgs, tag, name, r => { msgs = r.msgs; draw(); });
+    box.innerHTML = ctx.d.msgs.some(m => m.from !== "sys") ? ctx.d.msgs.map(m => chatMsgHTML(m, ctx)).join("") : (ctx.d.msgs.map(m => chatMsgHTML(m, ctx)).join("") + `<p class="hint" style="text-align:center;margin:30px 0">${group ? "Dites-vous bonjour 👋" : `Dis bonjour à ${esc(favFirst(name))} 👋`}<br>Vous pouvez aussi décider ici de financer quelque chose ensemble.</p>`);
+    chatMsgBind(box, ctx, upd);
     if (atBottom || !draw.once) { box.scrollTop = box.scrollHeight; draw.once = true; }
   };
+  const upd = j => { ctx.d = chatNorm(ref, j); draw(); };
+  const post = async body => upd(await socApi(chatPath(ref), { method: "POST", body: JSON.stringify({ name: ensName(), ...body }) }));
+  ctx.post = post;
   draw();
   const send = async () => {
     const ta = f.querySelector("#dmText"), text = ta.value.trim(); if (!text) return;
     ta.value = ""; ta.style.height = "";
-    try { const r = await socApi("/dm/" + encodeURIComponent(tag), { method: "POST", body: JSON.stringify({ text, name: ensName() }) }); msgs = r.msgs; draw(); const b = f.querySelector("#dmBox"); b.scrollTop = b.scrollHeight; }
-    catch (e) { ta.value = text; toast(e.message); }
+    try { await post({ text }); const b = f.querySelector("#dmBox"); b.scrollTop = b.scrollHeight; } catch (e) { ta.value = text; toast(e.message); }
   };
   f.querySelector("#dmSend").onclick = send;
   const ta = f.querySelector("#dmText");
   ta.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey && !/Mobi/.test(navigator.userAgent)) { e.preventDefault(); send(); } });
   ta.addEventListener("input", () => { ta.style.height = ""; ta.style.height = Math.min(120, ta.scrollHeight) + "px"; });
-  f.querySelector("#dmIdea").onclick = () => dmIdea(tag, r => { msgs = r.msgs; draw(); const b = f.querySelector("#dmBox"); b.scrollTop = b.scrollHeight; });
+  f.querySelector("#dmIdea").onclick = () => chatIdea(f, post);
+  f.querySelector("#dmAdd").onclick = () => chatAddPeople(f, ctx);
+  const lv = f.querySelector("#dmLeave"); if (lv) lv.onclick = async e => { const q = e.currentTarget; if (!q.dataset.sure) { q.dataset.sure = "1"; q.textContent = "Toucher encore pour quitter la discussion"; return; } try { await socApi(chatPath(ref), { method: "POST", body: JSON.stringify({ action: "leave" }) }); DMS = DMS.filter(t => chatKey(t) !== chatKey(ref)); closeForm(); render(); toast("Tu as quitté la discussion"); } catch (err) { toast(err.message); } };
   // Les nouveaux messages arrivent pendant que la conversation est ouverte
   clearInterval(dmPoll);
   dmPoll = setInterval(async () => {
-    if (!document.querySelector(`.dm-sheet[data-tag="${tag}"]`)) { clearInterval(dmPoll); ensRefresh(); return; }
+    if (!document.querySelector(`.dm-sheet[data-chat="${chatKey(ref)}"]`)) { clearInterval(dmPoll); ensRefresh(); return; }
     if (document.hidden) return;
-    try { const r = await socApi("/dm/" + encodeURIComponent(tag)); msgs = r.msgs; draw(); } catch (e) {}
+    try { upd(await socApi(chatPath(ref))); } catch (e) {}
   }, 4000);
 }
-function dmMsgHTML(m, tag, name) {
-  const who = m.mine ? "Toi" : favFirst(name);
+// Ajouter des personnes : une conversation à deux devient une discussion à plusieurs (l'idée en cours suit, avec ses votes)
+function chatAddPeople(f, ctx) {
+  const box = f.querySelector(".dm-sheet"); if (box.querySelector(".dm-addform")) return;
+  const inChat = new Set(ctx.group ? ctx.d.members.map(m => m.tag) : [ctx.ref.tag, SOC.tag]), pick = new Set();
+  const people = prochesTagged().filter(p => !inChat.has(p.tag)).slice(0, 14);
+  const w = document.createElement("div"); w.className = "dm-addform card";
+  w.innerHTML = `<b>👥 Ajouter des personnes</b><small class="hint">${ctx.group ? "Elles verront toute la discussion." : `Une discussion à plusieurs s'ouvre avec ${esc(favFirst(ctx.name))} ; votre idée en cours suit.`}</small>
+    ${people.length ? `<div class="chips" id="daPeople">${people.map(p => `<button type="button" class="chip" data-tag="${esc(p.tag)}" aria-pressed="false">${esc(p.name || "@" + p.tag)}</button>`).join("")}</div>` : ""}
+    <input class="field" id="daFind" placeholder="Chercher un @tag…" autocapitalize="off" spellcheck="false" autocomplete="off"><div id="daRes"></div>
+    <div class="dm-cta"><button type="button" class="btn primary" id="daGo">Ajouter</button><button type="button" class="btn" id="daNo">Annuler</button></div>`;
+  box.querySelector(".dm-box").before(w);
+  const tog = b => { const t = b.dataset.tag; pick.has(t) ? pick.delete(t) : pick.add(t); b.setAttribute("aria-pressed", pick.has(t)); };
+  w.querySelectorAll("#daPeople [data-tag]").forEach(b => b.onclick = () => tog(b));
+  tagPicker(w.querySelector("#daFind"), w.querySelector("#daRes"), (tag, nm) => {
+    if (inChat.has(tag)) { toast(`@${tag} est déjà dans la discussion`); return; }
+    let b = w.querySelector(`#daPeople [data-tag="${tag}"]`);
+    if (!b) { let c = w.querySelector("#daPeople"); if (!c) { c = document.createElement("div"); c.className = "chips"; c.id = "daPeople"; w.querySelector("#daFind").before(c); } c.insertAdjacentHTML("beforeend", `<button type="button" class="chip" data-tag="${esc(tag)}" aria-pressed="false">${esc(nm || "@" + tag)}</button>`); b = c.lastElementChild; b.onclick = () => tog(b); }
+    if (!pick.has(tag)) tog(b); w.querySelector("#daFind").value = "";
+  });
+  w.querySelector("#daNo").onclick = () => w.remove();
+  w.querySelector("#daGo").onclick = async () => {
+    if (!pick.size) { toast("Choisis au moins une personne"); return; }
+    try {
+      if (ctx.group) { await ctx.post({ action: "add", tags: [...pick] }); w.remove(); toast(pick.size > 1 ? `${pick.size} personnes ajoutées` : "Personne ajoutée"); return; }
+      const idea = ctx.d.msgs.filter(m => m.kind === "idea").pop();
+      const r = await socApi("/gc", { method: "POST", body: JSON.stringify({ name: ensName(), tags: [ctx.ref.tag, ...pick], from: ctx.ref.tag, mid: idea ? idea.id : "" }) });
+      closeForm(); toast("Discussion à plusieurs créée 👥"); ensRefresh(); setTimeout(() => gcOpen(r.gc.id), 250);
+    } catch (e) { toast(e.message); }
+  };
+  setTimeout(() => w.scrollIntoView({ block: "nearest" }), 50);
+}
+function chatMsgHTML(m, ctx) {
+  if (m.from === "sys") return `<div class="dm-sys">${esc(m.text)}</div>`;
+  const nameOf = tg => { if (tg === SOC.tag) return "Toi"; if (!ctx.group) return favFirst(ctx.name); const x = ctx.d.members.find(y => y.tag === tg); return favFirst(x ? x.name || x.tag : m.name || tg); };
+  const who = m.mine ? "Toi" : nameOf(m.from), whoTag = !m.mine && ctx.group ? `<small class="dm-who">${esc(who)}</small>` : "";
   if (m.del) return `<div class="dm-m ${m.mine ? "me" : ""}"><div class="dm-b del">Message supprimé</div></div>`;
   if (m.kind === "idea") {
-    const i = m.idea, v = m.votes || {}, mine = v[SOC.tag], his = v[tag], both = mine === "yes" && his === "yes";
-    return `<div class="dm-m ${m.mine ? "me" : ""}"><div class="dm-card"><small>💡 ${m.mine ? "Tu proposes" : `${esc(who)} propose`} de financer ensemble</small><b>${esc(i.title)}</b>
+    const i = m.idea, v = m.votes || {}, mine = v[SOC.tag];
+    const people = ctx.group ? ctx.d.members.map(x => x.tag) : [SOC.tag, ctx.ref.tag];
+    const yes = Object.entries(v).filter(([, x]) => x === "yes").map(([t]) => t), can = mine === "yes" && yes.length >= 2;
+    const waiting = people.filter(t => !v[t]);
+    return `<div class="dm-m ${m.mine ? "me" : ""}">${whoTag}<div class="dm-card"><small>💡 ${m.mine ? "Tu proposes" : `${esc(who)} propose`} de financer ensemble</small><b>${esc(i.title)}</b>
       <span class="hint">${[i.budget ? ensMoney(i.budget, i.cur) : "", i.when ? `le ${frDate(i.when)}` : ""].filter(Boolean).map(esc).join(" · ")}</span>${i.note ? `<p>${linkify(i.note)}</p>` : ""}
-      <div class="dm-votes"><span>${esc("Toi")} ${mine === "yes" ? "👍" : mine === "no" ? "✋" : "…"}</span><span>${esc(favFirst(name))} ${his === "yes" ? "👍" : his === "no" ? "✋" : "…"}</span></div>
+      <div class="dm-votes">${people.map(t => `<span>${esc(nameOf(t))} ${v[t] === "yes" ? "👍" : v[t] === "no" ? "✋" : "…"}</span>`).join("")}</div>
       ${m.act ? `<button type="button" class="btn primary" data-dmact="${esc(m.act)}">Voir l'activité</button>`
-        : both ? `<button type="button" class="btn primary" data-dmcreate="${esc(m.id)}">📅 Créer l'activité</button>`
         : mine !== "yes" ? `<div class="dm-cta"><button type="button" class="btn primary" data-dmvote="${esc(m.id)}" data-v="yes">👍 Partant</button><button type="button" class="btn" data-dmvote="${esc(m.id)}" data-v="no">Pas pour moi</button></div>`
-        : his === "no" ? `<small class="hint">${esc(favFirst(name))} n'est pas partant.</small>` : `<small class="hint">En attente de la réponse de ${esc(favFirst(name))}.</small>`}</div><small class="dm-t">${esc(dmTime(m.at))}</small></div>`;
+        : can ? `<button type="button" class="btn primary" data-dmcreate="${esc(m.id)}">📅 Créer l'activité</button>${waiting.length ? `<small class="hint">Pas encore répondu : ${esc(waiting.map(nameOf).join(", "))}</small>` : ""}`
+        : `<small class="hint">En attente de la réponse de ${esc(waiting.map(nameOf).join(", ") || "tes proches")}.</small>`}</div><small class="dm-t">${esc(dmTime(m.at))}</small></div>`;
   }
-  if (m.kind === "act") { const a = ACTS.find(x => x.id === m.act); return `<div class="dm-m ${m.mine ? "me" : ""}"><button type="button" class="dm-card dm-actlink" data-dmact="${esc(m.act)}"><small>📅 Activité</small><b>${esc(a ? `${a.emoji} ${a.title}` : m.text || "Activité")}</b><span class="linkbtn">Ouvrir ›</span></button><small class="dm-t">${esc(dmTime(m.at))}</small></div>`; }
-  return `<div class="dm-m ${m.mine ? "me" : ""}"><div class="dm-b">${linkify(m.text || "")}</div><small class="dm-t">${esc(dmTime(m.at))}</small></div>`;
+  if (m.kind === "act") { const a = ACTS.find(x => x.id === m.act); return `<div class="dm-m ${m.mine ? "me" : ""}">${whoTag}<button type="button" class="dm-card dm-actlink" data-dmact="${esc(m.act)}"><small>📅 Activité</small><b>${esc(a ? `${a.emoji} ${a.title}` : m.text || "Activité")}</b><span class="linkbtn">Ouvrir ›</span></button><small class="dm-t">${esc(dmTime(m.at))}</small></div>`; }
+  return `<div class="dm-m ${m.mine ? "me" : ""}">${whoTag}<div class="dm-b">${linkify(m.text || "")}</div><small class="dm-t">${esc(dmTime(m.at))}</small></div>`;
 }
-function dmMsgBind(box, msgs, tag, name, upd) {
-  box.querySelectorAll("[data-dmvote]").forEach(b => b.onclick = async () => { try { upd(await socApi("/dm/" + encodeURIComponent(tag), { method: "POST", body: JSON.stringify({ action: "vote", mid: b.dataset.dmvote, v: b.dataset.v }) })); } catch (e) { toast(e.message); } });
+function chatMsgBind(box, ctx, upd) {
+  box.querySelectorAll("[data-dmvote]").forEach(b => b.onclick = async () => { try { await ctx.post({ action: "vote", mid: b.dataset.dmvote, v: b.dataset.v }); } catch (e) { toast(e.message); } });
   box.querySelectorAll("[data-dmact]").forEach(b => b.onclick = () => { closeForm(); setTimeout(() => actOpen(b.dataset.dmact), 220); });
   box.querySelectorAll("[data-dmcreate]").forEach(b => b.onclick = () => {
-    const m = msgs.find(x => x.id === b.dataset.dmcreate); if (!m) return;
-    closeForm(); setTimeout(() => actNew({ title: m.idea.title, budget: m.idea.budget, when: m.idea.when, desc: m.idea.note, with: [tag], fromDm: { tag, mid: m.id } }), 220);
+    const m = ctx.d.msgs.find(x => x.id === b.dataset.dmcreate); if (!m) return;
+    const v = m.votes || {}, people = ctx.group ? ctx.d.members.map(x => x.tag) : [ctx.ref.tag];
+    const withT = Object.keys(v).filter(t => v[t] === "yes" && t !== SOC.tag), inv = people.filter(t => t !== SOC.tag && !v[t]);
+    closeForm(); setTimeout(() => actNew({ title: m.idea.title, budget: m.idea.budget, when: m.idea.when, desc: m.idea.note, with: withT, invite: inv, fromChat: { ref: ctx.ref, mid: m.id } }), 220);
   });
 }
-function dmIdea(tag, upd) {
-  const host = document.getElementById("sheet2"), wrap = document.createElement("div");
-  // petit formulaire dans la conversation (sans quitter le fil)
-  const box = host.querySelector(".dm-sheet"); if (!box || box.querySelector(".dm-ideaform")) return;
-  wrap.className = "dm-ideaform card";
+function chatIdea(f, post) {
+  const box = f.querySelector(".dm-sheet"); if (!box || box.querySelector(".dm-ideaform")) return;
+  const wrap = document.createElement("div"); wrap.className = "dm-ideaform card";
   wrap.innerHTML = `<b>💡 On finance ensemble…</b><input class="field" id="diTitle" maxlength="80" placeholder="ex. Week-end à la mer, cadeau pour Léa">
     <div class="two"><input class="field" id="diBudget" inputmode="decimal" placeholder="Budget total (${esc(typeof curSym === "function" ? curSym() : "€")})"><input class="field" id="diWhen" type="date" aria-label="Quand"></div>
     <div class="dm-cta"><button type="button" class="btn primary" id="diGo">Proposer</button><button type="button" class="btn" id="diNo">Annuler</button></div>`;
@@ -141,7 +194,7 @@ function dmIdea(tag, upd) {
   wrap.querySelector("#diNo").onclick = close;
   wrap.querySelector("#diGo").onclick = async () => {
     const title = wrap.querySelector("#diTitle").value.trim(); if (!title) { toast("Dis ce que vous voulez financer"); return; }
-    try { const r = await socApi("/dm/" + encodeURIComponent(tag), { method: "POST", body: JSON.stringify({ name: ensName(), idea: { title, budget: parseAmount(wrap.querySelector("#diBudget").value) || 0, when: wrap.querySelector("#diWhen").value, cur: baseCurrency() } }) }); close(); upd(r); }
+    try { await post({ idea: { title, budget: parseAmount(wrap.querySelector("#diBudget").value) || 0, when: wrap.querySelector("#diWhen").value, cur: baseCurrency() } }); close(); const b = box.querySelector("#dmBox"); b.scrollTop = b.scrollHeight; }
     catch (e) { toast(e.message); }
   };
 }
@@ -153,6 +206,7 @@ function actNew(pre) {
   if (!(typeof socOn === "function" && socOn())) { toast("Connecte-toi avec Google ou Microsoft pour créer une activité"); return; }
   const pick = new Set(pre.with || []), people = prochesTagged().slice(0, 14);
   if (pre.preInvite) pick.add(pre.preInvite);
+  for (const t of pre.invite || []) pick.add(t);
   for (const t of pick) if (!people.some(p => p.tag === t)) people.unshift({ tag: t, name: "" });
   let emo = pre.emoji || ACT_EMO[0];
   const f = openForm(`<div class="f2"><h3>Créer une activité ensemble</h3>
@@ -174,7 +228,7 @@ function actNew(pre) {
       try {
         const r = await socApi("/acts", { method: "POST", body: JSON.stringify({ title, emoji: emo, when: f.querySelector("#acWhen").value, place: f.querySelector("#acPlace").value, desc: pre.desc || "", budget, cur: baseCurrency(), invite, with: withT, guests, name: ensName() }) });
         ACTS.unshift(r.act);
-        if (pre.fromDm) { try { await socApi("/dm/" + encodeURIComponent(pre.fromDm.tag), { method: "POST", body: JSON.stringify({ action: "link", mid: pre.fromDm.mid, act: r.act.id }) }); } catch (e) {} }
+        if (pre.fromChat) { try { await socApi(chatPath(pre.fromChat.ref), { method: "POST", body: JSON.stringify({ action: "link", mid: pre.fromChat.mid, act: r.act.id }) }); } catch (e) {} }
         render(); toast(`${emo} Activité créée${invite.length ? ` : ${invite.length} invitation${invite.length > 1 ? "s" : ""} envoyée${invite.length > 1 ? "s" : ""}` : ""}`);
         setTimeout(() => actOpen(r.act.id), 300);
       } catch (e) { toast(e.message); }

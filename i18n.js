@@ -12,6 +12,16 @@
 
   // ---------- Textes fixes ----------
   const EXACT = {
+    "Ajouter des personnes": "Add people",
+    "👥 Ajouter des personnes": "👥 Add people",
+    "Elles verront toute la discussion.": "They'll see the whole chat.",
+    "Dites-vous bonjour 👋": "Say hi 👋",
+    "Quitter la discussion": "Leave the chat",
+    "Toucher encore pour quitter la discussion": "Tap again to leave the chat",
+    "Tu as quitté la discussion": "You left the chat",
+    "Discussion à plusieurs créée 👥": "Group chat created 👥",
+    "Personne ajoutée": "Person added",
+    "Toi": "You",
     "Discussions": "Chats",
     "Activités ensemble": "Activities together",
     "+ Créer une activité": "+ Create an activity",
@@ -867,6 +877,15 @@
   // ---------- Textes avec des valeurs ({m} montant, {d} date, {n} nombre, {x} autre) ----------
   const s = n => (Number(String(n).replace(/[^\d.]/g, "")) > 1 ? "s" : "");
   const PATTERNS = [
+    ["{n} personnes", "{n} people"],
+    ["Une discussion à plusieurs s'ouvre avec {x} ; votre idée en cours suit.", "A group chat opens with {x}; your current idea comes along."],
+    ["@{x} est déjà dans la discussion", "@{x} is already in the chat"],
+    ["{n} personnes ajoutées", "{n} people added"],
+    ["Pas encore répondu : {x}", "No answer yet: {x}"],
+    ["{x} a créé la discussion avec {x}", "{1} created the chat with {2}"],
+    ["{x} a ajouté {x}", "{1} added {2}"],
+    ["{x} a quitté la discussion", "{x} left the chat"],
+    ["{x} a renommé la discussion « {x} »", "{1} renamed the chat “{2}”"],
     ["💬 {x} : {x}", "💬 {1}: {2}"],
     ["💬 {n} nouveaux messages", "💬 {n} new messages"],
     ["{n} non lus", "{n} unread"],
