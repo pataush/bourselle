@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "92";
+const APP_VERSION = "93";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -1039,12 +1039,14 @@ function render() {
     document.getElementById("helloName").textContent = nm; document.getElementById("avatar").textContent = (nm || "B").charAt(0).toUpperCase();
     { const h = document.querySelector("header .nm .hello"); if (h) h.textContent = nm ? "Bonjour," : "Bonjour !"; }
     const n = alertsList().reduce((a, x) => a + x.n, 0); document.getElementById("bellDot").hidden = !n;
+    if (typeof chatBtnSync === "function") chatBtnSync();
   }
-  const arrows = !["accueil", "garanties", "abos", "dettes", "recherche", "objectifs", "economies", "partage", "tontines", "patrimoine"].includes(tab);
-  if (!document.getElementById("app").hidden) document.getElementById("fab").hidden = tab === "economies" || (tab === "accueil" && (!!openDeal || (typeof openProject !== "undefined" && !!openProject)));
+  const arrows = !["accueil", "bons", "garanties", "abos", "dettes", "recherche", "objectifs", "economies", "partage", "tontines", "patrimoine"].includes(tab);
+  if (!document.getElementById("app").hidden) document.getElementById("fab").hidden = tab === "economies" || tab === "bons" || (tab === "accueil" && (!!openDeal || (typeof openProject !== "undefined" && !!openProject)));
   document.getElementById("prev").style.visibility = arrows ? "visible" : "hidden";
   document.getElementById("next").style.visibility = arrows ? "visible" : "hidden";
-  if (tab === "accueil") renderAccueil(); else if (tab === "mois") renderMois(); else if (tab === "annee") renderAnnee(); else if (tab === "frais") renderFrais();
+  if (tab === "accueil" && !(typeof openDeal !== "undefined" && openDeal) && !(typeof openProject !== "undefined" && openProject)) tab = "partage";
+  if (tab === "bons" && typeof renderBons === "function") renderBons(); else if (tab === "accueil") renderAccueil(); else if (tab === "mois") renderMois(); else if (tab === "annee") renderAnnee(); else if (tab === "frais") renderFrais();
   else if (tab === "garanties") renderGaranties(); else if (tab === "abos") renderAbos(); else if (tab === "dettes") renderDettes(); else if (tab === "recherche") renderRecherche(); else if (tab === "objectifs") renderObjectifs(); else if (tab === "economies" && typeof renderEconomies === "function") renderEconomies(); else if (tab === "partage") renderPartage(); else if (tab === "tontines") renderTontines(); else if (tab === "patrimoine") renderPatrimoine(); else renderReglages();
   const nGar = garItems().filter(x => garStatus(x.warranty) === "soon").length;
   const nAbo = Object.values(subs).filter(x => subStatus(x).st === "soon").length;
@@ -1064,12 +1066,14 @@ function render() {
   }
 }
 function switchTab(t) {
+  // « Partage » est réuni dans « Entre proches » : l'ancien onglet ne sert plus qu'à afficher un achat groupé, une cagnotte ou un paiement ouvert
+  if (t === "accueil" && !(typeof openDeal !== "undefined" && openDeal) && !(typeof openProject !== "undefined" && openProject)) t = "partage";
   if (t === "suivis") t = lastSub;
   if (!subAllowed(t)) t = SIMPLE_SUBS.includes(lastSub) ? lastSub : SIMPLE_SUBS[0];
   if (isSub(t)) { if (t !== tab) bumpSub(t); lastSub = t; }
   tab = t;
   if (t !== "accueil" && typeof openDeal !== "undefined") { openDeal = null; dealState = null; if (typeof openProject !== "undefined") openProject = null; }
-  document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === t || (b.dataset.tab === "suivis" && isSub(t)) || (b.dataset.tab === "mois" && (t === "annee" || t === "recherche")))));
+  document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === t || (b.dataset.tab === "suivis" && isSub(t)) || (b.dataset.tab === "partage" && t === "accueil") || (b.dataset.tab === "mois" && (t === "annee" || t === "recherche")))));
   // iPhone : un champ encore actif (clavier ouvert) en changeant d'onglet laissait la barre du bas décalée.
   const ae = document.activeElement; if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) ae.blur();
   render(); window.scrollTo(0, 0); if (typeof iosFixBar === "function") iosFixBar();
@@ -1445,7 +1449,7 @@ async function uploadPicked(picked) {
     f0.busy--; if (form === f0) drawFiles();
   }
 }
-document.getElementById("fab").onclick = () => tab === "accueil" ? showAddMenu() : tab === "abos" ? editSub(null) : tab === "dettes" ? editDebt(null) : tab === "patrimoine" ? editAsset(null) : tab === "objectifs" ? editGoal(null) : tab === "partage" ? (openGroup ? editGroupExpense(openGroup, null) : editGroup(null)) : tab === "tontines" ? editTontine(null) : openSheet(null);
+document.getElementById("fab").onclick = () => tab === "accueil" || (tab === "partage" && !openGroup) ? showAddMenu() : tab === "abos" ? editSub(null) : tab === "dettes" ? editDebt(null) : tab === "patrimoine" ? editAsset(null) : tab === "objectifs" ? editGoal(null) : tab === "partage" ? editGroupExpense(openGroup, null) : tab === "tontines" ? editTontine(null) : openSheet(null);
 document.getElementById("sheetBg").onclick = () => closeSheet(false);
 document.getElementById("fCancel").onclick = () => closeSheet(false);
 document.getElementById("fShare").onclick = () => { const t = { amount: Number(form.amount) || 0, label: form.note || catById(form.cat).name, date: form.date }; closeSheet(); setTimeout(() => shareExpenseWith(t), 260); };
@@ -2315,34 +2319,63 @@ function settle(bal) {
   return out;
 }
 const mName = (g, id) => (g.members.find(m => m.id === id) || { name: "?" }).name + (id === g.me ? " (moi)" : "");
+// Entre proches : ce qu'on me doit, les 4 boutons d'argent, mes proches, puis trois onglets (Discussions, Projets, Groupes)
+let epSub = (() => { try { return localStorage.getItem("bourselle-ep") || "groupes"; } catch (e) { return "groupes"; } })();
 function renderPartage() {
   if (openGroup && !groups[openGroup]) openGroup = null;
   if (openGroup) return renderGroup(openGroup);
   const list = Object.entries(groups).map(([id, g]) => ({ ...g, id, bal: groupBalances(g) }));
-  const mine = list.reduce((a, g) => a + (g.bal[g.me] || 0), 0);
+  const mineG = list.reduce((a, g) => a + (g.bal[g.me] || 0), 0);
+  const hb = typeof hubBalances === "function" ? hubBalances() : { owed: 0, owe: 0 };
+  const owed = Math.max(0, mineG) + hb.owed, owe = Math.max(0, -mineG) + hb.owe, mine = Math.round((owed - owe) * 100) / 100;
   document.getElementById("periodLabel").textContent = "Entre proches";
   document.getElementById("resCap").textContent = mine > 0.004 ? "Au total, on te doit" : mine < -0.004 ? "Au total, tu dois" : "Tout le monde est quitte";
   const big = document.getElementById("resBig"); big.textContent = eur(Math.abs(mine)); big.className = "big num " + (mine > 0.004 ? "good" : mine < -0.004 ? "bad" : "");
-  document.getElementById("resPill").innerHTML = "";
-  let html = banner + (typeof favRowHTML === "function" ? favRowHTML() + (typeof ensHTML === "function" ? ensHTML() : "") + chalHTML() : "");
-  if (!list.length) html += `<div class="card"><div class="empty">Aucun groupe pour l'instant.</div></div>`;
-  for (const g of list) {
-    const b = g.bal[g.me] || 0;
-    html += `<button class="gar ${b > 0.004 ? "owed" : b < -0.004 ? "debt" : "done"}" data-open="${esc(g.id)}" style="text-align:left;width:100%;cursor:pointer;font:inherit;color:inherit">
+  document.getElementById("resPill").innerHTML = owed > 0.004 && owe > 0.004 ? `<span class="pill" style="background:rgba(255,255,255,.15);color:#fff">On te doit ${esc(eur(owed, true))} · tu dois ${esc(eur(owe, true))}</span>` : "";
+  const soc = typeof socOn === "function" && socOn();
+  const unread = typeof DMS !== "undefined" ? DMS.reduce((a, t) => a + (t.unread || 0), 0) : 0;
+  let html = banner + `<div class="hub-acts">
+    <button type="button" data-hub="proj">${hubIcon("bill")}<span>Payer</span></button>
+    <button type="button" data-hub="pay">${hubIcon("pay")}<span>Me faire payer</span></button>
+    <button type="button" data-hub="cagnotte">${hubIcon("cagnotte")}<span>Cagnotte</span></button>
+    <button type="button" data-hub="achat">${hubIcon("achat")}<span>Achat groupé</span></button></div>`;
+  if (typeof favRowHTML === "function") html += favRowHTML();
+  if (typeof offTeaserHTML === "function") html += offTeaserHTML();
+  const SUBT = [["discussions", "Discussions", "Tes conversations avec tes proches"], ["projets", "Projets", "On cotise pour un objectif"], ["groupes", "Groupes", "On partage les dépenses au quotidien"]];
+  if (!SUBT.some(([k]) => k === epSub)) epSub = "groupes";
+  html += `<div class="ep-tabs" role="tablist">${SUBT.map(([k, l]) => `<button type="button" role="tab" data-ep="${k}" aria-selected="${epSub === k}">${l}${k === "discussions" && unread ? ` <i class="ep-badge">${unread}</i>` : ""}</button>`).join("")}</div>
+    <p class="ep-sub">${esc(SUBT.find(([k]) => k === epSub)[2])}</p>`;
+  if (epSub === "discussions") html += typeof ensThreadsHTML === "function" ? ensThreadsHTML() : "";
+  else if (epSub === "projets") {
+    html += typeof ensActsHTML === "function" ? ensActsHTML() : "";
+    if (typeof projHubHTML === "function") html += projHubHTML();
+    const ds = (typeof DEALS !== "undefined" ? DEALS : []).slice().sort((a, b) => (a.status !== "open") - (b.status !== "open") || (b.updated || 0) - (a.updated || 0));
+    if (ds.length) html += `<div class="hub-sec"><span>Cagnottes et achats groupés</span><small>${ds.filter(d => d.status === "open").length} en cours</small></div><div class="hub-deals">${ds.slice(0, 8).map(d => DEALUI.card(d, dealCtxBase())).join("")}</div>`;
+    if (!soc) html += `<div class="card hub-intro"><p class="hint" style="margin:0">Connecte-toi avec Google ou Microsoft pour cotiser avec tes proches : chacun paie de banque à banque, l'argent ne passe jamais par Bourselle.</p></div>`;
+  } else {
+    if (!list.length) html += `<div class="card"><div class="empty">Couple, colocation, voyage, famille : chacun ajoute ses dépenses, Bourselle calcule qui doit combien à qui.</div></div><button class="btn primary" id="grNew" style="width:100%">+ Créer un groupe</button>`;
+    else html += `<div class="hub-sec"><span>Dépenses partagées</span><button class="linkbtn" id="grNew">+ Nouveau groupe</button></div>`;
+    for (const g of list) {
+      const b = g.bal[g.me] || 0;
+      html += `<button class="gar ${b > 0.004 ? "owed" : b < -0.004 ? "debt" : "done"}" data-open="${esc(g.id)}" style="text-align:left;width:100%;cursor:pointer;font:inherit;color:inherit">
       <div class="top"><span class="n">${esc(g.name)}</span><span class="st">${b > 0.004 ? "On te doit" : b < -0.004 ? "Tu dois" : "Équilibré"}</span></div>
       <div class="top"><span class="amt num">${esc(eur(Math.abs(b)))}</span><span class="hint">${g.members.length} personnes · ${Object.values(liveExp(g)).filter(e => e.kind !== "transfer").length} dépenses</span></div>
       ${g.shared ? `<div class="hint" style="margin-top:4px">${g.owner && typeof SOC !== "undefined" && g.owner !== SOC.tag ? `<span>Partagé par</span> @${esc(g.owner)}` : "Partagé avec les membres Bourselle"}</div>` : ""}</button>`;
-    const owers = settle(g.bal).filter(x => x.to === g.me);
-    if (owers.length) html += `<button type="button" class="btn gr-rem" data-grem="${esc(g.id)}">🔔 Relancer ${owers.length > 1 ? `les ${owers.length} personnes qui te doivent` : esc((g.members.find(m => m.id === owers[0].from) || {}).name || "")}</button>`;
+      const owers = settle(g.bal).filter(x => x.to === g.me);
+      if (owers.length) html += `<button type="button" class="btn gr-rem" data-grem="${esc(g.id)}">🔔 Relancer ${owers.length > 1 ? `les ${owers.length} personnes qui te doivent` : esc((g.members.find(m => m.id === owers[0].from) || {}).name || "")}</button>`;
+    }
+    if (typeof chalHTML === "function") html += chalHTML();
+    html += typeof feedHTML === "function" ? feedHTML() : "";
   }
-  if (list.length) { const i = html.indexOf("<button class=\"gar "); html = html.slice(0, i) + `<div class="hub-sec"><span>Dépenses partagées</span><button class="linkbtn" id="grNew">+ Nouveau groupe</button></div>` + html.slice(i); }
-  else html += `<button class="btn primary" id="grNew" style="width:100%">+ Créer un groupe</button>`;
-  html += typeof feedHTML === "function" ? feedHTML() : "";
-  html += `<p class="hint" style="text-align:center;margin:4px 0 0">Couple, colocation, voyage, famille : chacun ajoute ses dépenses, Bourselle calcule qui doit combien à qui.</p>`;
   view.innerHTML = html;
+  view.querySelectorAll("[data-ep]").forEach(b => b.onclick = () => { epSub = b.dataset.ep; try { localStorage.setItem("bourselle-ep", epSub); } catch (e) {} render(); });
+  view.querySelectorAll("[data-hub]").forEach(b => b.onclick = () => ({ proj: () => editProject(), achat: () => editDeal(null, "achat"), cagnotte: () => editDeal(null, "cagnotte"), pay: () => editPay() })[b.dataset.hub]());
+  view.querySelectorAll("[data-deal]").forEach(b => b.onclick = () => showDeal(b.dataset.deal));
   view.querySelectorAll("[data-open]").forEach(b => b.onclick = () => { openGroup = b.dataset.open; render(); window.scrollTo(0, 0); });
   { const n = document.getElementById("grNew"); if (n) n.onclick = () => editGroup(null); }
-  actBind(view); if (typeof favBind === "function") { favBind(view); feedBind(view); chalBind(view); if (typeof ensBind === "function") ensBind(view); }
+  actBind(view); if (typeof projBindHub === "function") projBindHub();
+  if (typeof favBind === "function") { favBind(view); feedBind(view); chalBind(view); if (typeof ensBind === "function") ensBind(view); }
+  if (typeof offHubBind === "function") offHubBind(view);
   view.querySelectorAll("[data-grem]").forEach(b => b.onclick = () => { const g = groups[b.dataset.grem]; groupRemind(b.dataset.grem, settle(groupBalances(g)).filter(x => x.to === g.me)); });
 }
 // Relancer : on choisit le message (régler la somme, ou un autre message). Résout avec le texte, ou null si annulé.

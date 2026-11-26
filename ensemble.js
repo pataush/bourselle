@@ -27,7 +27,7 @@ async function ensRefresh() {
       try { dm = sessionStorage.getItem("bourselle-dm") || ""; act = sessionStorage.getItem("bourselle-act") || ""; gc = sessionStorage.getItem("bourselle-gc") || ""; ["dm", "act", "gc"].forEach(k => sessionStorage.removeItem("bourselle-" + k)); } catch (e) {}
       if (dm) setTimeout(() => dmOpen(dm), 400); else if (gc) setTimeout(() => gcOpen(gc), 400); else if (act) setTimeout(() => actOpen(act), 400);
     }
-    if (typeof refreshBell === "function") refreshBell();
+    if (typeof refreshBell === "function") refreshBell(); chatBtnSync();
     if (typeof tab !== "undefined" && tab === "partage" && !openGroup && !document.querySelector("#sheet2Root.open")) render();
   } catch (e) {}
 }
@@ -40,31 +40,68 @@ async function ensRefresh() {
   }
 }
 
-// ---------- Entre proches : discussions et activités ----------
-function ensHTML() {
-  if (!(typeof socOn === "function" && socOn())) return "";
-  let h = "";
-  const threads = DMS.slice().sort((a, b) => b.at - a.at).slice(0, 3);
-  if (threads.length) h += `<div class="hub-sec"><span>Discussions</span>${DMS.some(t => t.unread) ? `<small>${DMS.reduce((a, t) => a + t.unread, 0)} non lu${DMS.reduce((a, t) => a + t.unread, 0) > 1 ? "s" : ""}</small>` : ""}</div>
-    <div class="card dm-list">${threads.map(t => `<button type="button" class="dm-th${t.unread ? " unread" : ""}" ${t.gid ? `data-gc="${esc(t.gid)}"` : `data-dm="${esc(t.tag)}"`}>${t.gid ? `<span class="fav-av grp">👥</span>` : `<span class="fav-av" style="background:${favColor("@" + t.tag)}">${esc(favFirst(t.name || t.tag).charAt(0))}</span>`}
-      <span class="dm-tx"><b>${esc(chatTitle(t))}</b><small>${t.last.from === "sys" ? "" : t.last.mine ? "Toi : " : t.gid ? esc(favFirst(t.last.name || t.last.from)) + " : " : ""}${esc(t.last.kind === "idea" ? "💡 " + t.last.idea.title : t.last.kind === "act" ? "📅 " + (t.last.text || "Activité") : t.last.del ? "Message supprimé" : t.last.text || "")}</small></span>
-      <span class="dm-meta"><small>${esc(agoText(t.at))}</small>${t.unread ? `<i>${t.unread}</i>` : ""}</span></button>`).join("")}</div>`;
-  const acts = ACTS.filter(a => a.status === "open").sort((a, b) => b.invited - a.invited || (a.when || "9") .localeCompare(b.when || "9"));
-  h += `<div class="hub-sec"><span>Activités ensemble</span><button class="linkbtn" id="actNew">+ Créer une activité</button></div>`;
-  h += acts.length ? acts.map(a => { const pct = Math.min(100, Math.round(a.got / a.budget * 100)), me = a.members.find(m => m.id === a.me);
-    return `<button type="button" class="card act-card" data-act="${esc(a.id)}"><div class="act-top"><span class="act-emo">${esc(a.emoji || "📅")}</span><span class="act-tt"><b>${esc(a.title)}</b><small>${[a.when ? frDate(a.when) : "", a.place, `${a.members.length} participant${a.members.length > 1 ? "s" : ""}`].filter(Boolean).map(esc).join(" · ")}</small></span></div>
-      <div class="act-bar"><i style="width:${pct}%"></i></div><div class="act-sub"><span><span>Financé</span> <b class="num">${esc(ensMoney(a.got, a.cur))}</b> <span>sur</span> <span class="num">${esc(ensMoney(a.budget, a.cur))}</span></span>
-      ${a.invited ? `<span class="act-chip warn">Invitation</span>` : me && !a.owner ? `<span class="act-chip ${me.st === "ok" ? "ok" : me.st === "sent" ? "" : "warn"}">${me.st === "ok" ? "Ta part ✓" : me.st === "sent" ? "À confirmer" : `Ta part : ${esc(ensMoney(me.share, a.cur))}`}</span>` : a.owner && a.members.some(m => m.st === "sent") ? `<span class="act-chip warn">À confirmer</span>` : ""}</div></button>`; }).join("")
-    : `<button type="button" class="card act-card act-empty" id="actNew2"><b>Une sortie, un week-end, un cadeau ?</b><small>Fixez un budget, chacun verse sa part à l'organisateur, de banque à banque. Vous en discutez dans l'activité.</small></button>`;
-  return h;
+// ---------- Entre proches : onglets « Discussions » et « Projets » ----------
+function ensThreadsHTML() {
+  if (!(typeof socOn === "function" && socOn())) return `<div class="card"><p class="hint" style="margin:0">Connecte-toi avec Google ou Microsoft pour écrire à tes proches et décider ensemble de ce que vous financez.</p></div>`;
+  const threads = DMS.slice().sort((a, b) => b.at - a.at);
+  return `<button type="button" class="btn primary" id="dmNew" style="width:100%">✏️ Nouvelle discussion</button>` + (threads.length ? `<div class="card dm-list">${threads.map(t => `<button type="button" class="dm-th${t.unread ? " unread" : ""}" ${t.gid ? `data-gc="${esc(t.gid)}"` : `data-dm="${esc(t.tag)}"`}>${t.gid ? `<span class="fav-av grp">👥</span>` : `<span class="fav-av" style="background:${favColor("@" + t.tag)}">${esc(favFirst(t.name || t.tag).charAt(0))}</span>`}
+      <span class="dm-tx"><b>${esc(chatTitle(t))}</b><small>${t.last.from === "sys" ? "" : t.last.mine ? "Toi : " : t.gid ? esc(favFirst(t.last.name || t.last.from)) + " : " : ""}${esc(t.last.kind === "idea" ? "💡 " + t.last.idea.title : t.last.kind === "act" ? "📅 " + (t.last.text || "Projet") : t.last.kind === "place" ? "📍 " + t.last.place.name : t.last.kind === "dates" ? "📅 Dates proposées" : t.last.del ? "Message supprimé" : t.last.text || "")}</small></span>
+      <span class="dm-meta"><small>${esc(agoText(t.at))}</small>${t.unread ? `<i>${t.unread}</i>` : ""}</span></button>`).join("")}</div>`
+    : `<div class="card"><p class="hint" style="margin:0">Écris à un proche, propose un lieu ou une date, et décidez ensemble de ce que vous financez.</p></div>`);
 }
+// Une carte de projet en une phrase : « On cotise 300 € à 4 · il manque 100 € », et à droite ta part
+function ensActCard(a) {
+  const me = a.members.find(m => m.id === a.me), miss = Math.max(0, Math.round((a.budget - a.got) * 100) / 100), n = a.members.length;
+  const right = a.invited ? `<span class="act-chip warn">Invitation</span>`
+    : a.owner ? (a.members.some(m => m.st === "sent") ? `<span class="act-chip warn">À confirmer</span>` : `<span class="act-chip">Tu organises</span>`)
+    : me && me.st === "ok" ? `<span class="act-chip ok">Ta part payée ✓</span>` : me && me.st === "sent" ? `<span class="act-chip">Versée, à confirmer</span>`
+    : me ? `<span class="btn primary act-pay" data-actpay="${esc(a.id)}">Verser ${esc(ensMoney(me.share, a.cur))}</span>` : "";
+  return `<div class="card act-card" data-act="${esc(a.id)}" role="button" tabindex="0"><div class="act-top"><span class="act-emo">${esc(a.emoji || "📅")}</span><span class="act-tt"><b>${esc(a.title)}</b><small>${[a.when ? frDate(a.when) : "", a.place].filter(Boolean).map(esc).join(" · ")}</small></span></div>
+    <div class="act-line"><span>On cotise <b class="num">${esc(ensMoney(a.budget, a.cur))}</b> à ${n} · ${miss > 0 ? `il manque <b class="num">${esc(ensMoney(miss, a.cur))}</b>` : "tout est réuni 🎉"}</span>${right}</div>
+    <div class="act-bar"><i style="width:${Math.min(100, Math.round(a.got / a.budget * 100))}%"></i></div></div>`;
+}
+function ensActsHTML() {
+  if (!(typeof socOn === "function" && socOn())) return "";
+  const acts = ACTS.filter(a => a.status === "open").sort((a, b) => b.invited - a.invited || (a.when || "9").localeCompare(b.when || "9"));
+  return `<button type="button" class="btn primary" id="actNew" style="width:100%">+ Nouveau projet</button>` + (acts.length ? acts.map(ensActCard).join("")
+    : `<button type="button" class="card act-card act-empty" id="actNew2"><b>Une sortie, un week-end, un cadeau ?</b><small>Fixez un budget, chacun verse sa part à l'organisateur, de banque à banque. Vous en discutez dans le projet.</small></button>`);
+}
+function ensHTML() { return ensThreadsHTML() + ensActsHTML(); }
 function ensBind(root) {
   root.querySelectorAll("[data-dm]").forEach(b => b.onclick = () => dmOpen(b.dataset.dm));
   root.querySelectorAll("[data-gc]").forEach(b => b.onclick = () => gcOpen(b.dataset.gc));
-  root.querySelectorAll("[data-act]").forEach(b => b.onclick = () => actOpen(b.dataset.act));
+  root.querySelectorAll("[data-act]").forEach(b => b.onclick = e => { if (e.target.closest("[data-actpay]")) return; actOpen(b.dataset.act); });
+  root.querySelectorAll("[data-actpay]").forEach(b => b.onclick = async e => { e.stopPropagation(); const a = ACTS.find(x => x.id === b.dataset.actpay); if (a) actPay(a); });
   ["#actNew", "#actNew2"].forEach(s => { const b = root.querySelector(s); if (b) b.onclick = () => actNew(); });
+  const dn = root.querySelector("#dmNew"); if (dn) dn.onclick = () => chatNew();
 }
-
+// Nouvelle discussion : choisir un ou plusieurs proches
+function chatNew() {
+  const pick = new Set(), people = prochesTagged().slice(0, 16);
+  const f = openForm(`<div class="f2"><h3>Nouvelle discussion</h3>${people.length ? `<div class="chips" id="cnPeople">${people.map(p => `<button type="button" class="chip" data-tag="${esc(p.tag)}" aria-pressed="false">${esc(p.name || "@" + p.tag)}</button>`).join("")}</div>` : ""}
+    <input class="field" id="cnFind" placeholder="Chercher un @tag…" autocapitalize="off" spellcheck="false" autocomplete="off" style="margin-top:8px"><div id="cnRes"></div>
+    <p class="hint" style="margin:8px 0 0">Une personne : conversation à deux. Plusieurs : discussion de groupe. Pour ceux qui n'ont pas l'appli, tu pourras envoyer un lien d'invitation.</p></div>`, () => {
+    if (!pick.size) { toast("Choisis au moins une personne"); return false; }
+    const tags = [...pick];
+    if (tags.length === 1) { setTimeout(() => dmOpen(tags[0]), 250); return; }
+    (async () => { try { const r = await socApi("/gc", { method: "POST", body: JSON.stringify({ name: ensName(), tags }) }); ensRefresh(); setTimeout(() => gcOpen(r.gc.id), 250); } catch (e) { toast(e.message); } })();
+  });
+  f.querySelector("button[type=submit]").textContent = "Écrire";
+  const tog = b => { const t = b.dataset.tag; pick.has(t) ? pick.delete(t) : pick.add(t); b.setAttribute("aria-pressed", pick.has(t)); };
+  f.querySelectorAll("#cnPeople [data-tag]").forEach(b => b.onclick = () => tog(b));
+  tagPicker(f.querySelector("#cnFind"), f.querySelector("#cnRes"), (tag, nm) => {
+    let b = f.querySelector(`#cnPeople [data-tag="${tag}"]`);
+    if (!b) { let c = f.querySelector("#cnPeople"); if (!c) { c = document.createElement("div"); c.className = "chips"; c.id = "cnPeople"; f.querySelector("#cnFind").before(c); } c.insertAdjacentHTML("beforeend", `<button type="button" class="chip" data-tag="${esc(tag)}" aria-pressed="false">${esc(nm || "@" + tag)}</button>`); b = c.lastElementChild; b.onclick = () => tog(b); }
+    if (!pick.has(tag)) tog(b); f.querySelector("#cnFind").value = "";
+  });
+}
+// Icône 💬 en haut : la messagerie, avec le nombre de non-lus
+function chatBtnSync() {
+  const b = document.getElementById("chatBtn"), d = document.getElementById("chatDot"); if (!b) return;
+  b.hidden = !(typeof socOn === "function" && socOn());
+  const n = DMS.reduce((a, t) => a + (t.unread || 0), 0); if (d) { d.hidden = !n; d.textContent = n > 9 ? "9+" : n || ""; }
+  b.onclick = () => { epSub = "discussions"; try { localStorage.setItem("bourselle-ep", "discussions"); } catch (e) {} if (typeof openGroup !== "undefined") openGroup = null; switchTab("partage"); };
+}
 // ---------- Messagerie (à deux, ou à plusieurs) ----------
 // ref = { tag } pour une conversation à deux, { gid } pour une discussion à plusieurs
 const chatKey = t => t.gid ? "g:" + t.gid : t.tag;
@@ -286,11 +323,7 @@ async function actOpen(id) {
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
   { const c = f.querySelector("#acChat"); c.scrollTop = c.scrollHeight; }
   const on = (s, fn) => { const b = f.querySelector(s); if (b) b.onclick = fn; };
-  on("#acPay", () => {
-    const done = async () => { const r = await actCall(id, { action: "paid" }); if (r) { render(); toast(`C'est noté : ${favFirst(a.ownerName)} confirmera dès réception`); } };
-    if (a.pay) { closeForm(); setTimeout(() => showPay(a.pay, me.share, a.title, a.ownerName, done), 220); }
-    else { closeForm(); setTimeout(() => { const g = openForm(`<div class="f2"><h3>Verser ma part</h3><p>${esc(a.ownerName)} n'a pas encore indiqué comment le payer dans Bourselle. Verse <b class="num">${esc(ensMoney(me.share, a.cur))}</b> comme d'habitude (virement, espèces…), puis appuie sur « J'ai payé ».</p></div>`, () => { done(); }); g.querySelector("button[type=submit]").textContent = "J'ai payé"; }, 220); }
-  });
+  on("#acPay", () => { closeForm(); setTimeout(() => actPay(a), 220); });
   f.querySelectorAll("[data-acok]").forEach(b => b.onclick = async () => { const r = await actCall(id, { action: "received", mid: b.dataset.acok }); if (r) { toast("Part reçue ✓"); reopen(); render(); } });
   f.querySelectorAll("[data-acun]").forEach(b => b.onclick = async () => { const r = await actCall(id, { action: "unreceived", mid: b.dataset.acun }); if (r) reopen(); });
   f.querySelectorAll("[data-acrem]").forEach(b => b.onclick = async () => {
@@ -318,4 +351,14 @@ async function actOpen(id) {
   twice("#acDone", "Toucher encore pour terminer", async () => { if (await actCall(id, { action: "done" })) { closeForm(); render(); toast("Activité terminée 🎉"); } });
   twice("#acDel", "Toucher encore pour annuler pour tout le monde", async () => { if (await actCall(id, { action: "delete" })) { ACTS = ACTS.filter(x => x.id !== id); closeForm(); render(); toast("Activité annulée"); } });
   twice("#acLeave", "Toucher encore pour ne plus participer", async () => { if (await actCall(id, { action: "leave" })) { ACTS = ACTS.filter(x => x.id !== id); closeForm(); render(); toast("Tu ne participes plus"); } });
+}
+
+// Verser ma part d'un projet : les moyens de paiement de l'organisateur, puis « J'ai payé » (l'organisateur confirme à réception)
+async function actPay(a) {
+  if (!a.pay) { try { a = (await socApi("/acts/" + a.id)).act; } catch (e) {} }
+  const me = a.members.find(m => m.id === a.me); if (!me) return actOpen(a.id);
+  const done = async () => { const r = await actCall(a.id, { action: "paid" }); if (r) { render(); toast(`C'est noté : ${favFirst(a.ownerName)} confirmera dès réception`); } };
+  if (a.pay) return showPay(a.pay, me.share, a.title, a.ownerName, done);
+  const g = openForm(`<div class="f2"><h3>Verser ma part</h3><p>${esc(a.ownerName)} n'a pas encore indiqué comment le payer dans Bourselle. Verse <b class="num">${esc(ensMoney(me.share, a.cur))}</b> comme d'habitude (virement, espèces…), puis appuie sur « J'ai payé ».</p></div>`, () => { done(); });
+  g.querySelector("button[type=submit]").textContent = "J'ai payé";
 }

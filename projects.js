@@ -64,7 +64,7 @@ function renderProject() {
   document.getElementById("resPill").innerHTML = owner ? `<span class="pill" style="background:rgba(255,255,255,.15);color:#fff">Reçu ${esc(pjMoney(st.ok, pj.cur, true))} · envoyé ${esc(pjMoney(st.sent, pj.cur))} · reste ${esc(pjMoney(st.due, pj.cur))}</span>` : "";
   const today = todayISO();
   const lines = Object.entries(pj.lines || {}).sort((a, b) => ({ due: 0, sent: 1, ok: 2 }[a[1].status] - { due: 0, sent: 1, ok: 2 }[b[1].status]) || (a[1].due || "9").localeCompare(b[1].due || "9"));
-  let h = banner + `<button class="btn" id="pjBack" style="align-self:flex-start">‹ Partage</button>`;
+  let h = banner + `<button class="btn" id="pjBack" style="align-self:flex-start">‹ Entre proches</button>`;
   if (owner) h += `<div class="card"><h2>${esc(pj.title)}<small>${st.n} personne${st.n > 1 ? "s" : ""}</small></h2>${pj.note ? `<p class="hint" style="margin:0 0 8px">${esc(pj.note)}</p>` : ""}${pjBar(st)}
     <div class="pj-legend"><span class="pj-c due">● À payer ${esc(pjMoney(st.due, pj.cur))}</span><span class="pj-c sent">● Envoyé ${esc(pjMoney(st.sent, pj.cur))}</span><span class="pj-c ok">● Reçu ${esc(pjMoney(st.ok, pj.cur))}</span></div></div>`;
   h += `<div class="card"><h2>${owner ? "Personnes à payer" : "Ce qu'on te doit"}</h2>${lines.map(([lid, l]) => {

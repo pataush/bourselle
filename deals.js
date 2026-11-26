@@ -108,13 +108,16 @@ function showAddMenu() {
   const gl = Object.entries(groups);
   const row = (id, icon, label, sub) => `<button type="button" class="pm-row" id="${id}"><span class="pm-ic" aria-hidden="true">${icon}</span><span class="pm-t"><b>${esc(label)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</span><span class="pm-chev" aria-hidden="true">›</span></button>`;
   const f = openForm(`<div class="f2 pm"><h3>Ajouter</h3><div class="pm-list">
+    ${row("amExp", hubIcon("group"), "Une dépense partagée", gl.length ? "Dans un de tes groupes" : "Crée un groupe : coloc, voyage, famille…")}
+    ${typeof actNew === "function" && typeof socOn === "function" && socOn() ? row("amAct", "📅", "Un projet entre proches", "Un budget, chacun verse sa part") : ""}
     ${row("amProj", hubIcon("bill"), "Payer", "Une ou plusieurs personnes : qui, combien, quand")}
     ${row("amAchat", hubIcon("achat"), "Un achat groupé", "Places, minimum, date limite")}
     ${row("amCag", hubIcon("cagnotte"), "Une cagnotte", "Chacun cotise, un membre reçoit le pot à chaque tour")}
     ${row("amTx", hubIcon("pay"), "Une opération de mon budget", "Dépense, rentrée, épargne")}</div></div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
   const go = (id, fn) => { const b = f.querySelector("#" + id); if (b) b.onclick = () => { closeForm(); setTimeout(fn, 250); }; };
-  go("amExp", () => { if (gl.length === 1) editGroupExpense(gl[0][0], null); else { openGroup = null; switchTab("partage"); } });
+  go("amExp", () => { if (gl.length === 1) editGroupExpense(gl[0][0], null); else if (!gl.length) editGroup(null); else { openGroup = null; epSub = "groupes"; switchTab("partage"); } });
+  go("amAct", () => actNew());
   go("amProj", () => editProject()); go("amGroup", () => editGroup(null)); go("amAchat", () => editDeal(null, "achat")); go("amCag", () => editDeal(null, "cagnotte")); go("amTx", () => openSheet(null));
 }
 
@@ -136,7 +139,7 @@ function renderDeal() {
   const big = document.getElementById("resBig"); big.className = "big num";
   big.textContent = d ? (d.kind === "achat" ? `${d.stats.qty} / ${d.min}` : dealMoney(d.stats.sum, d.cur)) : "";
   document.getElementById("resPill").innerHTML = d ? `<span class="pill" style="background:rgba(255,255,255,.15);color:#fff">${esc(d.ton ? `pot à chaque tour · ${d.stats.n} membres` : d.kind === "achat" ? "places réservées / minimum" : d.target ? "sur " + dealMoney(d.target, d.cur) : d.stats.n + " participants")}</span>` : "";
-  view.innerHTML = banner + `<button class="btn" id="dBack" style="align-self:flex-start">‹ Partage</button><div id="dealRoot">${d ? "" : `<div class="card"><div class="empty">Chargement…</div></div>`}</div>`;
+  view.innerHTML = banner + `<button class="btn" id="dBack" style="align-self:flex-start">‹ Entre proches</button><div id="dealRoot">${d ? "" : `<div class="card"><div class="empty">Chargement…</div></div>`}</div>`;
   document.getElementById("dBack").onclick = () => { openDeal = null; dealState = null; render(); window.scrollTo(0, 0); };
   if (!d) return;
   const id = d.id, ctx = { ...dealCtxBase(),
