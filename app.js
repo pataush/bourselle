@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "60";
+const APP_VERSION = "61";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -954,7 +954,24 @@ function switchTab(t) {
   tab = t;
   if (t !== "accueil" && typeof openDeal !== "undefined") { openDeal = null; dealState = null; if (typeof openProject !== "undefined") openProject = null; }
   document.querySelectorAll("nav.tabs button").forEach(b => b.setAttribute("aria-selected", String(b.dataset.tab === t || (b.dataset.tab === "suivis" && isSub(t)) || (b.dataset.tab === "mois" && (t === "annee" || t === "recherche")))));
-  render(); window.scrollTo(0, 0);
+  // iPhone : un champ encore actif (clavier ouvert) en changeant d'onglet laissait la barre du bas décalée.
+  const ae = document.activeElement; if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) ae.blur();
+  render(); window.scrollTo(0, 0); if (typeof iosFixBar === "function") iosFixBar();
+}
+// iPhone / iPad : la barre du bas doit rester collée en bas dans tous les onglets.
+const IS_IOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+if (IS_IOS) {
+  document.documentElement.classList.add("ios");
+  // Pas de zoom automatique en touchant un champ (le zoom restait après et décalait la barre) ; le zoom avec deux doigts reste possible.
+  const vp = document.querySelector('meta[name="viewport"]');
+  if (vp && !/maximum-scale/.test(vp.content)) vp.content += ", maximum-scale=1";
+  // Après la fermeture du clavier, iOS laisse parfois les éléments fixes décalés : on force un recalcul.
+  document.addEventListener("focusout", () => setTimeout(iosFixBar, 60));
+  if (window.visualViewport) visualViewport.addEventListener("resize", () => setTimeout(iosFixBar, 60));
+}
+function iosFixBar() {
+  if (!IS_IOS) return;
+  requestAnimationFrame(() => { window.scrollTo(window.scrollX, window.scrollY); const n = document.querySelector("nav.tabs"); if (n) { n.style.transform = "translate3d(0,0,0.1px)"; void n.offsetHeight; n.style.transform = ""; } });
 }
 document.querySelectorAll("nav.tabs button").forEach(b => b.onclick = () => { if (b.dataset.tab === "accueil" && typeof openDeal !== "undefined") { openDeal = null; dealState = null; if (typeof openProject !== "undefined") openProject = null; } switchTab(b.dataset.tab); });
 function step(d) {

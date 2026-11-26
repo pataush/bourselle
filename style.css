@@ -705,3 +705,12 @@ nav.tabs .in { gap: 2px; }
 .crop-stage img { max-width: 100%; max-height: 100%; display: block; user-select: none; -webkit-user-drag: none; }
 .crop-box { position: absolute; border: 3px solid var(--gold, #e0b84a); box-shadow: 0 0 0 9999px rgba(0,0,0,.45); border-radius: 6px; touch-action: none; cursor: move; }
 .crop-size { width: 80%; } .crop-acts { display: flex; gap: 10px; }
+
+/* iPhone / iPad : la barre du bas reste en bas dans tous les onglets.
+   - Une page toujours un peu plus haute que l'écran : Safari/Chrome ne replient plus leur barre d'adresse
+     sur un onglet court (c'est ce qui faisait « monter » la barre du bas).
+   - Champs en 16 px : iOS ne zoome plus en touchant un champ. */
+html.ios #app { min-height: calc(100lvh + 1px); }
+@supports not (height: 100lvh) { html.ios #app { min-height: calc(100vh + 1px); } }
+html.ios input:not([type=checkbox]):not([type=radio]):not([type=range]), html.ios select, html.ios textarea { font-size: max(16px, 1em); }
+html.ios nav.tabs { bottom: 0; transform: translateZ(0); }
