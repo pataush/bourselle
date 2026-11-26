@@ -687,3 +687,6 @@ body.tab-reglages .hero { display: none; }
 .app { padding-bottom: 200px; }
 nav.tabs button { font-size: .66rem; letter-spacing: -.01em; white-space: nowrap; }
 nav.tabs .in { gap: 2px; }
+
+.pay-hint { margin: 2px 0 4px; font-size: .8rem; color: var(--muted); }
+.ton-rem { font-size: .8rem; }

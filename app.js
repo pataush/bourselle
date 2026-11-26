@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "56";
+const APP_VERSION = "57";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -719,7 +719,7 @@ function renderReglages() {
     <div style="margin-top:8px"><button class="btn danger" id="logout" data-l="Quitter le mode essai">Quitter le mode essai</button></div></div>`
     : `<div style="display:flex;gap:8px;flex-wrap:wrap">${store && store.folderUrl() ? `<a class="btn" href="${esc(store.folderUrl())}" target="_blank" rel="noopener">Ouvrir mon dossier</a>` : ""}<button class="btn danger" id="logout" data-l="Se déconnecter">Se déconnecter</button></div></div>`}
   ${typeof accCardHTML === "function" ? accCardHTML(false) : ""}
-  ${typeof editPay === "function" && typeof socOn === "function" && socOn() ? `<div class="card"><h2>Me faire payer</h2><p class="hint" style="margin:0 0 10px">${SOC.pay ? `Enregistré : ${[SOC.pay.iban ? "IBAN " + esc(PAY.ibanFmt(SOC.pay.iban).slice(0, 7)) + "…" : "", SOC.pay.paypal ? "PayPal.me" : "", SOC.pay.link ? "lien de paiement" : ""].filter(Boolean).join(", ")}` : "Ton IBAN, PayPal.me ou un lien Lydia, Wero… pour que les membres de tes groupes te paient en un geste."}</p>
+  ${typeof editPay === "function" && typeof socOn === "function" && socOn() ? `<div class="card"><h2>Me faire payer</h2><p class="hint" style="margin:0 0 10px">${SOC.pay ? `Enregistré : ${[SOC.pay.iban ? "IBAN " + esc(PAY.ibanFmt(SOC.pay.iban).slice(0, 7)) + "…" : "", SOC.pay.momo ? SOC.pay.momo.op : "", SOC.pay.paypal ? "PayPal.me" : "", SOC.pay.link ? "lien de paiement" : ""].filter(Boolean).join(", ")}` : "Ton IBAN, Mobile Money (MoMo, Orange Money, Wave…), PayPal.me ou un lien de paiement, pour qu'on te paie en un geste."}</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" id="payEdit">${SOC.pay ? "Modifier" : "Ajouter mes moyens de paiement"}</button>${SOC.payToken ? `<button class="btn" id="payShare">Partager mon lien de paiement</button>` : ""}</div></div>` : ""}
   ${typeof pushCardHTML === "function" ? pushCardHTML() : ""}
   ${typeof socContactsCardHTML === "function" ? socContactsCardHTML() : ""}

@@ -34,8 +34,10 @@ const PAY = {
       if (svg) h += `<div class="pay-qr">${svg}<p>${esc2(t("Scanne ce QR code avec l'appli de ta banque : le virement est déjà rempli."))}</p></div>`; }
     if (p.iban) h += `<div class="pay-row"><span>${esc2(t("Bénéficiaire"))}</span><b>${esc2(p.name)}</b></div>
       <div class="pay-row"><span>IBAN</span><b class="mono">${esc2(PAY.ibanFmt(p.iban))}</b><button type="button" class="linkbtn" data-copy="${esc2(PAY.clean(p.iban))}">${esc2(t("Copier"))}</button></div>`;
-    if (amount > 0 && p.iban) h += `<div class="pay-row"><span>${esc2(t("Montant"))}</span><b>${esc2((Math.round(amount * 100) / 100).toFixed(2))}</b><button type="button" class="linkbtn" data-copy="${(Math.round(amount * 100) / 100).toFixed(2)}">${esc2(t("Copier"))}</button></div>`;
-    if (note && p.iban) h += `<div class="pay-row"><span>${esc2(t("Motif"))}</span><b>${esc2(note)}</b></div>`;
+    if (p.momo && p.momo.num) h += `<div class="pay-row"><span>${esc2(t("Mobile Money"))}</span><b>${esc2(p.momo.op)} · <span class="mono">${esc2(p.momo.num)}</span></b><button type="button" class="linkbtn" data-copy="${esc2(p.momo.num)}">${esc2(t("Copier"))}</button></div>
+      ${!p.iban && p.name ? `<div class="pay-row"><span>${esc2(t("Bénéficiaire"))}</span><b>${esc2(p.name)}</b></div>` : ""}<p class="pay-hint">${esc2(t("Envoie le montant depuis ton appli {x} à ce numéro.").replace("{x}", p.momo.op))}</p>`;
+    if (amount > 0 && (p.iban || (p.momo && p.momo.num))) h += `<div class="pay-row"><span>${esc2(t("Montant"))}</span><b>${esc2((Math.round(amount * 100) / 100).toFixed(2))}</b><button type="button" class="linkbtn" data-copy="${(Math.round(amount * 100) / 100).toFixed(2)}">${esc2(t("Copier"))}</button></div>`;
+    if (note && (p.iban || (p.momo && p.momo.num))) h += `<div class="pay-row"><span>${esc2(t("Motif"))}</span><b>${esc2(note)}</b></div>`;
     const btns = [];
     if (p.paypal) btns.push(`<a class="btn primary" target="_blank" rel="noopener" href="${esc2(PAY.paypalUrl(p.paypal, amount, cur))}">${esc2(t("Payer avec PayPal"))}</a>`);
     if (p.link) btns.push(`<a class="btn${p.paypal ? "" : " primary"}" target="_blank" rel="noopener noreferrer" href="${esc2(p.link)}">${esc2(t("Ouvrir son lien de paiement"))}</a>`);

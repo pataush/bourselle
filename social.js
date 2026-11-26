@@ -362,19 +362,24 @@ async function editPay() {
   const p = SOC.pay || {};
   const f = openForm(`<div class="f2"><h3>Me faire payer</h3>
     <p class="hint" style="margin:0 0 8px">Ceux qui te doivent de l'argent (membres de tes groupes, ton lien de paiement) verront ces informations pour te payer directement. Rien ne passe par Bourselle.</p>
-    ${fld("pyName", "Titulaire du compte", `placeholder="ex. Anne Martin" value="${esc(p.name || "")}"`)}
+    ${fld("pyName", "Ton nom (titulaire du compte)", `placeholder="ex. Anne Martin" value="${esc(p.name || "")}"`)}
     ${fld("pyIban", "IBAN", `placeholder="FR76 …" autocapitalize="characters" value="${esc(p.iban ? PAY.ibanFmt(p.iban) : "")}"`)}
     <p class="hint" style="margin:4px 0 0">Avec ton IBAN, Bourselle affiche un QR code de virement déjà rempli (montant et motif).</p>
+    <span class="lbl">Mobile Money (facultatif)</span>
+    <div class="two"><div><select class="field" id="pyMoOp">${["MTN MoMo", "Orange Money", "Wave", "Moov Money", "Airtel Money", "M-Pesa", "Free Money", "Autre"].map(o => `<option ${p.momo && p.momo.op === o ? "selected" : ""}>${o}</option>`).join("")}</select></div>
+      <div><input class="field" id="pyMoNum" inputmode="tel" placeholder="+229 97 00 00 00" value="${esc(p.momo ? p.momo.num : "")}"></div></div>
     ${fld("pyPaypal", "PayPal.me (facultatif)", `placeholder="ex. annemartin" value="${esc(p.paypal || "")}"`)}
     ${fld("pyLink", "Autre lien de paiement (facultatif)", `placeholder="https://… (Lydia, Wero, Revolut…)" value="${esc(p.link || "")}"`)}
     ${SOC.payToken ? `<button type="button" class="btn" id="pyShare" style="margin-top:12px;width:100%">Partager mon lien de paiement</button>` : ""}</div>`, () => {
     const iban = PAY.clean(val("pyIban")), name = val("pyName").trim(), paypal = val("pyPaypal").trim(), link = val("pyLink").trim();
+    const moNum = val("pyMoNum").replace(/[\s.-]/g, ""), momo = moNum ? { op: val("pyMoOp"), num: moNum } : null;
+    if (moNum && !/^\+?[0-9]{8,15}$/.test(moNum)) { toast("Numéro Mobile Money invalide (ex. +229 97 00 00 00)"); return false; }
     if (iban && !PAY.ibanOk(iban)) { toast("IBAN invalide : vérifie-le"); return false; }
     if (iban && !name) { toast("Indique le nom du titulaire du compte"); return false; }
     if (link && !/^https:\/\/\S{4,}$/.test(link)) { toast("Le lien doit commencer par https://"); return false; }
     (async () => {
       try {
-        const j = await socApi("/me/pay", { method: "POST", body: JSON.stringify({ name, iban, paypal, link }) });
+        const j = await socApi("/me/pay", { method: "POST", body: JSON.stringify({ name, iban, paypal, link, momo }) });
         SOC.pay = j.pay; SOC.payToken = j.token || ""; SOC.payLoaded = true;
         toast(j.pay ? "Moyens de paiement enregistrés" : "Moyens de paiement retirés"); render();
         socPullGroups().catch(() => {});
