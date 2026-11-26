@@ -182,7 +182,7 @@ const grpPub = g => ({ id: g.id, name: g.name, owner: g.ownerTag, members: g.mem
 // ---------- Me faire payer ----------
 // Coordonnées que l'utilisateur choisit de montrer à ceux qui lui doivent de l'argent (membres de ses groupes, lien de paiement).
 const MOMO_OPS = ["MTN MoMo", "Orange Money", "Wave", "Moov Money", "Airtel Money", "M-Pesa", "Free Money", "Autre"];
-const payPub = p => p && (p.iban || p.paypal || p.link || p.revolut || p.wero || (p.momo && (p.momo.num || p.momo.qr))) ? { name: p.name || "", iban: p.iban || "", paypal: p.paypal || "", link: p.link || "", revolut: p.revolut || "", wero: p.wero || "", order: p.order || [], momo: p.momo && (p.momo.num || p.momo.qr) ? { op: p.momo.op, num: p.momo.num || "", qr: p.momo.qr || "" } : null } : null;
+const payPub = p => p && (p.iban || p.paypal || p.ppId || p.link || p.revolut || p.wero || p.weroQr || (p.momo && (p.momo.num || p.momo.qr))) ? { name: p.name || "", iban: p.iban || "", paypal: p.paypal || "", ppId: p.ppId || "", link: p.link || "", revolut: p.revolut || "", wero: p.wero || "", weroQr: p.weroQr || "", order: p.order || [], momo: p.momo && (p.momo.num || p.momo.qr) ? { op: p.momo.op, num: p.momo.num || "", qr: p.momo.qr || "", ussd: p.momo.ussd || "" } : null } : null;
 async function payOf(env, email) { return email ? payPub(await kvJ(env, "pay:" + email)) : null; }
 function ibanOk(iban) {
   const s = String(iban || "").replace(/\s+/g, "").toUpperCase();
@@ -855,10 +855,24 @@ async function social(req, env, url, cors) {
       if (qr) await env.CODES.delete("pqr:" + qr);
       qr = rid(16); await env.CODES.put("pqr:" + qr, q);
     }
-    const momo = mnum || qr ? { op: mop, num: mnum, qr } : null;
-    if (!iban && !paypal && !link && !revolut && !wero && !momo) { await env.CODES.delete("pay:" + me.email); if (old.token) await env.CODES.delete("ptk:" + old.token); return json({ pay: null, token: "" }, 200, cors); }
+    const ussd = String((body.momo && body.momo.ussd) || "").replace(/\s+/g, "").slice(0, 30);
+    if (ussd && !/^[*#][0-9*#]{2,28}$/.test(ussd)) throw new HttpErr(400, "code USSD invalide (ex. *880#)");
+    const momo = mnum || qr ? { op: mop, num: mnum, qr, ...(ussd ? { ussd } : {}) } : null;
+    // QR code Wero (à scanner depuis l'appli Wero ou celle de la banque), gardé comme celui de Mobile Money
+    let wqr = old.weroQr || "";
+    if (body.weroQr === "" || body.weroQr === null) { if (wqr) await env.CODES.delete("pqr:" + wqr); wqr = ""; }
+    else if (typeof body.weroQr === "string" && body.weroQr.startsWith("data:")) {
+      if (!/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(body.weroQr)) throw new HttpErr(400, "image du QR code invalide");
+      if (body.weroQr.length > 560000) throw new HttpErr(413, "image du QR code trop lourde");
+      if (wqr) await env.CODES.delete("pqr:" + wqr);
+      wqr = rid(16); await env.CODES.put("pqr:" + wqr, body.weroQr);
+    }
+    // PayPal sans lien paypal.me : l'e-mail ou le téléphone du compte
+    let ppId = String(body.ppId || "").trim(); if (!ppId.includes("@")) ppId = ppId.replace(/[\s.-]/g, ""); else ppId = ppId.toLowerCase();
+    if (ppId && !(/^\+?[0-9]{8,15}$/.test(ppId) || okEmail(ppId))) throw new HttpErr(400, "PayPal : indique l'e-mail ou le téléphone de ton compte");
+    if (!iban && !paypal && !ppId && !link && !revolut && !wero && !wqr && !momo) { await env.CODES.delete("pay:" + me.email); if (old.token) await env.CODES.delete("ptk:" + old.token); return json({ pay: null, token: "" }, 200, cors); }
     const order = (Array.isArray(body.order) ? body.order : old.order || []).map(String).filter(x => ["rev", "wero", "pp", "link", "iban", "momo"].includes(x)).slice(0, 6);
-    const p = { name, iban, paypal, link, revolut, wero, momo, order, token: old.token || rid(14), updated: Date.now() };
+    const p = { name, iban, paypal, ppId, link, revolut, wero, weroQr: wqr, momo, order, token: old.token || rid(14), updated: Date.now() };
     await kvP(env, "pay:" + me.email, p); if (!old.token) await env.CODES.put("ptk:" + p.token, me.email);
     return json({ pay: payPub(p), token: p.token }, 200, cors);
   }

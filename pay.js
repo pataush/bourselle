@@ -25,12 +25,15 @@ const PAY = {
     return "https://paypal.me/" + encodeURIComponent(u) + (amount > 0 ? "/" + (Math.round(amount * 100) / 100).toFixed(2) + (cur || "EUR") : "");
   },
   // Bloc « Payer » : t traduit un texte, money formate un montant
+  // L'appli Wero (sinon, celle de la banque) : page de l'appli dans le store, qui propose « Ouvrir » si elle est installée
+  weroApp() { return /Android/i.test(navigator.userAgent) ? "https://play.google.com/store/search?q=Wero%20Wallet&c=apps" : "https://apps.apple.com/fr/app/wero-wallet/id6480469576"; },
   // Les moyens de paiement proposés, dans l'ordre : paiements rapides, virement, Mobile Money
   methods(p, amount, cur) {
     const m = [];
     if (p.revolut) m.push({ id: "rev", label: "Revolut", sub: "@" + p.revolut, url: "https://revolut.me/" + encodeURIComponent(p.revolut) });
-    if (p.wero) m.push({ id: "wero", label: "Wero", sub: p.wero });
+    if (p.wero || p.weroQr) m.push({ id: "wero", label: "Wero", sub: p.wero || "QR code" });
     if (p.paypal) m.push({ id: "pp", label: "PayPal", sub: "paypal.me/" + p.paypal, url: PAY.paypalUrl(p.paypal, amount, cur) });
+    else if (p.ppId) m.push({ id: "pp", label: "PayPal", sub: p.ppId });
     if (p.link) m.push({ id: "link", label: "Lien de paiement", sub: String(p.link).replace(/^https:\/\/(www\.)?/, "").slice(0, 28), url: p.link });
     if (p.iban) m.push({ id: "iban", label: "Virement", sub: "IBAN " + PAY.ibanFmt(p.iban).slice(0, 9) + "…" });
     if (p.momo && (p.momo.num || p.momo.qr)) m.push({ id: "momo", label: p.momo.op || "Mobile Money", sub: p.momo.num || "QR code" });
@@ -62,8 +65,14 @@ const PAY = {
           ${svg ? `<div class="pay-qr">${svg}<p>${esc2(t("Tu paies depuis un autre téléphone ? Scanne ce QR code."))}</p></div>` : ""}
           ${x.id === "pp" ? "" : rowAmt}${rowNote}`;
       } else if (x.id === "wero") {
-        body = `<div class="pay-row"><span>Wero</span><b class="mono">${esc2(p.wero)}</b><button type="button" class="linkbtn" data-copy="${esc2(p.wero)}">${esc2(t("Copier"))}</button></div>
-          <p class="pay-hint">${esc2(t("Dans l'appli de ta banque, ouvre Wero et envoie le montant à ce numéro ou cet e-mail."))}</p>${rowAmt}${rowNote}`;
+        body = `${p.weroQr ? `<div class="pay-momoqr"><img data-momoqr="${esc2(p.weroQr)}" alt="QR Wero"><p>${esc2(t("Scanne ce QR code depuis l'appli Wero ou celle de ta banque."))}</p></div>` : ""}
+          ${p.wero ? `<div class="pay-row"><span>Wero</span><b class="mono">${esc2(p.wero)}</b><button type="button" class="linkbtn" data-copy="${esc2(p.wero)}">${esc2(t("Copier"))}</button></div>` : ""}
+          <a class="btn primary pay-open" target="_blank" rel="noopener" href="${esc2(PAY.weroApp())}">${esc2(t("Ouvrir l'appli Wero"))} ↗</a>
+          <p class="pay-hint">${esc2(t(p.wero ? "Ou ouvre l'appli de ta banque, rubrique Wero, et envoie le montant à ce numéro ou cet e-mail." : "Ou ouvre l'appli de ta banque, rubrique Wero, et scanne le QR code."))}</p>${rowAmt}${rowNote}`;
+      } else if (x.id === "pp") {
+        body = `<div class="pay-row"><span>PayPal</span><b class="mono">${esc2(p.ppId)}</b><button type="button" class="linkbtn" data-copy="${esc2(p.ppId)}">${esc2(t("Copier"))}</button></div>
+          <a class="btn primary pay-open" target="_blank" rel="noopener" href="https://www.paypal.com/myaccount/transfer/homepage/pay">${esc2(t("Ouvrir PayPal"))} ↗</a>
+          <p class="pay-hint">${esc2(t("Dans PayPal, choisis « Envoyer » et colle cet e-mail ou ce numéro."))}</p>${rowAmt}${rowNote}`;
       } else if (x.id === "iban") {
         const svg = qrSvg(qrTxt);
         body = `${svg ? `<div class="pay-qr">${svg}<p>${esc2(t("Scanne ce QR code avec l'appli de ta banque : le virement est déjà rempli."))}</p></div>` : ""}
@@ -71,6 +80,7 @@ const PAY = {
           <div class="pay-row"><span>IBAN</span><b class="mono">${esc2(PAY.ibanFmt(p.iban))}</b><button type="button" class="linkbtn" data-copy="${esc2(PAY.clean(p.iban))}">${esc2(t("Copier"))}</button></div>${rowAmt}${rowNote}`;
       } else if (x.id === "momo") {
         body = `${p.momo.qr ? `<div class="pay-momoqr"><img data-momoqr="${esc2(p.momo.qr)}" alt="QR ${esc2(p.momo.op)}"><p>${esc2(t("Scanne ce QR code avec ton appli {x}.").replace("{x}", p.momo.op))}</p></div>` : ""}
+          ${p.momo.ussd ? `<a class="btn primary pay-open" href="tel:${esc2(p.momo.ussd.replace(/#/g, "%23"))}">📞 ${esc2(t("Composer {x}").replace("{x}", p.momo.ussd))}</a><p class="pay-hint">${esc2(t("Le code s'ouvre dans ton téléphone : suis les étapes de ton opérateur. Sur iPhone, compose-le toi-même si le bouton ne marche pas."))} <button type="button" class="linkbtn" data-copy="${esc2(p.momo.ussd)}">${esc2(t("Copier le code"))}</button></p>` : ""}
           ${p.momo.num ? `<div class="pay-row"><span>${esc2(p.momo.op)}</span><b class="mono">${esc2(p.momo.num)}</b><button type="button" class="linkbtn" data-copy="${esc2(p.momo.num)}">${esc2(t("Copier"))}</button></div><p class="pay-hint">${esc2(t("Envoie le montant depuis ton appli {x} à ce numéro.").replace("{x}", p.momo.op))}</p>` : ""}
           ${p.name ? `<div class="pay-row"><span>${esc2(t("Bénéficiaire"))}</span><b>${esc2(p.name)}</b></div>` : ""}${rowAmt}${rowNote}`;
       }

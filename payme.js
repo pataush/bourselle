@@ -8,8 +8,8 @@
  * gratuites dans la limite de quelques-unes par mois, illimitées avec Bourselle Plus. QR code et lien : illimités. */
 const PM_DEFS = [
   { id: "rev", label: "Revolut", ic: "⚫", has: p => !!p.revolut, sum: p => "@" + p.revolut },
-  { id: "wero", label: "Wero", ic: "🔵", has: p => !!p.wero, sum: p => p.wero },
-  { id: "pp", label: "PayPal", ic: "🟡", has: p => !!p.paypal, sum: p => "paypal.me/" + p.paypal },
+  { id: "wero", label: "Wero", ic: "🔵", has: p => !!(p.wero || p.weroQr), sum: p => p.wero || "QR code" },
+  { id: "pp", label: "PayPal", ic: "🟡", has: p => !!(p.paypal || p.ppId), sum: p => p.paypal ? "paypal.me/" + p.paypal : p.ppId },
   { id: "iban", label: "Virement (RIB)", ic: "🏦", has: p => !!p.iban, sum: p => PAY.ibanFmt(p.iban).slice(0, 14) + "…" },
   { id: "momo", label: "Mobile Money", ic: "📱", has: p => !!(p.momo && (p.momo.num || p.momo.qr)), sum: p => `${p.momo.op}${p.momo.num ? " · " + p.momo.num : ""}` },
   { id: "link", label: "Autre lien", ic: "🔗", has: p => !!p.link, sum: p => String(p.link).replace(/^https:\/\/(www\.)?/, "").slice(0, 24) },
@@ -36,8 +36,9 @@ function pushNudgeBind(root) {
 // Enregistre les moyens de paiement (on renvoie tout, en changeant seulement ce qui est passé)
 async function payPut(patch) {
   const p = { ...(SOC.pay || {}), ...patch };
-  const body = { name: p.name || "", iban: p.iban || "", paypal: p.paypal || "", link: p.link || "", revolut: p.revolut || "", wero: p.wero || "", order: p.order || [],
-    momo: patch.momo !== undefined ? patch.momo : p.momo ? { op: p.momo.op, num: p.momo.num || "", qr: p.momo.qr ? "keep" : "" } : { op: "Autre", num: "", qr: "" } };
+  const body = { name: p.name || "", iban: p.iban || "", paypal: p.paypal || "", ppId: p.ppId || "", link: p.link || "", revolut: p.revolut || "", wero: p.wero || "", order: p.order || [],
+    weroQr: patch.weroQr !== undefined ? patch.weroQr : p.weroQr ? "keep" : "",
+    momo: patch.momo !== undefined ? patch.momo : p.momo ? { op: p.momo.op, num: p.momo.num || "", qr: p.momo.qr ? "keep" : "", ussd: p.momo.ussd || "" } : { op: "Autre", num: "", qr: "" } };
   const j = await socApi("/me/pay", { method: "POST", body: JSON.stringify(body) });
   SOC.pay = j.pay; SOC.payToken = j.token || ""; SOC.payLoaded = true;
   return j.pay;
@@ -153,6 +154,8 @@ function payDetect(v) {
   if (/^https:\/\/\S{4,}$/.test(s)) return { label: "Lien de paiement", patch: { link: s } };
   return null;
 }
+const qrBox = (has, help) => `<div class="py-qr"><div id="pyQrPrev" class="py-qrprev"></div><div><label class="btn" style="cursor:pointer;display:inline-block">${has ? "Remplacer" : "Ajouter"} mon QR code<input type="file" accept="image/*" id="pyQrIn" hidden></label>
+  <button type="button" class="linkbtn danger" id="pyQrDel" ${has ? "" : "hidden"}>Retirer</button><p class="hint" style="margin:4px 0 0">${esc(help)}</p></div></div>`;
 // Régler un seul moyen de paiement
 function payMethodEdit(id, back, prefill) {
   const p = SOC.pay || {}; prefill = prefill || {};
@@ -165,26 +168,33 @@ function payMethodEdit(id, back, prefill) {
   const d = PM_DEFS.find(x => x.id === id), on = d.has(p), first = (p.order || [])[0] === id;
   const body = {
     rev: () => fld("pmV", "Ton identifiant Revolut", `placeholder="ex. annemartin (ce qui suit revolut.me/)" autocapitalize="off" value="${esc(p.revolut || "")}"`),
-    wero: () => fld("pmV", "Ton numéro de téléphone ou ton e-mail Wero", `placeholder="ex. +33 6 12 34 56 78" autocapitalize="off" value="${esc(prefill.wero || p.wero || "")}"`),
-    pp: () => fld("pmV", "Ton nom PayPal.me", `placeholder="ex. annemartin (ce qui suit paypal.me/)" autocapitalize="off" value="${esc(p.paypal || "")}"`),
+    wero: () => fld("pmV", "Ton numéro de téléphone ou ton e-mail Wero", `placeholder="ex. +33 6 12 34 56 78" autocapitalize="off" value="${esc(prefill.wero || p.wero || "")}"`) + qrBox(p.weroQr, "Dans l'appli Wero ou celle de ta banque (rubrique Wero), affiche ton QR code, fais une capture d'écran et choisis-la ici."),
+    pp: () => fld("pmV", "Ton nom PayPal.me (le plus pratique)", `placeholder="ex. annemartin (ce qui suit paypal.me/)" autocapitalize="off" value="${esc(p.paypal || "")}"`) + fld("pmV2", "Ou l'e-mail / le téléphone de ton compte PayPal", `placeholder="ex. anne@mail.fr" autocapitalize="off" value="${esc(p.ppId || "")}"`) + `<p class="hint" style="margin:4px 0 0">Avec PayPal.me, le montant est déjà rempli. Sinon, la personne colle ton e-mail dans PayPal.</p>`,
     link: () => fld("pmV", "Ton lien de paiement", `placeholder="https://… (Lydia, Sumeria, Paylib…)" value="${esc(p.link || "")}"`),
     iban: () => fld("pmN", "Titulaire du compte", `placeholder="ex. Anne Martin" value="${esc(p.name || "")}"`) + fld("pmV", "IBAN", `placeholder="FR76 …" autocapitalize="characters" value="${esc(prefill.iban || (p.iban ? PAY.ibanFmt(p.iban) : ""))}"`) + `<p class="hint" style="margin:4px 0 0">Ceux qui te paient verront un QR code de virement déjà rempli (montant et motif).</p>`,
-    momo: () => `<div class="two"><div><label class="lbl" for="pmOp">Opérateur</label><select class="field" id="pmOp">${["MTN MoMo", "Orange Money", "Wave", "Moov Money", "Airtel Money", "M-Pesa", "Free Money", "Autre"].map(o => `<option ${p.momo && p.momo.op === o ? "selected" : ""}>${o}</option>`).join("")}</select></div><div>${fld("pmV", "Numéro", `inputmode="tel" placeholder="+229 97 00 00 00" value="${esc(prefill.num || (p.momo ? p.momo.num : ""))}"`)}</div></div>
+    momo: () => `${fld("pmU", "Code pour envoyer de l'argent (facultatif)", `placeholder="ex. *880# ou #144#" inputmode="tel" value="${esc(p.momo && p.momo.ussd || "")}"`)}<p class="hint" style="margin:4px 0 8px">Ceux qui te paient pourront le composer d'un geste.</p>
+      <div class="two"><div><label class="lbl" for="pmOp">Opérateur</label><select class="field" id="pmOp">${["MTN MoMo", "Orange Money", "Wave", "Moov Money", "Airtel Money", "M-Pesa", "Free Money", "Autre"].map(o => `<option ${p.momo && p.momo.op === o ? "selected" : ""}>${o}</option>`).join("")}</select></div><div>${fld("pmV", "Numéro", `inputmode="tel" placeholder="+229 97 00 00 00" value="${esc(prefill.num || (p.momo ? p.momo.num : ""))}"`)}</div></div>
       ${fld("pmN", "Nom (facultatif)", `value="${esc(p.name || "")}"`)}
-      <div class="py-qr"><div id="pyQrPrev" class="py-qrprev"></div><div><label class="btn" style="cursor:pointer;display:inline-block">${p.momo && p.momo.qr ? "Remplacer" : "Ajouter"} mon QR code<input type="file" accept="image/*" id="pyQrIn" hidden></label>
-      <button type="button" class="linkbtn danger" id="pyQrDel" ${p.momo && p.momo.qr ? "" : "hidden"}>Retirer</button><p class="hint" style="margin:4px 0 0">Dans ton appli Mobile Money, affiche « Mon QR code », fais une capture d'écran et choisis-la ici.</p></div></div>`,
+      ${qrBox(p.momo && p.momo.qr, "Dans ton appli Mobile Money, affiche « Mon QR code », fais une capture d'écran et choisis-la ici.")}`,
   }[id];
-  let qrState = p.momo && p.momo.qr ? "keep" : "";
+  const qrId = id === "wero" ? p.weroQr : p.momo && p.momo.qr;
+  let qrState = qrId ? "keep" : "";
   const f = openForm(`<div class="f2"><h3>${d.ic} ${esc(d.label)}</h3>${body()}
     ${on ? `<div class="acts" style="margin-top:12px">${first ? `<span class="hint">⭐ Proposé en premier</span>` : `<button type="button" class="btn" id="pmFirst">⭐ Proposer en premier</button>`}<button type="button" class="btn danger" id="pmDel">Retirer</button></div>` : ""}</div>`, () => {
     const v = (f.querySelector("#pmV") || {}).value ? f.querySelector("#pmV").value.trim() : "", nm = f.querySelector("#pmN") ? f.querySelector("#pmN").value.trim() : undefined;
     let patch = {};
     if (id === "rev") { const x = v.replace(/^@/, "").replace(/^https?:\/\/(www\.)?revolut\.me\//i, "").replace(/[/?#].*$/, ""); if (!/^[A-Za-z0-9._-]{2,40}$/.test(x)) { toast("Identifiant Revolut invalide (ex. annemartin)"); return false; } patch.revolut = x; }
-    if (id === "wero") { const ok = /^\+?[0-9]{8,15}$/.test(v.replace(/[\s.-]/g, "")) || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v); if (!ok) { toast("Indique ton numéro de téléphone ou ton e-mail"); return false; } patch.wero = v; }
-    if (id === "pp") { const x = v.replace(/^@/, "").replace(/^https?:\/\/(www\.)?paypal\.me\//i, "").replace(/\/.*$/, ""); if (!/^[A-Za-z0-9]{1,40}$/.test(x)) { toast("Nom PayPal.me invalide"); return false; } patch.paypal = x; }
+    if (id === "wero") { const ok = !v || /^\+?[0-9]{8,15}$/.test(v.replace(/[\s.-]/g, "")) || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v); if (!ok) { toast("Indique ton numéro de téléphone ou ton e-mail"); return false; } if (!v && !qrState) { toast("Indique ton numéro, ton e-mail ou ajoute ton QR code Wero"); return false; } patch.wero = v; patch.weroQr = qrState; }
+    if (id === "pp") {
+      const x = v.replace(/^@/, "").replace(/^https?:\/\/(www\.)?paypal\.me\//i, "").replace(/\/.*$/, ""), v2 = f.querySelector("#pmV2").value.trim();
+      if (x && !/^[A-Za-z0-9]{1,40}$/.test(x)) { toast("Nom PayPal.me invalide"); return false; }
+      if (v2 && !(/^\+?[0-9]{8,15}$/.test(v2.replace(/[\s.-]/g, "")) || /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v2))) { toast("Indique l'e-mail ou le téléphone de ton compte PayPal"); return false; }
+      if (!x && !v2) { toast("Indique ton PayPal.me ou l'e-mail de ton compte"); return false; }
+      patch.paypal = x; patch.ppId = v2;
+    }
     if (id === "link") { if (!/^https:\/\/\S{4,}$/.test(v)) { toast("Le lien doit commencer par https://"); return false; } patch.link = v; }
     if (id === "iban") { if (!PAY.ibanOk(v)) { toast("IBAN invalide : vérifie-le"); return false; } if (!nm) { toast("Indique le titulaire du compte"); return false; } patch.iban = PAY.clean(v); patch.name = nm; }
-    if (id === "momo") { const n = v.replace(/[\s.-]/g, ""); if (n && !/^\+?[0-9]{8,15}$/.test(n)) { toast("Numéro invalide (ex. +229 97 00 00 00)"); return false; } if (!n && !qrState) { toast("Indique le numéro ou ajoute ton QR code"); return false; } patch.momo = { op: f.querySelector("#pmOp").value, num: n, qr: qrState }; if (nm !== undefined && nm) patch.name = nm; }
+    if (id === "momo") { const n = v.replace(/[\s.-]/g, ""); if (n && !/^\+?[0-9]{8,15}$/.test(n)) { toast("Numéro invalide (ex. +229 97 00 00 00)"); return false; } if (!n && !qrState) { toast("Indique le numéro ou ajoute ton QR code"); return false; } const u = f.querySelector("#pmU").value.replace(/\s+/g, ""); if (u && !/^[*#][0-9*#]{2,28}$/.test(u)) { toast("Code invalide (ex. *880#)"); return false; } patch.momo = { op: f.querySelector("#pmOp").value, num: n, qr: qrState, ussd: u }; if (nm !== undefined && nm) patch.name = nm; }
     if (!on) patch.order = [...(p.order || []).filter(x => x !== id), id];
     payPut(patch).then(() => { toast(`${d.label} enregistré ✓`); back && setTimeout(back, 200); }).catch(e => toast(e.message));
   });
@@ -192,14 +202,14 @@ function payMethodEdit(id, back, prefill) {
   const fst = f.querySelector("#pmFirst"); if (fst) fst.onclick = () => payPut({ order: [id, ...(p.order || []).filter(x => x !== id)] }).then(() => { toast(`${d.label} proposé en premier`); closeForm(); back && setTimeout(back, 200); }).catch(e => toast(e.message));
   const del = f.querySelector("#pmDel"); if (del) del.onclick = () => {
     if (del.dataset.c !== "1") { del.dataset.c = "1"; del.textContent = "Confirmer ?"; return; }
-    const patch = { rev: { revolut: "" }, wero: { wero: "" }, pp: { paypal: "" }, link: { link: "" }, iban: { iban: "" }, momo: { momo: { op: "Autre", num: "", qr: "" } } }[id];
+    const patch = { rev: { revolut: "" }, wero: { wero: "", weroQr: "" }, pp: { paypal: "", ppId: "" }, link: { link: "" }, iban: { iban: "" }, momo: { momo: { op: "Autre", num: "", qr: "" } } }[id];
     patch.order = (p.order || []).filter(x => x !== id);
     payPut(patch).then(() => { toast(`${d.label} retiré`); closeForm(); back && setTimeout(back, 200); }).catch(e => toast(e.message));
   };
-  if (id === "momo") {
+  if (id === "momo" || id === "wero") {
     const prev = f.querySelector("#pyQrPrev"), qin = f.querySelector("#pyQrIn"), qdel = f.querySelector("#pyQrDel");
     const showPrev = src => { prev.innerHTML = src ? `<img alt="QR">` : ""; if (src) prev.firstChild.src = src; prev.hidden = !src; };
-    showPrev(""); if (p.momo && p.momo.qr) PAY.momoQr(p.momo.qr).then(showPrev).catch(() => {});
+    showPrev(""); if (qrId) PAY.momoQr(qrId).then(showPrev).catch(() => {});
     qin.onchange = async () => { const file = qin.files && qin.files[0]; if (!file) return; try { const x = await prepMomoQr(file, s => window.T ? window.T(s) : s); qrState = x; showPrev(x); qdel.hidden = false; } catch (e) { toast(e.message); } };
     qdel.onclick = () => { qrState = ""; showPrev(""); qdel.hidden = true; };
   }
