@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "101";
+const APP_VERSION = "102";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -3188,12 +3188,17 @@ function startImport() {
   inp.onchange = async () => {
     const f = inp.files && inp.files[0]; inp.value = ""; if (!f) return;
     const ext = (f.name.split(".").pop() || "").toLowerCase();
-    if (ext === "pdf" || ext === "xls" || ext === "xlsx") { toast(`Les relevés ${ext.toUpperCase()} ne sont pas encore lus. Dans l'espace en ligne de ta banque, cherche « Télécharger mes opérations » et choisis le format CSV ou OFX.`, 9000); return; }
     try {
-      const { rows, format } = parseBankFile(decodeBank(await f.arrayBuffer()));
-      if (!rows.length) { toast("Aucune opération reconnue dans ce fichier. Exporte le relevé au format CSV ou OFX depuis ta banque."); return; }
+      const buf = await f.arrayBuffer(), u = new Uint8Array(buf.slice(0, 8));
+      let rows, format;
+      if (ext === "pdf" || (u[0] === 0x25 && u[1] === 0x50 && u[2] === 0x44 && u[3] === 0x46)) { toast("Lecture du relevé PDF…", 8000); rows = await parseBankPdf(buf); format = "PDF"; }
+      else if (u[0] === 0x50 && u[1] === 0x4b) { ({ rows } = parseBankFile(await xlsxToText(buf))); format = "Excel"; }
+      else if (u[0] === 0xd0 && u[1] === 0xcf) { toast("Ce fichier Excel ancien format (.xls) ne peut pas être lu. Choisis plutôt le relevé PDF, ou l'export CSV dans l'espace en ligne de ta banque.", 9000); return; }
+      else ({ rows, format } = parseBankFile(decodeBank(buf)));
+      if (!rows.length) { toast(format === "PDF" ? "Aucune opération reconnue dans ce PDF. Essaie l'export CSV depuis l'espace en ligne de ta banque, ou envoie-moi le souci." : "Aucune opération reconnue dans ce fichier. Exporte le relevé au format CSV ou OFX depuis ta banque.", 9000); return; }
+      { const tt = document.getElementById("toast"); if (tt) tt.style.display = "none"; }
       reviewImport(rows, format, f.name);
-    } catch (e) { toast("Ce fichier n'a pas pu être lu."); }
+    } catch (e) { console.warn(e); toast("Ce fichier n'a pas pu être lu."); }
   };
   inp.click();
 }
