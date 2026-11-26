@@ -836,3 +836,6 @@ html.locked #app, html.locked nav.tabs, html.locked .fab, html.locked .ask-fab, 
 .about h3 { font-size: .9rem; margin: 14px 0 6px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
 .about ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; font-size: .88rem; line-height: 1.4; }
 .about .ver-row { margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--line); }
+
+.about-ndf { margin: 4px 0 6px; padding: 12px 14px; border-radius: 14px; border: 1.5px solid color-mix(in srgb, var(--gold) 60%, transparent); background: color-mix(in srgb, var(--gold) 11%, var(--surface)); }
+.about .about-ndf h3 { margin: 0 0 8px; color: color-mix(in srgb, var(--gold) 45%, var(--ink)); text-transform: none; letter-spacing: 0; font-size: 1rem; }

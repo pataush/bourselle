@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "77";
+const APP_VERSION = "78";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -817,13 +817,23 @@ function renderReglages() {
 </div>
   <div class="card about"><h2>À propos</h2>
     <p style="margin:0 0 10px"><b>Bourselle</b> : ton budget et tes partages, simplement.</p>
+    <div class="about-ndf"><h3>⭐ Notes de frais, sans prise de tête</h3>
+      <ul>
+        <li><b>Photographie ton ticket</b> : le montant et la TVA sont lus automatiquement, même dans une autre devise (au taux du jour du ticket).</li>
+        <li><b>Tout est rangé pour toi</b> dans ton Drive : Notes de frais › année › mois, chaque ticket nommé « date - libellé - montant ».</li>
+        <li><b>Un classeur Excel prêt à envoyer</b>, mis à jour tout seul : un onglet par mois, HT, TVA récupérable, TTC et totaux.</li>
+        <li><b>Tes déplacements</b> avec le barème kilométrique (+20 % pour un véhicule électrique).</li>
+        <li><b>Le suivi du remboursement</b> : à rembourser ou remboursé, avec une alerte tant que ce n'est pas réglé.</li>
+      </ul>
+      <p class="hint" style="margin:8px 0 0">Gratuit : illimité le premier mois, puis ${FREE.ndf} tickets par mois ; illimité avec Bourselle Plus.</p>${!isSimple() ? `<button type="button" class="btn primary" id="aboutNdf" style="margin-top:10px">Ouvrir mes notes de frais</button>` : `<button type="button" class="btn" id="aboutNdf" style="margin-top:10px">Activer la version complète pour les notes de frais</button>`}</div>
     <h3>Ce que tu peux faire</h3>
     <ul>
       <li><b>Ton budget</b> : dépenses, rentrées, épargne, budget par catégorie, prévision de fin de mois, et l'année d'un coup d'œil.</li>
       <li><b>Partager entre proches</b> : groupes (coloc, couple, voyage, famille), qui doit quoi à qui, tickets en photo et commentaires.</li>
       <li><b>Payer et te faire payer</b> : demander un paiement par QR code ou lien, payer plusieurs personnes, suivre chaque règlement (rouge, jaune, vert).</li>
       <li><b>Cagnottes et achats groupés</b> : tontine avec ses tours et ses clauses, achats à plusieurs, même avec des amis sans l'appli.</li>
-      <li><b>Tes suivis</b> : dettes et crédits, abonnements, objectifs, plan d'économies, patrimoine, garanties, notes de frais.</li>
+      <li><b>Notes de frais</b> : tickets en photo, rangés dans ton Drive et regroupés dans un classeur Excel (voir plus haut).</li>
+      <li><b>Tes suivis</b> : dettes et crédits, abonnements, objectifs, plan d'économies, patrimoine, garanties.</li>
     </ul>
     <h3>Notre philosophie</h3>
     <ul>
@@ -854,6 +864,7 @@ function renderReglages() {
   const fu = document.getElementById("forceUpdate");
   if (fu) fu.onclick = () => forceUpdate();
   { const ap = document.getElementById("aboutPlus"); if (ap) ap.onclick = () => showPlus(); }
+  { const an = document.getElementById("aboutNdf"); if (an) an.onclick = () => { if (isSimple()) setMode("complete"); switchTab("frais"); }; }
   view.querySelectorAll("[data-f]").forEach(inp => inp.onchange = () => {
     const c = settings.cats[Number(inp.dataset.i)], f = inp.dataset.f;
     if (f === "budget") c.budget = parseAmount(inp.value) || 0;
