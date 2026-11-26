@@ -366,6 +366,7 @@ DEALUI.warn = async function (d, ctx, pids, k) {
   if (notified.length) setTimeout(() => ctx.toast(t("Avertissement envoyé à {x}", notified.map(nm).join(", "))), toShare.length ? 1800 : 0);
 };
 Object.assign(DEAL_EN, {
+  "Choisis comment payer": "Choose how to pay", "Comment payer": "How to pay", "Ouvrir {x}": "Open {x}", "le lien de paiement": "the payment link", "Virement": "Bank transfer", "Le lien s'ouvre dans l'appli concernée si elle est installée, sinon dans le navigateur.": "The link opens in the right app if it's installed, otherwise in your browser.", "S'ouvre dans l'appli {x} si elle est installée, sinon sur le site.": "Opens in the {x} app if it's installed, otherwise on the website.", "Tu paies depuis un autre téléphone ? Scanne ce QR code.": "Paying from another phone? Scan this QR code.",
   "Paiement rapide": "Quick payment", "Virement bancaire": "Bank transfer", "Lien de paiement": "Payment link", "Dans l'appli de ta banque, ouvre Wero et envoie le montant à ce numéro ou cet e-mail.": "In your bank's app, open Wero and send the amount to this number or email.",
   "le jour du tour": "on the day of the round", "{x} jour après la date du tour": "{x} day after the round date", "{x} jours après la date du tour": "{x} days after the round date",
   "Payé ✓": "Paid ✓", "En retard": "Late", "Invitation": "Invitation", "{x} t'invite dans cette cagnotte. Accepte pour la suivre, commenter et voir les versements.": "{x} invited you to this money pot. Accept to follow it, comment and see payments.",

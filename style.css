@@ -741,3 +741,23 @@ html.ios nav.tabs { bottom: 0; transform: translateZ(0); }
 .pay-fast { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; padding: 10px 12px; text-decoration: none; text-align: left; min-width: 0; }
 .pay-fast b { font-size: .95rem; } .pay-fast small { font-size: .72rem; opacity: .75; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pay-fast.rev { background: #191c1f; color: #fff; border-color: #191c1f; } .pay-fast.pp { background: #ffc439; color: #111; border-color: #ffc439; }
+
+/* Payer : choix du moyen de paiement */
+.pay-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+.pay-pick { display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 0; text-align: left; padding: 10px 12px; border-radius: 14px; border: 1.5px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+.pay-pick b { font-size: .92rem; } .pay-pick small { font-size: .7rem; color: var(--muted); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pay-pick.on { border-color: var(--green, #1f6b4f); box-shadow: 0 0 0 2px color-mix(in srgb, var(--green, #1f6b4f) 25%, transparent); background: color-mix(in srgb, var(--green, #1f6b4f) 7%, var(--surface)); }
+.pay-pick.pm-rev b::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #191c1f; margin-right: 6px; }
+.pay-pick.pm-pp b::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #ffc439; margin-right: 6px; }
+.pay-pick.pm-wero b::before { content: ""; display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: #1d1aa8; margin-right: 6px; }
+.pay-panel { margin-top: 12px; } .pay-open { display: block; width: 100%; text-align: center; text-decoration: none; padding: 13px; font-size: 1rem; }
+/* Accueil : le bouton qui déroule les analyses du mois se voit */
+.more-toggle[aria-expanded="false"] { border: 1.5px solid color-mix(in srgb, var(--gold) 70%, transparent); background: color-mix(in srgb, var(--gold) 13%, var(--surface)); box-shadow: 0 4px 14px color-mix(in srgb, var(--gold) 22%, transparent); }
+.more-toggle[aria-expanded="false"] span { color: color-mix(in srgb, var(--gold) 45%, var(--ink)); }
+.more-toggle i { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--gold) 25%, transparent); color: color-mix(in srgb, var(--gold) 40%, var(--ink)) !important; }
+.more-toggle[aria-expanded="false"] i { animation: moreHint 1.6s ease-in-out 2; }
+@keyframes moreHint { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(4px); } }
+@media (prefers-reduced-motion: reduce) { .more-toggle i { animation: none !important; } }
+.bud-edit { margin-left: auto; font-size: .78rem; padding: 6px 12px; white-space: nowrap; flex: none; }
+.pf-flash { animation: pfFlash 1.8s ease-out 1; }
+@keyframes pfFlash { 0%, 40% { box-shadow: 0 0 0 3px var(--gold); } 100% { box-shadow: 0 0 0 0 transparent; } }

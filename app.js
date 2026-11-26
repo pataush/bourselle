@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "63";
+const APP_VERSION = "64";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -624,11 +624,11 @@ function renderMois() {
     <div class="split-legend"><span><span class="sw" style="background:#1f6b4b"></span> Fixes ${esc(eur(t.fixe, true))}</span><span>Variables ${esc(eur(t.variable, true))} <span class="sw" style="background:var(--accent)"></span></span></div></div>`;
 
   html += compareHTML();
-  html += `<div class="card"><h2>Budget du mois<small>dépensé / prévu</small></h2><div class="bud">${budCats.map(c => {
+  html += `<div class="card"><h2>Budget du mois<small>dépensé / prévu</small><button type="button" class="btn bud-edit" id="budEdit">✏️ Modifier</button></h2><div class="bud">${budCats.map(c => {
     const sp = t.byCat[c.id] || 0, b = c.budget || 0, pct = b ? Math.min(100, sp / b * 100) : 100, over = b ? sp > b : sp > 0;
     return `<div class="row ${over ? "over" : ""}"><div class="t"><span>${esc(c.name)}</span><span class="num">${esc(eur(sp, true))} / ${b ? esc(eur(b, true)) : "pas de budget"}</span></div>
       <div class="bar"><i style="width:${pct}%;background:${over ? "var(--bad)" : c.color}"></i></div></div>`;
-  }).join("") || `<div class="empty">Fixe tes budgets dans « Budget & réglages ».</div>`}</div></div>`;
+  }).join("") || `<div class="empty">Pas encore de budget : appuie sur « Modifier » pour en fixer un.</div>`}</div></div>`;
   {
     const more = html.slice(moreFrom), open = homeMoreOpen();
     const over = budCats.filter(c => c.budget && (t.byCat[c.id] || 0) > c.budget).length;
@@ -647,6 +647,7 @@ function renderMois() {
   if (typeof pushBind === "function") pushBind();
   { const b = document.getElementById("payEdit"); if (b) b.onclick = editPay; const sh = document.getElementById("payShare"); if (sh) sh.onclick = () => shareText("Pour me payer :", payLinkUrl(0, "")); }
   const mt = document.getElementById("moreToggle"); if (mt) mt.onclick = () => { homeMoreOpen(!homeMoreOpen()); render(); };
+  const be = document.getElementById("budEdit"); if (be) be.onclick = () => typeof pfGoto === "function" ? pfGoto("Budget mensuel par catégorie") : switchTab("reglages");
   const ib = document.getElementById("impBtn"); if (ib) ib.onclick = startImport;
   const gf = document.getElementById("goFrais"); if (gf) gf.onclick = () => switchTab("frais");
   const gg = document.getElementById("goGar"); if (gg) gg.onclick = () => switchTab("garanties");

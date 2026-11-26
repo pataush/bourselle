@@ -65,3 +65,13 @@ function pfFold(card, open) {
   const _rr = renderReglages;
   renderReglages = function () { _rr.apply(this, arguments); try { pfOrganize(); } catch (e) { console.error(e); } };
 }
+// Aller à une carte des Paramètres (dépliée, mise en évidence) : ex. « Modifier » sur le budget du mois
+function pfGoto(title) {
+  const s = pfOpen(); s.add(title); pfSave(s);
+  switchTab("reglages");
+  setTimeout(() => {
+    const c = [...document.querySelectorAll("#view .card")].find(x => pfTitle(x) === title); if (!c) return;
+    c.classList.add("pf-open"); c.scrollIntoView({ block: "start", behavior: "smooth" });
+    c.classList.add("pf-flash"); setTimeout(() => c.classList.remove("pf-flash"), 2000);
+  }, 80);
+}
