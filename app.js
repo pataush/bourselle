@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "100";
+const APP_VERSION = "101";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -674,12 +674,12 @@ function renderMois() {
   }
 
   const soonG = garItems().filter(x => garStatus(x.warranty) === "soon");
-  if (soonG.length && !isSimple()) {
+  if (soonG.length) {
     html += `<button class="card" id="goGar" style="text-align:left;width:100%;cursor:pointer;border-left:6px solid var(--w-soon)"><h2>Garanties bientôt expirées<small>${soonG.length}</small></h2>
       <div class="hint">${soonG.slice(0, 3).map(x => `${esc(x.warranty.item)} : ${esc(leftTxt(daysUntil(x.warranty.end)))}`).join("<br>")}</div></button>`;
   }
   const soonA = Object.values(subs).filter(x => subStatus(x).st === "soon");
-  if (soonA.length && !isSimple()) {
+  if (soonA.length) {
     html += `<button class="card" id="goAbo" style="text-align:left;width:100%;cursor:pointer;border-left:6px solid var(--w-soon)"><h2>Abonnements à surveiller<small>${soonA.length}</small></h2>
       <div class="hint">${soonA.slice(0, 3).map(x => `${esc(x.name)} : ${esc(subStatus(x).why)}`).join("<br>")}</div></button>`;
   }
@@ -814,8 +814,8 @@ function renderReglages() {
     <p class="hint" style="margin:8px 0 0">Automatique suit le réglage de ton téléphone.</p></div>
   <div class="card"><h2>Version de l'app</h2>
     <div class="seg2" id="modeSeg"><button type="button" data-m="simple" aria-pressed="${isSimple()}">Simple</button><button type="button" data-m="complete" aria-pressed="${!isSimple()}">Complète</button></div>
-    <p class="hint" style="margin:8px 0 0">${isSimple() ? "Simple : le budget du mois, l'année, le partage des frais, je dois / on me doit, le plan d'économies et les objectifs. Passe à la version complète pour les abonnements, les notes de frais et les garanties."
-      : "Complète : toutes les fonctions. La version simple garde l'essentiel (budget du mois, année, partage des frais, dettes, économies, objectifs) pour un usage plus léger."} Tes données ne changent pas.</p></div>
+    <p class="hint" style="margin:8px 0 0">${isSimple() ? "Simple : le budget du mois, l'année, le partage des frais, je dois / on me doit, les abonnements, les garanties, le plan d'économies et les objectifs. Passe à la version complète pour le patrimoine et les notes de frais."
+      : "Complète : toutes les fonctions. La version simple garde l'essentiel (budget du mois, année, partage des frais, dettes, abonnements, garanties, économies, objectifs) pour un usage plus léger."} Tes données ne changent pas.</p></div>
   <div class="card"><h2>Langue et devise</h2>
     <div class="two"><div><label class="lbl" for="setLang">Langue</label><select class="field" id="setLang"><option value="fr"${window.LANG !== "en" ? " selected" : ""}>Français</option><option value="en"${window.LANG === "en" ? " selected" : ""}>English</option></select></div>
       <div><label class="lbl" for="setCur">Devise</label><select class="field" id="setCur">${APP_CURRENCIES.map(([c, l]) => `<option value="${c}"${c === (settings.currency || "EUR") ? " selected" : ""}>${esc(c)} · ${esc(l)}</option>`).join("")}</select></div></div>
@@ -1022,7 +1022,7 @@ function isSub(t) { return SUBS.some(([k]) => k === t); }
 // Simple : le budget du mois, l'année, puis dans Suivis le partage des frais, les dettes (je dois / on me doit),
 // le plan d'économies et les objectifs. Complète : tout.
 // Le choix est gardé dans les réglages (donc sur tous les appareils du compte) ; un lien « ?version=simple » le propose aux nouveaux.
-const SIMPLE_SUBS = ["dettes", "economies", "objectifs"];   // dans cet ordre
+const SIMPLE_SUBS = ["dettes", "abos", "garanties", "economies", "objectifs"];   // dans cet ordre
 {
   const v = new URLSearchParams(location.search).get("version");
   if (v === "simple" || v === "complete") { try { localStorage.setItem("bourselle-mode", v); sessionStorage.setItem("bourselle-mode-url", v); } catch (e) {} history.replaceState(null, "", location.pathname + location.hash); }
@@ -1156,7 +1156,7 @@ document.getElementById("prev").onclick = () => step(-1);
 document.getElementById("next").onclick = () => step(1);
 
 let toastT;
-function toast(t) { const el = document.getElementById("toast"); el.textContent = t; el.style.display = "block"; clearTimeout(toastT); toastT = setTimeout(() => el.style.display = "none", 3200); }
+function toast(t, ms) { const el = document.getElementById("toast"); el.textContent = t; el.style.display = "block"; clearTimeout(toastT); toastT = setTimeout(() => el.style.display = "none", ms || 3200); }
 
 // ---------- Formulaire ----------
 let form = null;
@@ -3184,9 +3184,11 @@ function isDuplicate(r, id) {
 }
 function startImport() {
   let inp = document.getElementById("bankFile");
-  if (!inp) { inp = Object.assign(document.createElement("input"), { type: "file", id: "bankFile", accept: ".csv,.txt,.ofx,.qfx,text/csv", hidden: true }); document.body.appendChild(inp); }
+  if (!inp) { inp = Object.assign(document.createElement("input"), { type: "file", id: "bankFile", accept: ".csv,.txt,.ofx,.qfx,.qif,.pdf,.xls,.xlsx,text/csv,application/pdf", hidden: true }); document.body.appendChild(inp); }
   inp.onchange = async () => {
     const f = inp.files && inp.files[0]; inp.value = ""; if (!f) return;
+    const ext = (f.name.split(".").pop() || "").toLowerCase();
+    if (ext === "pdf" || ext === "xls" || ext === "xlsx") { toast(`Les relevés ${ext.toUpperCase()} ne sont pas encore lus. Dans l'espace en ligne de ta banque, cherche « Télécharger mes opérations » et choisis le format CSV ou OFX.`, 9000); return; }
     try {
       const { rows, format } = parseBankFile(decodeBank(await f.arrayBuffer()));
       if (!rows.length) { toast("Aucune opération reconnue dans ce fichier. Exporte le relevé au format CSV ou OFX depuis ta banque."); return; }
