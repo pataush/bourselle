@@ -77,7 +77,7 @@ function favRowHTML() {
   if (!list.length && !(typeof socOn === "function" && socOn())) return "";
   return `<div class="hub-sec"><span>Mes proches</span>${list.length ? `<small>${list.filter(p => p.owe || p.due).length ? "qui doit quoi d'un coup d'œil" : ""}</small>` : ""}</div>
     <div class="fav-row">${list.map(p => { const st = favStatus(p);
-      return `<button type="button" class="fav" data-fav="${esc(p.key)}"><span class="fav-av" style="background:${favColor(p.key)}">${esc(favFirst(p.name).charAt(0))}${p.pinned ? `<i>⭐</i>` : ""}</span><b>${esc(favFirst(p.name))}</b><small class="${st.cls}">${esc(st.txt)}</small></button>`; }).join("")}
+      return `<button type="button" class="fav" data-fav="${esc(p.key)}"><span class="fav-av" style="background:${favColor(p.key)}">${esc(favFirst(p.name).charAt(0))}${p.pinned ? `<i>⭐</i>` : ""}${p.tag && typeof dmUnread === "function" && dmUnread(p.tag) ? `<em class="fav-un">${dmUnread(p.tag)}</em>` : ""}</span><b>${esc(favFirst(p.name))}</b><small class="${st.cls}">${esc(st.txt)}</small></button>`; }).join("")}
       ${typeof socOn === "function" && socOn() ? `<button type="button" class="fav fav-add" id="favAdd"><span class="fav-av">+</span><b>Ajouter</b><small>@tag, QR code</small></button>` : ""}</div>`;
 }
 function favBind(root) {
@@ -114,6 +114,7 @@ function favOpen(key) {
       <button type="button" class="fav-act" data-fa="share"><span>🧾</span>Partager une dépense</button>
       <button type="button" class="fav-act" data-fa="remind" ${p.owe > 0.004 ? "" : "disabled"}><span>🔔</span>Relancer</button>
     </div>
+    ${p.tag && typeof dmOpen === "function" ? `<div class="fav-btns" style="margin:-4px 0 12px"><button type="button" class="btn primary" data-fa="dm">💬 Écrire à ${esc(favFirst(p.name))}${typeof dmUnread === "function" && dmUnread(p.tag) ? ` <i class="badge">${dmUnread(p.tag)}</i>` : ""}</button><button type="button" class="btn" data-fa="act">📅 Une activité ensemble</button></div>` : ""}
     ${p.items.length ? `<span class="lbl">Entre vous</span>${p.items.map((it, i) => `<button type="button" class="fav-it ${it.dir}" data-fi="${i}"><span>${esc(it.label)}<small>${esc(it.k === "g" ? "groupe" : it.k === "d" ? "dette" : it.pend ? "dit avoir payé : à confirmer" : "demande de paiement")}</small></span><b class="num">${it.dir === "in" ? "+" : "−"}${esc(money(it.amount, it.cur))}</b></button>`).join("")}` : `<p class="hint">Rien en cours entre vous.</p>`}
     ${groupsIn.length ? `<span class="lbl">Groupes en commun</span><div class="chips">${groupsIn.map(g => `<button type="button" class="chip" data-fg="${esc(g)}">${esc(groups[g].name)}</button>`).join("")}</div>` : ""}
     <button type="button" class="linkbtn" id="favPin" style="margin-top:12px">${p.pinned ? "Retirer des favoris" : "⭐ Épingler en favori"}</button></div>`, () => true);
@@ -130,6 +131,8 @@ function favOpen(key) {
   f.querySelector("#favPin").onclick = () => { const pins = favPins(), i = pins.indexOf(p.key); if (i >= 0) pins.splice(i, 1); else pins.unshift(p.key); saveSettings(); closeForm(); render(); toast(i >= 0 ? "Retiré des favoris" : `${favFirst(p.name)} est en favori ⭐`); };
   f.querySelectorAll("[data-fa]").forEach(b => b.onclick = () => {
     const a = b.dataset.fa;
+    if (a === "dm") return go(() => dmOpen(p.tag, p.name));
+    if (a === "act") return go(() => actNew({ with: [], invite: [p.tag], preInvite: p.tag }));
     if (a === "ask") return go(() => p.tag ? editPay({ to: p.tag }) : editPay());
     if (a === "share") return go(() => favShareExpense(p));
     if (a === "pay") {

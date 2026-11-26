@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "85";
+const APP_VERSION = "86";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -281,7 +281,14 @@ function alertsAll() {
   const L = [], add = (id, tab, label, items, open) => { if (items.length && (subAllowed(tab) || open)) L.push({ id, tab, label, items, open }); };
   try {
     const mk = cur.y + "-" + String(cur.m).padStart(2, "0");
-    if (typeof SOC !== "undefined" && (SOC.reminders || []).length) add("rem", "accueil", "Rappels reçus", SOC.reminders.filter(r => !remResolved(r)).map(r => ({ k: "rem:" + r.id, rem: r.id, t: `${r.from || "Quelqu'un"} : ${r.msg || `merci de régler ${fmtCur(r.amt, r.cur)}`}`, s: `${r.title || ""}${r.amt ? " · " + fmtCur(r.amt, r.cur) : ""} · ${agoText(r.at)}`, warn: !!r.warn, g: r.kind === "g" ? r.ref : "", deal: r.kind === "d" ? r.ref : "", chal: r.kind === "chal" ? r.ref : "", go: r.kind === "chal" ? "Voir" : "Régler" })), true);
+    if (typeof SOC !== "undefined" && (SOC.reminders || []).length) add("rem", "accueil", "Rappels reçus", SOC.reminders.filter(r => !remResolved(r)).map(r => ({ k: "rem:" + r.id, rem: r.id, t: `${r.from || "Quelqu'un"} : ${r.msg || `merci de régler ${fmtCur(r.amt, r.cur)}`}`, s: `${r.title || ""}${r.amt ? " · " + fmtCur(r.amt, r.cur) : ""} · ${agoText(r.at)}`, warn: !!r.warn, g: r.kind === "g" ? r.ref : "", deal: r.kind === "d" ? r.ref : "", chal: r.kind === "chal" ? r.ref : "", act: r.kind === "act" ? r.ref : "", go: r.kind === "chal" ? "Voir" : "Régler" })), true);
+    if (typeof DMS !== "undefined") add("dm", "accueil", "Messages", DMS.filter(t => t.unread).map(t => ({ k: `dm:${t.tag}:${t.last.id}`, dm: t.tag, t: `${t.name || "@" + t.tag} · ${t.unread} message${t.unread > 1 ? "s" : ""}`, s: t.last.kind === "idea" ? "💡 " + t.last.idea.title : (t.last.text || "").slice(0, 70), go: "Répondre" })), true);
+    if (typeof ACTS !== "undefined") add("act", "accueil", "Activités ensemble", ACTS.filter(a => a.status === "open").flatMap(a => {
+      const me = a.members.find(m => m.id === a.me), out = [];
+      if (a.invited) out.push({ k: "actinv:" + a.id, act: a.id, t: `${a.emoji} ${a.title}`, s: `${a.ownerName} te propose de participer`, go: "Voir" });
+      else if (me && !a.owner && me.st === "due") out.push({ k: "actdue:" + a.id, act: a.id, t: `${a.emoji} ${a.title}`, s: `Ta part : ${fmtCur(me.share, a.cur)} à verser à ${a.ownerName}`, go: "Payer" });
+      if (a.owner) for (const m of a.members.filter(m => m.st === "sent")) out.push({ k: `actok:${a.id}:${m.id}`, act: a.id, t: `${a.emoji} ${a.title}`, s: `${m.name} dit avoir versé ${fmtCur(m.share, a.cur)} : confirme à réception`, go: "Confirmer" });
+      return out; }), true);
     if (typeof SOC !== "undefined") add("reqin", "dettes", "Demandes de paiement reçues", (SOC.in || []).filter(c => c.kind === "req" && !["settled", "cancelled", "declined"].includes(c.status) && !reqPend(c)).map(c => ({ k: "reqin:" + c.id, t: `${c.fromName || "@" + c.from} te demande ${socMoney({ ...c, amount: reqLeft(c) })}`, s: c.name || "", reqpay: c.id, go: "Payer" })), true);
     if (typeof SOC !== "undefined") add("reqok", "accueil", "Paiements à confirmer", (SOC.out || []).filter(c => reqPend(c)).map(c => ({ k: "reqok:" + c.id, t: `${c.to ? "@" + c.to : c.guest || "Quelqu'un"} dit t'avoir payé ${socMoney({ ...c, amount: reqPend(c).amount })}`, s: (c.name || "Paiement") + " · confirme quand l'argent est arrivé", payme: c.kind === "req", claimout: c.kind !== "req", go: "Confirmer" })), true);
     if (typeof SOC !== "undefined") add("claims", "dettes", "Réclamations de dettes reçues", SOC.in.filter(c => c.status === "pending" && c.kind !== "req").map(c => ({ k: "claim:" + c.id, t: `@${c.from} te réclame ${socMoney(c)}`, s: [c.name, c.due ? "avant le " + frDate(c.due) : ""].filter(Boolean).join(" · "), go: "Répondre", claim: c.id })));
@@ -306,6 +313,7 @@ function alertsAll() {
 // Un rappel reçu est réglé quand je ne dois plus rien dans ce groupe, ou que j'ai payé dans cette cagnotte / cet achat
 function remResolved(r) {
   try {
+    if (r.kind === "act" && typeof ACTS !== "undefined") { const a = ACTS.find(x => x.id === r.ref); if (!a) return false; const me = a.members.find(m => m.id === a.me); return !me || me.st !== "due" || a.status !== "open"; }
     if (r.kind === "g") { const g = groups[r.ref]; return !!g && (groupBalances(g)[g.me] || 0) > -0.005; }
     if (r.kind === "d" && typeof DEALS !== "undefined") {
       const d = DEALS.find(x => x.id === r.ref); if (!d || !d.you || !d.you.pid) return false;
@@ -335,6 +343,8 @@ function alertGo(a, x) {
     if (x && x.g) { if (groups[x.g]) { openGroup = x.g; return switchTab("partage"); } return switchTab("partage"); }
     if (x && x.deal) return showDeal(x.deal);
     if (x && x.chal && typeof chalOpen === "function") return chalOpen(x.chal);
+    if (x && x.act && typeof actOpen === "function") return actOpen(x.act);
+    if (x && x.dm && typeof dmOpen === "function") return dmOpen(x.dm);
     if (x && x.pj) return showProject(x.pj);
     if (x && x.sub) { switchTab("abos"); return editSub(x.sub); }
     if (x && x.tx) { const { key, ...tx } = x.tx; switchTab(a.tab); return openSheet(tx); }
@@ -2308,7 +2318,7 @@ function renderPartage() {
   document.getElementById("resCap").textContent = mine > 0.004 ? "Au total, on te doit" : mine < -0.004 ? "Au total, tu dois" : "Tout le monde est quitte";
   const big = document.getElementById("resBig"); big.textContent = eur(Math.abs(mine)); big.className = "big num " + (mine > 0.004 ? "good" : mine < -0.004 ? "bad" : "");
   document.getElementById("resPill").innerHTML = "";
-  let html = banner + (typeof favRowHTML === "function" ? favRowHTML() + chalHTML() : "");
+  let html = banner + (typeof favRowHTML === "function" ? favRowHTML() + (typeof ensHTML === "function" ? ensHTML() : "") + chalHTML() : "");
   if (!list.length) html += `<div class="card"><div class="empty">Aucun groupe pour l'instant.</div></div>`;
   for (const g of list) {
     const b = g.bal[g.me] || 0;
@@ -2326,7 +2336,7 @@ function renderPartage() {
   view.innerHTML = html;
   view.querySelectorAll("[data-open]").forEach(b => b.onclick = () => { openGroup = b.dataset.open; render(); window.scrollTo(0, 0); });
   { const n = document.getElementById("grNew"); if (n) n.onclick = () => editGroup(null); }
-  actBind(view); if (typeof favBind === "function") { favBind(view); feedBind(view); chalBind(view); }
+  actBind(view); if (typeof favBind === "function") { favBind(view); feedBind(view); chalBind(view); if (typeof ensBind === "function") ensBind(view); }
   view.querySelectorAll("[data-grem]").forEach(b => b.onclick = () => { const g = groups[b.dataset.grem]; groupRemind(b.dataset.grem, settle(groupBalances(g)).filter(x => x.to === g.me)); });
 }
 // Relancer : on choisit le message (régler la somme, ou un autre message). Résout avec le texte, ou null si annulé.
