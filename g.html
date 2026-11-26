@@ -41,6 +41,7 @@
   .ge-cnew { display: flex; gap: 8px; } .ge-cnew input { flex: 1; min-width: 0; }
   .ph-view { position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,.88); display: grid; place-items: center; padding: 16px; }
   .ph-view img { max-width: 100%; max-height: 100%; border-radius: 8px; }
+.gp-ok{font-size:1.1rem;font-weight:800;color:#1f8a5b;margin:0 0 4px}
 </style>
 </head>
 <body>
@@ -67,7 +68,7 @@
     "Indique ce qui a été payé": "Say what was paid for", "Montant invalide": "Invalid amount", "Choisis au moins une personne": "Pick at least one person",
     "Gère ton budget avec Bourselle : gratuit, tes données restent dans ton Drive.": "Manage your budget with Bourselle: free, your data stays in your Drive.", "Découvrir Bourselle": "Discover Bourselle",
     "pour": "for", "tout le monde": "everyone", "Copié": "Copied", "moi": "me",
-    "À payer": "To pay", "Bénéficiaire": "Payee", "Copier": "Copy", "Motif": "Reference", "Payer avec PayPal": "Pay with PayPal", "Choisis comment payer": "Choose how to pay", "Comment payer": "How to pay", "Ouvrir {x}": "Open {x}", "le lien de paiement": "the payment link", "Virement": "Bank transfer", "Le lien s'ouvre dans l'appli concernée si elle est installée, sinon dans le navigateur.": "The link opens in the right app if it's installed, otherwise in your browser.", "S'ouvre dans l'appli {x} si elle est installée, sinon sur le site.": "Opens in the {x} app if it's installed, otherwise on the website.", "Tu paies depuis un autre téléphone ? Scanne ce QR code.": "Paying from another phone? Scan this QR code.", "Paiement rapide": "Quick payment", "Virement bancaire": "Bank transfer", "Lien de paiement": "Payment link", "Dans l'appli de ta banque, ouvre Wero et envoie le montant à ce numéro ou cet e-mail.": "In your bank's app, open Wero and send the amount to this number or email.", "Ouvrir son lien de paiement": "Open their payment link",
+    "À payer": "To pay", "Bénéficiaire": "Payee", "Copier": "Copy", "Motif": "Reference", "Payer avec PayPal": "Pay with PayPal", "{x} te paie": "{x} is paying you", "Réception confirmée. Merci !": "Receipt confirmed. Thank you!", "{x} est prévenu.": "{x} has been notified.", "{x} indique t'avoir payé.": "{x} says they've paid you.", "{x} va te payer.": "{x} is going to pay you.", "Confirme seulement quand l'argent est bien arrivé sur ton compte.": "Only confirm once the money has actually reached your account.", "J'ai bien reçu {x}": "I've received {x}", "Choisis comment payer": "Choose how to pay", "Comment payer": "How to pay", "Ouvrir {x}": "Open {x}", "le lien de paiement": "the payment link", "Virement": "Bank transfer", "Le lien s'ouvre dans l'appli concernée si elle est installée, sinon dans le navigateur.": "The link opens in the right app if it's installed, otherwise in your browser.", "S'ouvre dans l'appli {x} si elle est installée, sinon sur le site.": "Opens in the {x} app if it's installed, otherwise on the website.", "Tu paies depuis un autre téléphone ? Scanne ce QR code.": "Paying from another phone? Scan this QR code.", "Paiement rapide": "Quick payment", "Virement bancaire": "Bank transfer", "Lien de paiement": "Payment link", "Dans l'appli de ta banque, ouvre Wero et envoie le montant à ce numéro ou cet e-mail.": "In your bank's app, open Wero and send the amount to this number or email.", "Ouvrir son lien de paiement": "Open their payment link",
     "Scanne ce QR code avec l'appli de ta banque : le virement est déjà rempli.": "Scan this QR code with your banking app: the transfer is pre-filled.",
     "Payer {x}": "Pay {x}", "{x} n'a pas encore indiqué comment le payer : règle-le comme d'habitude, puis appuie sur « J'ai payé ».": "{x} hasn't added payment details yet: pay them as usual, then tap “I've paid”.",
     "Une fois le paiement fait, appuie sur « J'ai payé » pour prévenir le groupe.": "Once you've paid, tap “I've paid” to let the group know.",
@@ -101,6 +102,22 @@
         <div class="card">${PAY.html(p, amount, cur, note, t, money)}</div>` + cta;
       PAY.bind(main, toast);
     } catch (e) { fail(e.status === 404 ? "Lien de paiement introuvable." : "Connexion impossible. Réessaie dans un instant."); }
+  }
+  // ---------- Confirmer la réception d'un paiement (sans compte) : #j=paiement.ligne.clé ----------
+  async function confirmPage() {
+    const k = hash.get("j"), path = "/j/" + k;
+    const draw = l => {
+      const money = v => new Intl.NumberFormat(EN ? "en-GB" : "fr-FR", { style: "currency", currency: l.cur || "EUR" }).format(v);
+      document.title = l.title + " · Bourselle";
+      const ok = l.status === "ok";
+      main.innerHTML = top + `<div class="gp-hero"><div class="cap">${esc(t("{x} te paie", l.owner))}</div><h1>${esc(money(l.amount))}</h1><div class="cap">${esc(l.title)}${l.what ? " · " + esc(l.what) : ""}</div></div>
+        <div class="card">${ok ? `<p class="gp-ok">✓ ${esc(t("Réception confirmée. Merci !"))}</p><p class="hint" style="margin:0">${esc(t("{x} est prévenu.", l.owner))}</p>`
+          : `<p style="margin:0 0 6px">${esc(t(l.status === "sent" ? "{x} indique t'avoir payé." : "{x} va te payer.", l.owner))}</p>
+             <p class="hint" style="margin:0 0 12px">${esc(t("Confirme seulement quand l'argent est bien arrivé sur ton compte."))}</p>
+             <button class="btn primary" id="jOk" style="width:100%">${esc(t("J'ai bien reçu {x}", money(l.amount)))}</button>`}</div>` + cta;
+      const b = $("jOk"); if (b) b.onclick = async () => { b.disabled = true; try { draw((await api(path, { action: "ok" })).line); } catch (e) { b.disabled = false; toast(e.message); } };
+    };
+    try { draw((await api(path)).line); } catch (e) { fail(e.status === 404 ? "Ce lien n'est plus valable." : "Connexion impossible. Réessaie dans un instant."); }
   }
   // ---------- Groupe partagé : #g=jeton ----------
   const tok = hash.get("g"), KEY = "bourselle-g-" + tok;
@@ -265,7 +282,7 @@
     try { show(await api("/d/" + id)); } catch (e) { fail(e.status === 404 ? "Ce lien n'est plus valable." : "Connexion impossible. Réessaie dans un instant."); }
   }
   $("gpLoad").textContent = t("Chargement…");
-  if (hash.get("p")) payPage(); else if (hash.get("d")) dealPage(hash.get("d")); else if (tok) load(); else fail("Ce lien n'est plus valable.");
+  if (hash.get("j")) confirmPage(); else if (hash.get("p")) payPage(); else if (hash.get("d")) dealPage(hash.get("d")); else if (tok) load(); else fail("Ce lien n'est plus valable.");
   window.addEventListener("hashchange", () => location.reload());
 })();
 </script>

@@ -796,3 +796,13 @@ html.ios nav.tabs { bottom: 0; transform: translateZ(0); }
 
 .hub-sec .act-clear { margin-left: auto; font-size: .78rem; color: var(--muted); }
 .al-acth { display: flex; align-items: baseline; justify-content: space-between; margin-top: 14px; } .al-acth .lbl { margin: 0; } .al-acth small { font-weight: 400; color: var(--muted); } .al-acth .linkbtn { color: var(--muted); font-size: .8rem; }
+
+.login .tag-cloud { margin-top: 8px; font-weight: 600; }
+.login .tag-cloud b { color: var(--gold, #e9cf86); }
+
+/* Dettes : récap de « Payer » */
+.pj-dh { display: flex; justify-content: space-between; align-items: baseline; margin: 10px 0 4px; font-size: .8rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+.pj-dh b { font-size: .95rem; color: var(--bad); text-transform: none; letter-spacing: 0; } .pj-dh b.good { color: var(--good); }
+.pj-dline { display: grid; grid-template-columns: 1fr auto; gap: 8px; width: 100%; text-align: left; padding: 9px 10px; margin-top: 6px; border-radius: 12px; border: 0; border-left: 5px solid var(--pj-due); background: color-mix(in srgb, var(--pj-due) 8%, var(--surface)); color: var(--ink); font: inherit; cursor: pointer; }
+.pj-dline.sent { border-left-color: var(--pj-sent); background: color-mix(in srgb, var(--pj-sent) 12%, var(--surface)); } .pj-dline.late { border-left-color: var(--bad); }
+.pj-dl b { display: block; } .pj-dl small { color: var(--muted); font-size: .76rem; } .pj-dr { display: flex; flex-direction: column; align-items: flex-end; gap: 3px; }

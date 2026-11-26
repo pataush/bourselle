@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "68";
+const APP_VERSION = "70";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -283,7 +283,7 @@ function alertsAll() {
   const L = [], add = (id, tab, label, items, open) => { if (items.length && (subAllowed(tab) || open)) L.push({ id, tab, label, items, open }); };
   try {
     const mk = cur.y + "-" + String(cur.m).padStart(2, "0");
-    if (typeof SOC !== "undefined" && (SOC.reminders || []).length) add("rem", "accueil", "Rappels reçus", SOC.reminders.map(r => ({ k: "rem:" + r.id, rem: r.id, t: `${r.from || "Quelqu'un"} : ${r.msg || `merci de régler ${fmtCur(r.amt, r.cur)}`}`, s: `${r.title || ""}${r.amt ? " · " + fmtCur(r.amt, r.cur) : ""} · ${agoText(r.at)}`, warn: !!r.warn, g: r.kind === "g" ? r.ref : "", deal: r.kind === "d" ? r.ref : "", go: "Régler" })), true);
+    if (typeof SOC !== "undefined" && (SOC.reminders || []).length) add("rem", "accueil", "Rappels reçus", SOC.reminders.filter(r => !remResolved(r)).map(r => ({ k: "rem:" + r.id, rem: r.id, t: `${r.from || "Quelqu'un"} : ${r.msg || `merci de régler ${fmtCur(r.amt, r.cur)}`}`, s: `${r.title || ""}${r.amt ? " · " + fmtCur(r.amt, r.cur) : ""} · ${agoText(r.at)}`, warn: !!r.warn, g: r.kind === "g" ? r.ref : "", deal: r.kind === "d" ? r.ref : "", go: "Régler" })), true);
     if (typeof SOC !== "undefined") add("claims", "dettes", "Réclamations de dettes reçues", SOC.in.filter(c => c.status === "pending").map(c => ({ k: "claim:" + c.id, t: `@${c.from} te réclame ${socMoney(c)}`, s: [c.name, c.due ? "avant le " + frDate(c.due) : ""].filter(Boolean).join(" · "), go: "Répondre", claim: c.id })));
     if (typeof DEALS !== "undefined") add("ton", "accueil", "Cotisations à verser", DEALS.filter(d => d.ton && d.started && d.you && d.you.pid).flatMap(d => (d.rounds || []).filter(r => r.date <= addDays(todayISO(), 3) && r.ben !== d.you.pid && !((d.pays || {})[r.k + "|" + d.you.pid] || {}).st)
       .map(r => ({ k: `ton:${d.id}:${r.k}`, t: `${d.title} · tour ${r.k + 1}`, s: `${dealMoney(d.amount, d.cur)} à verser à ${(d.parts[r.ben] || {}).name || "?"} · ${frDate(r.date)}`, deal: d.id, go: "Payer" }))), true);
@@ -303,15 +303,27 @@ function alertsAll() {
   } catch (e) {}
   return L;
 }
+// Un rappel reçu est réglé quand je ne dois plus rien dans ce groupe, ou que j'ai payé dans cette cagnotte / cet achat
+function remResolved(r) {
+  try {
+    if (r.kind === "g") { const g = groups[r.ref]; return !!g && (groupBalances(g)[g.me] || 0) > -0.005; }
+    if (r.kind === "d" && typeof DEALS !== "undefined") {
+      const d = DEALS.find(x => x.id === r.ref); if (!d || !d.you || !d.you.pid) return false;
+      if (d.status === "cancelled") return true;
+      if (d.ton) return !(d.rounds || []).some(x => x.date <= todayISO() && x.ben !== d.you.pid && !((d.pays || {})[x.k + "|" + d.you.pid] || {}).st);
+      return !!(d.parts[d.you.pid] || {}).paid;
+    }
+  } catch (e) {}
+  return false;
+}
 function alertsList() {
-  const off = alertsOff();
-  return alertsAll().map(a => { const items = a.items.filter(x => !off[x.k]); return { ...a, items, n: items.length, hidden: a.items.length - items.length }; }).filter(a => a.n);
+  // Les alertes restent tant que ce n'est pas réglé, et disparaissent d'elles-mêmes une fois réglé
+  return alertsAll().map(a => ({ ...a, n: a.items.length })).filter(a => a.n);
 }
 function alertsPrune() {
-  // Les alertes masquées qui n'existent plus (problème réglé) sont oubliées
-  const off = alertsOff(), live = new Set(alertsAll().flatMap(a => a.items.map(x => x.k)));
-  let ch = false; for (const k of Object.keys(off)) if (!live.has(k)) { delete off[k]; ch = true; }
-  if (ch) saveSettings();
+  // Rappels reçus réglés : effacés tout seuls (aussi sur le serveur)
+  if (typeof SOC !== "undefined" && typeof socDelReminder === "function") for (const r of (SOC.reminders || []).filter(remResolved)) socDelReminder(r.id);
+  if (settings.alertsOff) { delete settings.alertsOff; saveSettings(); }
 }
 // « Gérer » : aller à l'endroit concerné
 function alertGo(a, x) {
@@ -332,10 +344,10 @@ function showAlerts(openIds) {
   const L = alertsList(), act = typeof hubActivity === "function" ? hubActivity().slice(0, 6) : [];
   const open = new Set(openIds || (L[0] ? [L[0].id] : []));
   const f = openForm(`<div class="f2"><h3>Alertes</h3>${L.length ? L.map((a, i) => `<div class="al-box${open.has(a.id) ? " open" : ""}" data-box="${a.id}"><button type="button" class="alert-row" data-al="${i}"><b>${esc(a.label)}</b><span class="n">${a.n}</span><span class="al-chev" aria-hidden="true">⌄</span></button>
-      <div class="al-items">${a.items.slice(0, 12).map((x, j) => `<div class="al-it2"><div class="al-tx"><b>${esc(x.t)}</b>${x.s ? `<small>${esc(x.s)}</small>` : ""}</div>
-        <button type="button" class="btn al-go" data-go="${i}" data-j="${j}">${esc(x.go || "Gérer")} ›</button><button type="button" class="al-x" data-off="${esc(x.k)}" data-rem="${esc(x.rem || "")}" aria-label="Supprimer cette notification" title="Supprimer">🗑</button></div>`).join("")}
+      <div class="al-items">${a.items.slice(0, 12).map((x, j) => `<div class="al-it2"><div class="al-tx${x.rem ? "" : " al-keep"}"><b>${esc(x.t)}</b>${x.s ? `<small>${esc(x.s)}</small>` : ""}</div>
+        <button type="button" class="btn al-go" data-go="${i}" data-j="${j}">${esc(x.go || "Gérer")} ›</button>${x.rem ? `<button type="button" class="al-x" data-off="${esc(x.k)}" aria-label="Supprimer cette notification" title="Supprimer">🗑</button>` : ""}</div>`).join("")}
       ${a.items.length > 12 ? `<p class="hint">+ ${a.items.length - 12} autres</p>` : ""}
-      <div class="al-foot"><button type="button" class="linkbtn" data-go="${i}">Tout voir ›</button>${a.n > 1 ? `<button type="button" class="linkbtn al-alloff" data-alloff="${i}">Tout supprimer</button>` : ""}</div></div></div>`).join("")
+      <div class="al-foot"><button type="button" class="linkbtn" data-go="${i}">Tout voir ›</button>${a.id === "rem" && a.n > 1 ? `<button type="button" class="linkbtn al-alloff" data-alloff="${i}">Tout supprimer</button>` : ""}</div></div></div>`).join("")
     : `<p class="hint">Rien à surveiller pour l'instant.</p>`}
     ${act.length ? `<div class="al-acth"><span class="lbl">Activité récente <small>(30 derniers jours)</small></span><button type="button" class="linkbtn" id="alActClear">Effacer</button></div>${act.map((e, k) => `<button type="button" class="al-it" data-ev="${k}"><b>${esc(e.t)}</b><small>${esc(e.s)} · ${esc(agoText(e.at))}</small></button>`).join("")}` : ""}</div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
@@ -344,7 +356,7 @@ function showAlerts(openIds) {
   f.querySelectorAll("[data-al]").forEach(b => b.onclick = () => b.parentElement.classList.toggle("open"));
   f.querySelectorAll("[data-go]").forEach(b => b.onclick = () => { const a = L[Number(b.dataset.go)]; alertGo(a, b.dataset.j != null ? a.items[Number(b.dataset.j)] : null); });
   // Supprimer définitivement : un rappel reçu est effacé du serveur ; une autre alerte ne revient plus (sauf si un nouveau problème apparaît)
-  const del = async items => { for (const x of items) { if (x.rem) await socDelReminder(x.rem); else alertsOff()[x.k] = Date.now(); } };
+  const del = async items => { for (const x of items) if (x.rem) await socDelReminder(x.rem); };
   f.querySelectorAll("[data-off]").forEach(b => b.onclick = async () => { const x = L.flatMap(a => a.items).find(y => y.k === b.dataset.off); if (x) await del([x]); redraw("Notification supprimée"); });
   f.querySelectorAll("[data-alloff]").forEach(b => b.onclick = async () => { const a = L[Number(b.dataset.alloff)]; await del(a.items); redraw(`${a.n} notifications supprimées`); });
   { const c = f.querySelector("#alActClear"); if (c) c.onclick = () => { settings.actCleared = Date.now(); saveSettings(); const o = openNow(); closeForm(); showAlerts(o); toast("Activité récente effacée"); }; }
@@ -1656,8 +1668,9 @@ function debtCalc(x) {
 function renderDettes() {
   const list = Object.entries(debts).map(([id, x]) => ({ ...x, id, c: debtCalc(x) }));
   const open = list.filter(x => !x.c.done);
-  const iOwe = open.filter(x => x.kind !== "medoit").reduce((a, x) => a + debtBase(x, x.c.remaining), 0);
-  const owed = open.filter(x => x.kind === "medoit").reduce((a, x) => a + debtBase(x, x.c.remaining), 0);
+  const pjT = typeof projDebtTotals === "function" ? projDebtTotals() : { owe: 0, owed: 0 };   // « Payer » compté aussi
+  const iOwe = open.filter(x => x.kind !== "medoit").reduce((a, x) => a + debtBase(x, x.c.remaining), 0) + pjT.owe;
+  const owed = open.filter(x => x.kind === "medoit").reduce((a, x) => a + debtBase(x, x.c.remaining), 0) + pjT.owed;
   const monthly = open.filter(x => x.kind === "credit").reduce((a, x) => a + (Number(x.monthly) || 0), 0);
   document.getElementById("periodLabel").textContent = "Dettes";
   document.getElementById("resCap").textContent = "Ce qu'il te reste à rembourser";
@@ -1668,6 +1681,7 @@ function renderDettes() {
     <div class="tile"><div class="k"><span class="sw" style="background:#3f8f68"></span>On me doit</div><div class="v num">${eur(owed, true)}</div></div>
     <div class="tile"><div class="k"><span class="sw" style="background:var(--accent)"></span>Mensualités</div><div class="v num">${eur(monthly, true)}</div></div></div>`;
   if (typeof socInboxHTML === "function") html += socInboxHTML();
+  if (typeof projDebtsHTML === "function") html += projDebtsHTML();
   const card = x => {
     const c = x.c, cls = c.done ? "done" : x.kind === "medoit" ? "owed" : "debt";
     const lab = c.done ? "Soldée" : DEBT_KINDS.find(k => k[0] === x.kind)[1];
@@ -1683,7 +1697,7 @@ function renderDettes() {
         <button class="btn" data-a="close" data-id="${esc(x.id)}">${x.closed ? "Rouvrir" : "Marquer soldée"}</button></div></div>`;
   };
   const section = (l, title, col) => l.length ? `<div class="sec-h"><span class="sw" style="background:${col}"></span>${title} <small class="hint">(${l.length})</small></div><div class="gar-list">${l.map(card).join("")}</div>` : "";
-  if (!list.length) html += `<div class="card"><div class="empty">Aucune dette enregistrée.<br>Appuie sur + pour ajouter un crédit, de l'argent que tu dois ou qu'on te doit.</div></div>`;
+  if (!list.length && !(typeof PROJECTS !== "undefined" && PROJECTS.length)) html += `<div class="card"><div class="empty">Aucune dette enregistrée.<br>Appuie sur + pour ajouter un crédit, de l'argent que tu dois ou qu'on te doit.</div></div>`;
   else {
     html += section(open.filter(x => x.kind === "credit"), "Crédits et prêts", "var(--bad)");
     html += section(open.filter(x => x.kind === "dois"), "Je dois", "var(--bad)");
@@ -1693,6 +1707,7 @@ function renderDettes() {
   html += `<p class="hint" style="text-align:center;margin:4px 0 0">Pour un crédit, le reste dû est estimé à partir de la mensualité, du taux et des échéances passées. Le tableau d'amortissement de ta banque fait foi.</p>`;
   view.innerHTML = html;
   if (typeof socBindInbox === "function") socBindInbox();
+  view.querySelectorAll("[data-pjopen]").forEach(b => b.onclick = () => showProject(b.dataset.pjopen));
   view.querySelectorAll("[data-a]").forEach(b => b.onclick = () => {
     const x = list.find(i => i.id === b.dataset.id); if (!x) return;
     if (b.dataset.a === "edit") editDebt(x.id);

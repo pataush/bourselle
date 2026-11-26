@@ -35,7 +35,18 @@ function socMerge() {
 let socBusy = false, socSeen = new Set(JSON.parse(localStorage.getItem("bourselle-soc-seen") || "[]"));
 // Rappels reçus (relances d'un groupe ou d'une cagnotte) : affichés dans la cloche, supprimables définitivement
 async function socLoadReminders() {
-  try { const j = await socApi("/me/reminders"); SOC.reminders = j.reminders || []; if (typeof refreshBell === "function") refreshBell(); } catch (e) {}
+  try {
+    const j = await socApi("/me/reminders"); SOC.reminders = j.reminders || [];
+    if (typeof alertsPrune === "function") alertsPrune();                       // réglés : effacés tout seuls
+    // Nouveau rappel reçu : on le montre tout de suite (en plus de la notification sur le téléphone)
+    let seen = []; try { seen = JSON.parse(localStorage.getItem("bourselle-rem-seen") || "[]"); } catch (e) {}
+    const fresh = SOC.reminders.filter(r => !seen.includes(r.id) && !(typeof remResolved === "function" && remResolved(r)));
+    if (fresh.length) {
+      const r = fresh[0]; toast(fresh.length === 1 ? `🔔 ${r.from || "Rappel"} : ${r.msg || "merci de régler " + (typeof fmtCur === "function" ? fmtCur(r.amt, r.cur) : r.amt)}` : `🔔 ${fresh.length} nouveaux rappels : ouvre la cloche`);
+      try { localStorage.setItem("bourselle-rem-seen", JSON.stringify(seen.concat(fresh.map(x => x.id)).slice(-200))); } catch (e) {}
+    }
+    if (typeof refreshBell === "function") refreshBell();
+  } catch (e) {}
 }
 async function socDelReminder(id) {
   SOC.reminders = (SOC.reminders || []).filter(x => x.id !== id);

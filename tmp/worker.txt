@@ -646,8 +646,14 @@ async function projectsApi(req, env, url, cors, me, body) {
   if (!m || req.method !== "POST") throw new HttpErr(404, "introuvable");
   const pj = await kvJ(env, "proj:" + m[1]); if (!pj || pj.deleted) throw new HttpErr(404, "paiement introuvable");
   const owner = pj.ownerEmail === me.email, act = body.action, lid = String(body.lid || ""), l = pj.lines[lid];
+  if (act === "link") {
+    if (!owner || !l) throw new HttpErr(403, "réservé au créateur du paiement");
+    if (l.toEmail) throw new HttpErr(400, "cette personne confirme dans son appli");
+    if (!l.ck) { l.ck = rid(20); pj.updated = Date.now(); await kvP(env, "proj:" + pj.id, pj); }
+    return json({ link: pj.id + "." + lid + "." + l.ck }, 200, cors);
+  }
   if (act === "ok" || act === "notok") {
-    if (!l || (l.toEmail !== me.email && !(owner && !l.toEmail))) throw new HttpErr(403, "seul le bénéficiaire confirme la réception");
+    if (!l || l.toEmail !== me.email) throw new HttpErr(403, "seule la personne qui reçoit l'argent confirme la réception");
     l.status = act === "ok" ? "ok" : (l.sentAt ? "sent" : "due"); l.okAt = act === "ok" ? Date.now() : 0;
     if (act === "ok" && !owner) say([pj.ownerEmail], pj, x => `${l.name} a confirmé la réception de ${fmtMoney(l.amount, pj.cur, x)} ✓`, x => `${l.name} confirmed receipt of ${fmtMoney(l.amount, pj.cur, x)} ✓`);
   } else {
@@ -694,6 +700,20 @@ async function publicApi(req, env, url, cors) {
     return json({ pay: p }, 200, cors);
   }
   if (/^\/d\//.test(url.pathname)) return dealApi(req, env, url, cors);
+  // Confirmer la réception d'un paiement sans compte (lien envoyé par celui qui paie)
+  const jm = /^\/j\/([a-z0-9]{8,16})\.(l[a-z0-9]{6,12})\.([a-z0-9]{12,40})$/.exec(url.pathname);
+  if (jm) {
+    const pj = await kvJ(env, "proj:" + jm[1]), l = pj && !pj.deleted ? pj.lines[jm[2]] : null;
+    if (!l || !l.ck || l.ck !== jm[3]) throw new HttpErr(404, "ce lien n'est plus valable");
+    if (req.method === "POST") {
+      const b = await req.json().catch(() => ({}));
+      if (b.action === "ok" && l.status !== "ok") {
+        l.status = "ok"; l.okAt = Date.now(); pj.updated = Date.now(); await kvP(env, "proj:" + pj.id, pj);
+        notify(env, [pj.ownerEmail], x => ({ title: pj.title, body: x === "en" ? `${l.name} confirmed receipt of ${fmtMoney(l.amount, pj.cur, x)} ✓` : `${l.name} a confirmé la réception de ${fmtMoney(l.amount, pj.cur, x)} ✓`, url: "./?pj=" + pj.id, tag: "pj-" + pj.id }));
+      }
+    }
+    return json({ line: { title: pj.title, owner: pj.ownerName || "@" + pj.ownerTag, name: l.name, what: l.what || "", amount: l.amount, cur: pj.cur, due: l.due || "", status: l.status } }, 200, cors);
+  }
   const m = /^\/g\/([a-z0-9]{10,24})(\/add|\/comment|\/react|\/photo|\/attach|\/photo\/[a-z0-9]{6,16})?$/.exec(url.pathname);
   if (!m) throw new HttpErr(404, "introuvable");
   const id = await env.CODES.get("lnk:" + m[1]); const g = id ? await kvJ(env, "grp:" + id) : null;
@@ -1087,7 +1107,7 @@ const WORKER = {
       if (req.method === "POST" && url.pathname === "/webhook/stripe") return await stripe(req, env);
       if (req.method === "POST" && url.pathname === "/webhook/lemon") return await lemon(req, env);
       if (req.method === "POST" && url.pathname === "/resend") return await resend(req, env, cors);
-      if (/^\/(g|p|d)\//.test(url.pathname)) {
+      if (/^\/(g|p|d|j)\//.test(url.pathname)) {
         try { return await publicApi(req, env, url, cors); }
         catch (e) { if (e instanceof HttpErr) return json({ error: e.message }, e.status, cors); throw e; }
       }

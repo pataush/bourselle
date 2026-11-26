@@ -327,7 +327,10 @@
     "(épargne)": "(savings)",
     "à la même date": "on the same date",
     // Connexion, compte
-    "Bourselle – Mon budget": "Bourselle – My budget", "Mon budget": "My budget", "Mon budget, simplement": "My budget, made simple",
+    "Bourselle – Mon budget": "Bourselle – My budget", "Mon budget": "My budget", "Mon budget, simplement": "My budget, made simple", "Ton budget et tes partages, simplement": "Your budget and shared money, made simple",
+    "Suis ton budget, partage les frais entre proches, organise des cagnottes et des achats groupés. Chacun paie de banque à banque, sans connecter ton compte bancaire : l'argent ne passe jamais par Bourselle.": "Track your budget, split costs with friends and family, run money pots and group buys. Everyone pays bank to bank, without linking your bank account: the money never goes through Bourselle.",
+    "Tes données restent dans": "Your data stays in", "ton propre cloud": "your own cloud", "(Google Drive ou OneDrive), pas chez nous.": "(Google Drive or OneDrive), not with us.",
+    "L'app accède uniquement à son dossier « Bourselle » dans ton Drive ou ton OneDrive, et à rien d'autre. Bourselle ne voit ni ton argent ni tes comptes bancaires.": "The app only accesses its own “Bourselle” folder in your Drive or OneDrive, nothing else. Bourselle never sees your money or your bank accounts.",
     "Tes dépenses, factures, garanties, abonnements, dettes, ton épargne et tes tontines, enregistrés dans": "Your expenses, bills, warranties, subscriptions, debts, savings and savings circles, saved in", "ton propre": "your own", "cloud.": "cloud.",
     "Continuer avec Google": "Continue with Google", "Continuer avec Microsoft": "Continue with Microsoft", "Continuer avec Apple (iCloud)": "Continue with Apple (iCloud)",
     "Gmail, Google Workspace": "Gmail, Google Workspace", "Hotmail, Outlook, Live, compte pro": "Hotmail, Outlook, Live, work account", "Bientôt, avec l'app iPhone": "Coming soon, with the iPhone app",

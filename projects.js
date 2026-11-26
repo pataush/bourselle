@@ -2,7 +2,7 @@
  * Exemple : des travaux chez moi. Je crée le paiement, j'ajoute une ligne par personne (ce que je lui dois, la date convenue).
  * Chacune voit seulement ce que je lui dois dans son app. Je paie (de banque à banque) puis j'indique « payé » : la ligne passe
  * au jaune ; quand la personne confirme la réception, elle passe au vert chez moi. Rouge : encore à payer.
- * Une personne sans compte Bourselle peut aussi avoir sa ligne : je confirme alors moi-même. */
+ * C'est toujours la personne qui reçoit l'argent qui confirme : sans compte Bourselle, elle le fait avec le lien que je lui envoie. */
 let PROJECTS = (() => { try { return JSON.parse(localStorage.getItem("bourselle-projets") || "[]") || []; } catch (e) { return []; } })();
 let openProject = null;
 // Un paiement fait va dans les dépenses (à sa date) ; de l'argent reçu va dans les rentrées. Jamais deux fois (src).
@@ -72,7 +72,7 @@ function renderProject() {
     return `<div class="pj-line ${l.status}">
       <div class="pj-l"><b>${esc(l.name)}</b>${l.toTag ? ` <small>@${esc(l.toTag)}</small>` : owner ? ` <small>(sans compte)</small>` : ""}<small>${l.what ? esc(l.what) : ""}${l.due ? `${l.what ? " · " : ""}<span class="${late ? "pj-late" : ""}">${late ? "en retard, prévu le " : "prévu le "}${esc(frDate(l.due))}</span>` : ""}</small></div>
       <div class="pj-r"><b class="num">${esc(pjMoney(l.amount, pj.cur))}</b><span class="pj-st ${l.status}">${esc(owner ? PJ_ST[l.status][0] : l.status === "sent" ? "Envoyé, à confirmer" : l.status === "ok" ? "Reçu ✓" : "En attente")}</span></div>
-      <div class="pj-acts">${owner ? (l.status === "due" ? `<button type="button" class="btn primary" data-pay="${esc(lid)}">Payer</button>` : l.status === "sent" ? `${!l.member ? `<button type="button" class="btn primary" data-act="ok" data-lid="${esc(lid)}">Confirmer la réception</button>` : `<span class="hint">En attente de confirmation de ${esc(l.name)}</span>`}<button type="button" class="linkbtn" data-act="unsent" data-lid="${esc(lid)}">Annuler l'envoi</button>` : "")
+      <div class="pj-acts">${owner ? (l.status === "due" ? `<button type="button" class="btn primary" data-pay="${esc(lid)}">Payer</button>` : l.status === "sent" ? `<span class="hint">En attente de confirmation de ${esc(l.name)}</span>${!l.member ? `<button type="button" class="btn" data-plink="${esc(lid)}">🔗 Lui envoyer le lien pour confirmer</button>` : ""}<button type="button" class="linkbtn" data-act="unsent" data-lid="${esc(lid)}">Annuler l'envoi</button>` : "")
         + (l.status !== "ok" ? `<button type="button" class="linkbtn" data-edit="${esc(lid)}">Modifier</button><button type="button" class="linkbtn danger" data-rm="${esc(lid)}">Retirer</button>` : "")
         : l.status !== "ok" ? `<button type="button" class="btn ${l.status === "sent" ? "primary" : ""}" data-act="ok" data-lid="${esc(lid)}">J'ai reçu le paiement</button>` : ""}${invBtn(pj, lid, l)}</div></div>`;
   }).join("") || `<p class="hint" style="margin:0">Personne pour l'instant.</p>`}
@@ -84,6 +84,7 @@ function renderProject() {
   document.getElementById("pjBack").onclick = () => { openProject = null; render(); window.scrollTo(0, 0); };
   view.querySelectorAll("[data-act]").forEach(b => b.onclick = () => projAct(pj.id, { action: b.dataset.act, lid: b.dataset.lid }, b.dataset.act === "ok" ? "Réception confirmée ✓" : null));
   view.querySelectorAll("[data-pay]").forEach(b => b.onclick = () => payLine(pj, b.dataset.pay));
+  view.querySelectorAll("[data-plink]").forEach(b => b.onclick = () => projSendConfirm(pj, b.dataset.plink));
   view.querySelectorAll("[data-edit]").forEach(b => b.onclick = () => editLine(pj, b.dataset.edit));
   view.querySelectorAll("[data-rm]").forEach(b => b.onclick = () => { if (b.dataset.c !== "1") { b.dataset.c = "1"; b.textContent = "Confirmer ?"; return; } projAct(pj.id, { action: "remove", lid: b.dataset.rm }, "Ligne retirée"); });
   invBind(view);
@@ -128,14 +129,24 @@ function payLine(pj, lid) {
     ${l.invoice ? `<p style="margin:10px 0 0">${invBtn(pj, lid, l).split("<label")[0]}</p>` : ""}
     ${fld("plDate", "Date du paiement", `type="date" value="${todayISO()}"`)}
     <label class="toggle" for="plTx" style="margin-top:12px"><span>Ajouter ce paiement à mes dépenses</span><input type="checkbox" id="plTx" checked></label>
-    <p class="hint" style="margin:8px 0 0">Une fois payé, appuie sur « J'ai payé » : la ligne passe au jaune${l.member ? `, et ${esc(l.name)} confirmera la réception` : ""}.</p></div>`, () => {
+    <p class="hint" style="margin:8px 0 0">Une fois payé, appuie sur « J'ai payé » : la ligne passe au jaune. ${esc(l.name)} confirmera la réception${l.member ? " dans son appli" : " avec le lien que tu vas lui envoyer (sans compte)"} : elle passera alors au vert.</p></div>`, () => {
     const tx = document.getElementById("plTx").checked, date = /^\d{4}-\d{2}-\d{2}$/.test(val("plDate")) ? val("plDate") : todayISO();
     projAct(pj.id, { action: "sent", lid }, tx ? "Payé : ajouté à tes dépenses, en attente de confirmation" : "Paiement indiqué : en attente de confirmation").then(r => {
       if (r && tx) autoTx(`pj:${pj.id}:${lid}:out`, { type: "depense", amount: l.amount, cat: defCat("logement"), date, note: `${pj.title} · ${l.name}${l.what ? " (" + l.what + ")" : ""}`.slice(0, 80) });
+      if (r && !l.member) setTimeout(() => projSendConfirm(r.project || pj, lid), 900);   // sans compte : il confirme avec son lien
     });
   });
   f.querySelector("button[type=submit]").textContent = "J'ai payé";
   PAY.bind(f, toast); invBind(f);
+}
+// Personne payée sans compte : on lui envoie un lien pour confirmer elle-même la réception
+async function projSendConfirm(pj, lid) {
+  const l = (pj.lines || {})[lid]; if (!l) return;
+  try {
+    const r = await socApi("/projects/" + pj.id, { method: "POST", body: JSON.stringify({ action: "link", lid }) });
+    const url = appBase() + "g.html#j=" + r.link;
+    shareText(`Bonjour ${l.name}, je t'ai payé ${pjMoney(l.amount, pj.cur)} pour « ${pj.title} »${l.what ? ` (${l.what})` : ""}. Quand tu l'as reçu, confirme-le ici (pas besoin d'appli) :`, url);
+  } catch (e) { toast(e.message); }
 }
 // Ajouter / modifier une ligne
 function editLine(pj, lid) {
@@ -216,4 +227,30 @@ function tagPicker(find, res, onAdd) {
       } catch (e) {}
     }, 450);
   });
+}
+// Dans « Dettes » : le récap de « Payer » (ce que je dois payer, ce qu'on doit me payer)
+function projDebtTotals() {
+  let owe = 0, owed = 0;
+  for (const pj of PROJECTS) for (const l of Object.values(pj.lines || {})) {
+    if (pj.role === "owner" && l.status === "due") owe += l.amount;
+    if (pj.role === "payee" && l.status !== "ok") owed += l.amount;
+  }
+  return { owe: Math.round(owe * 100) / 100, owed: Math.round(owed * 100) / 100 };
+}
+function projDebtsHTML() {
+  const rows = PROJECTS.flatMap(pj => Object.entries(pj.lines || {}).filter(([, l]) => pj.role === "owner" ? l.status !== "ok" : l.status !== "ok").map(([lid, l]) => ({ pj, lid, l })));
+  if (!rows.length) return "";
+  const t = projDebtTotals(), today = todayISO();
+  const line = ({ pj, l }) => {
+    const mine = pj.role === "owner", late = mine && l.status === "due" && l.due && l.due < today;
+    const who = mine ? l.name : pj.ownerName || "@" + pj.owner;
+    const st = mine ? (l.status === "sent" ? "Envoyé, à confirmer" : late ? "En retard" : "À payer") : (l.status === "sent" ? "Envoyé, à confirmer" : "En attente");
+    return `<button type="button" class="pj-dline ${late ? "late" : l.status}" data-pjopen="${esc(pj.id)}"><span class="pj-dl"><b>${esc(who)}</b><small>${esc(pj.title)}${l.due ? ` · ${mine ? "prévu le" : "prévu le"} ${esc(frDate(l.due))}` : ""}</small></span>
+      <span class="pj-dr"><b class="num">${esc(pjMoney(l.amount, pj.cur))}</b><span class="pj-st ${late ? "late" : l.status}">${esc(st)}</span></span></button>`;
+  };
+  const mine = rows.filter(r => r.pj.role === "owner"), owed = rows.filter(r => r.pj.role !== "owner");
+  return `<div class="card pj-debts"><h2>Payer · récap<small>${rows.length}</small></h2>
+    ${mine.length ? `<div class="pj-dh"><span>Je dois payer</span><b class="num">${esc(eur(t.owe))}</b></div>${mine.map(line).join("")}` : ""}
+    ${owed.length ? `<div class="pj-dh"><span>On doit me payer</span><b class="num good">${esc(eur(t.owed))}</b></div>${owed.map(line).join("")}` : ""}
+    <p class="hint" style="margin:8px 0 0">Les paiements suivis dans Partage › Payer. Touche une ligne pour l'ouvrir.</p></div>`;
 }
