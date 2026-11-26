@@ -984,3 +984,37 @@ i.badge { font-style: normal; background: var(--bad); color: #fff; border-radius
 .off-where { display: block; width: 100%; text-align: left; margin: 0 0 8px; padding: 9px 12px; border: 1px dashed var(--line); border-radius: 12px; background: none; font: inherit; font-size: .86rem; color: inherit; cursor: pointer; }
 .off-sheet .off-where { margin: 0 0 10px; }
 .off-city.near { color: var(--good); font-weight: 700; }
+/* Créneaux et réservation */
+.off-slots { display: flex; flex-direction: column; gap: 2px; margin: 8px 0 0 50px; } .off-slots small { color: var(--muted); font-size: .8rem; }
+.off-now { color: var(--good); font-weight: 700; font-size: .78rem; white-space: nowrap; } .off-soon { color: #8a6400; font-weight: 600; font-size: .78rem; white-space: nowrap; }
+.off-nowlist { padding: 4px 12px; } .off-mini { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 0; border: 0; border-bottom: 1px solid var(--line); background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.off-mini:last-child { border-bottom: 0; } .off-mini .act-emo { width: 34px; height: 34px; font-size: 1.05rem; } .off-mini .off-tt b { font-size: .9rem; }
+.off-book { margin-top: 10px; } .off-bk { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 12px; background: var(--bg); margin-bottom: 6px; font-size: .88rem; }
+.off-bk small { display: block; color: var(--muted); font-size: .76rem; } .off-bk.ok { background: var(--good-soft); } .off-bk.no { background: var(--bad-soft); }
+.off-slot { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; } .off-slot .field { width: 96px; flex: 0 0 auto; padding: 8px; }
+.off-days { display: flex; gap: 3px; } .off-days button { width: 30px; height: 30px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); font: inherit; font-size: .78rem; font-weight: 700; color: var(--muted); cursor: pointer; }
+.off-days button[aria-pressed="true"] { background: var(--good); border-color: var(--good); color: #fff; }
+/* Aujourd'hui */
+.today { padding: 14px 16px; border: 1.5px solid var(--accent); }
+.today-h { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; } .today-h span { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); } .today-h small { color: var(--muted); font-size: .8rem; }
+.today-left { display: flex; flex-direction: column; gap: 2px; width: 100%; padding: 10px 12px; border: 0; border-radius: 14px; background: var(--good-soft); font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.today-left b { font-size: 1.6rem; color: var(--good); } .today-left small { color: var(--muted); font-size: .8rem; } .today-left.bad { background: var(--bad-soft); } .today-left.bad b { color: var(--bad); }
+.today-row { display: flex; gap: 8px; margin-top: 8px; } .today-chip { flex: 1; display: flex; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); font: inherit; color: inherit; text-align: left; cursor: pointer; font-size: 1.2rem; }
+.today-chip span { display: flex; flex-direction: column; } .today-chip b { font-size: .95rem; } .today-chip small { font-size: .7rem; color: var(--muted); line-height: 1.15; }
+.today-now { margin-top: 8px; border-top: 1px solid var(--line); padding-top: 6px; }
+.today-big { text-align: center; padding: 8px 0 14px; } .today-big b { display: block; font-size: 2rem; color: var(--good); } .today-big small { color: var(--muted); }
+.off-used { display: block; margin: 10px auto 0; } .num.good { color: var(--good); }
+/* Affichette A5 */
+.poster { width: 148mm; height: 210mm; box-sizing: border-box; padding: 14mm 12mm 10mm; display: flex; flex-direction: column; align-items: center; text-align: center; background: #fff; color: #16324a; font-family: var(--display, inherit); border: 3mm solid #1f6b4b; border-radius: 6mm; }
+.poster-top { font-size: 16pt; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: #1f6b4b; }
+.poster-head { font-size: 38pt; font-weight: 800; line-height: 1.05; margin: 8mm 0 4mm; color: #16324a; }
+.poster-sub { font-size: 14pt; color: #4a5d6e; margin-bottom: 8mm; }
+.poster-qr { width: 70mm; height: 70mm; padding: 4mm; border-radius: 4mm; background: #fff; border: 1.5mm solid #f2b928; } .poster-qr svg { width: 100%; height: 100%; display: block; }
+.poster-how { font-size: 12pt; margin-top: 4mm; color: #4a5d6e; } .poster-foot { margin-top: auto; font-size: 10pt; color: #6b7c8c; } .poster-foot b { color: #1f6b4b; }
+.poster-prev { margin-top: 10px; overflow: hidden; border-radius: 12px; background: var(--bg); display: flex; justify-content: center; padding: 8px 0; height: calc(210mm * .42 + 16px); }
+.poster-prev .poster { transform: scale(.42); transform-origin: top center; flex: 0 0 auto; }
+#printArea { display: none; }
+@media print {
+  html.printing-poster body > *:not(#printArea) { display: none !important; }
+  html.printing-poster #printArea { display: block; } html.printing-poster #printArea .poster { margin: 0 auto; }
+}

@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "90";
+const APP_VERSION = "91";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -650,7 +650,9 @@ function renderMois() {
   const budCats = settings.cats.filter(c => (c.budget || 0) > 0 || t.byCat[c.id]);
   const fixPct = t.depense ? t.fixe / t.depense * 100 : 0;
 
-  let html = banner + budSeg() + tilesHTML(t) + (typeof accCardHTML === "function" ? accCardHTML(true) : "") + (typeof patriHomeHTML === "function" ? patriHomeHTML() : "") + bilanHTML() + forecastHTML(t);
+  const isNow = cur.y === now.getFullYear() && cur.m === now.getMonth() + 1;
+  if (isNow && typeof todayHTML === "function" && typeof offLoaded !== "undefined" && !offLoaded && !offRefresh.busy) { offRefresh.busy = true; offRefresh(false).then(() => { if (tab === "mois" && !document.querySelector("#sheet2Root.open")) render(); }); }
+  let html = banner + (isNow && typeof todayHTML === "function" ? todayHTML(t) : "") + budSeg() + tilesHTML(t) + (typeof accCardHTML === "function" ? accCardHTML(true) : "") + (typeof patriHomeHTML === "function" ? patriHomeHTML() : "") + bilanHTML() + forecastHTML(t);
   const todoAll = allItems().filter(x => x.type === "depense" && x.ndf && x.ndfStatus !== "rembourse");
   if (todoAll.length && !isSimple()) {
     const sum = todoAll.reduce((s, x) => s + Number(x.amount), 0);
@@ -704,7 +706,7 @@ function renderMois() {
   const OPS_N = 6, showAll = window.__opsAll || list.length <= OPS_N + 2;
   html += `<div class="card"><h2>${showAll ? "Opérations" : "Dernières opérations"}<button class="linkbtn" id="impBtn">Importer un relevé</button></h2>${list.length ? txListHTML(showAll ? list : list.slice(0, OPS_N)) : `<div class="empty">Rien d'enregistré pour ${MOIS[cur.m - 1]}.</div>`}
     ${list.length > OPS_N + 2 ? `<button class="ops-more" id="opsMore">${showAll ? "Voir moins" : `Voir tout (${list.length})`}</button>` : ""}</div>`;
-  view.innerHTML = html; budSegBind();
+  view.innerHTML = html; budSegBind(); if (typeof todayBind === "function") todayBind(view);
   const om = document.getElementById("opsMore"); if (om) om.onclick = () => { window.__opsAll = !window.__opsAll; render(); };
   if (typeof accBindCard === "function") accBindCard();
   if (typeof patriBindHome === "function") patriBindHome();
@@ -759,7 +761,9 @@ function renderAnnee() {
   const t = totals(all);
   setHeader(String(cur.y), "Résultat de l'année (rentrées − dépenses)", t.result);
   const parts = catParts(t.byCat);
-  let html = banner + budSeg() + tilesHTML(t);
+  const isNow = cur.y === now.getFullYear() && cur.m === now.getMonth() + 1;
+  if (isNow && typeof todayHTML === "function" && typeof offLoaded !== "undefined" && !offLoaded && !offRefresh.busy) { offRefresh.busy = true; offRefresh(false).then(() => { if (tab === "mois" && !document.querySelector("#sheet2Root.open")) render(); }); }
+  let html = banner + (isNow && typeof todayHTML === "function" ? todayHTML(t) : "") + budSeg() + tilesHTML(t);
   html += `<div class="card"><h2>Résultat mois par mois</h2>${resultBars(per.map(p => p.result))}
     <div class="legend-inline"><span><span class="sw" style="background:var(--good)"></span>Positif</span><span><span class="sw" style="background:var(--bad)"></span>Négatif</span></div></div>`;
   html += `<div class="card"><h2>Rentrées et dépenses</h2>${pairBars(per.map(p => p.rentree), per.map(p => p.depense))}
