@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "83";
+const APP_VERSION = "84";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -1085,11 +1085,35 @@ function applyHideAmounts(on) {
   document.documentElement.classList.toggle("hide-amounts", on);
   const b = document.getElementById("eyeBtn"); if (b) { b.setAttribute("aria-pressed", String(on)); b.setAttribute("aria-label", on ? "Afficher les montants" : "Cacher les montants"); }
 }
+// Tous les montants écrits dans un texte (« +120 € ce mois-ci », légendes, comparaisons, totaux des graphiques…) sont repérés
+// et entourés d'un <span class="mmask"> : l'œil les floute aussi.
+const MONEY_RE = /(?:[-+−]\s?)?(?:\d[\d\u00a0\u202f\s.,']*\d|\d)\s?(?:€|\$US|US\$|\$|£|CHF|FCFA|F\s?CFA|XOF|XAF|CFA|MAD|DH|GNF|CDF|KMF)|(?:€|\$|£)\s?\d[\d\u00a0\u202f\s.,]*/g;
+function maskMoney(root) {
+  if (!root) return;
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, { acceptNode: n => {
+    const p = n.parentNode; if (!p || !n.nodeValue || !/\d/.test(n.nodeValue)) return NodeFilter.FILTER_REJECT;
+    if (p.closest && p.closest(".mmask, script, style, textarea, input, select, option, [contenteditable], .num, .big, .amt")) return NodeFilter.FILTER_REJECT;
+    MONEY_RE.lastIndex = 0; return MONEY_RE.test(n.nodeValue) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT; } });
+  const list = []; while (w.nextNode()) list.push(w.currentNode);
+  for (const n of list) {
+    const p = n.parentNode;
+    if (p.namespaceURI === "http://www.w3.org/2000/svg") { p.classList.add("mmask"); continue; }   // texte d'un graphique
+    const txt = n.nodeValue, frag = document.createDocumentFragment(); let last = 0; MONEY_RE.lastIndex = 0; let m;
+    while ((m = MONEY_RE.exec(txt))) {
+      if (m.index > last) frag.appendChild(document.createTextNode(txt.slice(last, m.index)));
+      const sp = document.createElement("span"); sp.className = "mmask"; sp.textContent = m[0]; frag.appendChild(sp); last = m.index + m[0].length;
+    }
+    if (last < txt.length) frag.appendChild(document.createTextNode(txt.slice(last)));
+    p.replaceChild(frag, n);
+  }
+}
+{ let pend = false; new MutationObserver(() => { if (pend || !document.documentElement.classList.contains("hide-amounts")) return; pend = true; requestAnimationFrame(() => { pend = false; maskMoney(document.body); }); })
+    .observe(document.body, { childList: true, subtree: true, characterData: true }); }
 applyHideAmounts((() => { try { return localStorage.getItem("bourselle-hide") === "1"; } catch (e) { return false; } })());
 document.getElementById("eyeBtn").onclick = () => {
   const on = !document.documentElement.classList.contains("hide-amounts");
   try { localStorage.setItem("bourselle-hide", on ? "1" : "0"); } catch (e) {}
-  applyHideAmounts(on); toast(on ? "Montants cachés" : "Montants affichés");
+  applyHideAmounts(on); if (on) maskMoney(document.body); toast(on ? "Montants cachés" : "Montants affichés");
 };
 document.getElementById("askFab").onclick = () => typeof showAssistant === "function" && showAssistant();
 { const av = document.getElementById("avatar"); av.onclick = () => showProfileMenu(); av.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showProfileMenu(); } }; }

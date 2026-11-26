@@ -859,3 +859,6 @@ html.hide-amounts :is(.num, .big, .amt, .tile .v):hover { filter: blur(7px); }
 .period .label-wrap { display: flex; align-items: center; justify-content: center; gap: 8px; min-width: 0; }
 .hero .period button.eye-mini, .period button.eye-mini { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; padding: 0; flex: none; background: rgba(255,255,255,.14); color: #fff; }
 .eye-mini svg { width: 17px; height: 17px; }
+
+html.hide-amounts .mmask { filter: blur(6px); user-select: none; }
+html.hide-amounts #toast .mmask { filter: none; }
