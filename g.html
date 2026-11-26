@@ -252,7 +252,7 @@
       },
     };
     const show = r => {
-      S.deal = r.deal; S.pay = r.pay;
+      S.deal = r.deal; S.pay = r.pay; S.payinfo = r.payinfo;
       if (me.pid && S.deal.parts[me.pid]) S.deal.you = { role: "part", pid: me.pid };
       ctx.needName = !(S.deal.you && S.deal.you.pid); ctx.defaultName = me.name || "";
       document.title = S.deal.title + " · Bourselle";

@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "54";
+const APP_VERSION = "55";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -280,7 +280,9 @@ function alertsList() {
   const L = [], add = (tab, label, items, open) => { if (items.length && (subAllowed(tab) || open)) L.push({ tab, label, n: items.length, items, open }); };
   try {
     if (typeof SOC !== "undefined") add("dettes", "Réclamations de dettes reçues", SOC.in.filter(c => c.status === "pending").map(c => ({ t: `@${c.from} te réclame ${socMoney(c)}`, s: [c.name, c.due ? "avant le " + frDate(c.due) : ""].filter(Boolean).join(" · ") })));
-    if (typeof DEALS !== "undefined") add("accueil", "Paiements à faire", DEALS.filter(d => d.you && d.you.pid && d.parts[d.you.pid] && !d.parts[d.you.pid].paid && d.status !== "cancelled" && (d.kind === "cagnotte" || d.stats.reached || d.status === "done"))
+    if (typeof DEALS !== "undefined") add("accueil", "Cotisations à verser", DEALS.filter(d => d.ton && d.started && d.you && d.you.pid).flatMap(d => (d.rounds || []).filter(r => r.date <= addDays(todayISO(), 3) && r.ben !== d.you.pid && !((d.pays || {})[r.k + "|" + d.you.pid] || {}).st)
+      .map(r => ({ t: `${d.title} · tour ${r.k + 1}`, s: `${dealMoney(d.amount, d.cur)} à verser à ${(d.parts[r.ben] || {}).name || "?"} · ${frDate(r.date)}`, deal: d.id }))), true);
+    if (typeof DEALS !== "undefined") add("accueil", "Paiements à faire", DEALS.filter(d => !d.ton && d.you && d.you.pid && d.parts[d.you.pid] && !d.parts[d.you.pid].paid && d.status !== "cancelled" && (d.kind === "cagnotte" || d.stats.reached || d.status === "done"))
       .map(d => { const p = d.parts[d.you.pid]; return { t: d.title, s: `${dealMoney(d.kind === "achat" ? p.qty * d.price : p.amount, d.cur)} à payer à ${d.ownerName || "l'organisateur"}`, deal: d.id }; }), true);
     if (typeof PROJECTS !== "undefined") {
       const soon = addDays(todayISO(), 3);

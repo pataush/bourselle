@@ -161,7 +161,7 @@ function editLine(pj, lid) {
 function editProject() {
   if (typeof socOn !== "function" || !socOn()) { toast("Connecte-toi avec Google ou Microsoft pour payer plusieurs personnes"); return; }
   const lines = []; let who = null;
-  const f = openForm(`<div class="f2"><h3>Payer plusieurs personnes</h3>
+  const f = openForm(`<div class="f2"><h3>Payer</h3>
     <p class="hint" style="margin:0 0 8px">Des travaux, un événement… Ajoute chaque personne à payer, combien tu lui dois et quand. Chacune le voit dans son app et confirme quand elle a reçu l'argent.</p>
     ${fld("pjTitle", "Nom", `maxlength="60" placeholder="ex. Travaux de la cuisine"`)}
     <span class="lbl">Personnes à payer</span><div id="pjLines" class="pj-draft"></div>

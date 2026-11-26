@@ -670,3 +670,15 @@ body.tab-reglages .hero { display: none; }
 .ask-fab img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; display: block; }
 .ask-fab .ask-badge { position: absolute; top: -4px; right: -4px; width: 20px; height: 20px; border-radius: 50%; background: var(--gold); color: #2a1f00; font-weight: 800; font-size: .75rem; display: grid; place-items: center; border: 2px solid var(--surface); }
 .ask-fab:active { transform: scale(.94); }
+
+/* Cagnotte (tontine) */
+.ton-m { display: grid; grid-template-columns: 30px 1fr auto; gap: 8px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.ton-m.me .ton-n b { color: var(--accent); }
+.ton-k { width: 28px; height: 28px; border-radius: 50%; background: color-mix(in srgb, var(--gold) 22%, transparent); color: color-mix(in srgb, var(--gold) 60%, var(--ink)); font-weight: 800; display: grid; place-items: center; font-size: .85rem; }
+.ton-n small { display: block; color: var(--muted); font-size: .76rem; } .ton-n b + small { display: inline; }
+.ton-mv { display: flex; gap: 6px; } .ton-mv .linkbtn { font-size: 1rem; padding: 2px 6px; } .ton-mv .linkbtn:disabled { opacity: .25; } .ton-mv .danger { color: var(--bad); }
+.ton-r.cur { border: 2px solid var(--gold) !important; } .ton-r.done { opacity: .85; }
+.ton-rh { display: flex; gap: 8px; align-items: center; } .ton-rh span { color: var(--muted); font-size: .85rem; } .ton-rh .dc-st { margin-left: auto; }
+.ton-paybox { grid-column: 1 / -1; margin-top: 8px; }
+
+.pj-l b + small, .ton-n b + small { margin-left: .35em; }
