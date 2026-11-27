@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "150";
+const APP_VERSION = "151";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -781,7 +781,7 @@ function renderMois() {
   const isNow = cur.y === now.getFullYear() && cur.m === now.getMonth() + 1;
   if (isNow && typeof todayHTML === "function" && typeof offLoaded !== "undefined" && !offLoaded && !offRefresh.busy) { offRefresh.busy = true; offRefresh(false).then(() => { if (tab === "mois" && !document.querySelector("#sheet2Root.open")) render(); }); }
   // Accueil allégé : l'essentiel en haut ; Mois/Année et la prévision passent dans « Voir les analyses »
-  let html = banner + (isNow && typeof todayHTML === "function" ? todayHTML(t) : "") + tilesHTML(t, true) + (typeof accCardHTML === "function" ? accCardHTML(true) : "") + (typeof patriHomeHTML === "function" ? patriHomeHTML() : "") + bilanHTML();
+  let html = banner + budSeg() + (isNow && typeof todayHTML === "function" ? todayHTML(t) : "") + tilesHTML(t, true) + (typeof accCardHTML === "function" ? accCardHTML(true) : "") + (typeof patriHomeHTML === "function" ? patriHomeHTML() : "") + bilanHTML();
   const todoAll = allItems().filter(x => x.type === "depense" && x.ndf && x.ndfStatus !== "rembourse");
   if (todoAll.length && !isSimple()) {
     const sum = todoAll.reduce((s, x) => s + Number(x.amount), 0);
@@ -811,7 +811,7 @@ function renderMois() {
 
   // Analyses du mois : repliées par défaut, un bouton les déroule (choix mémorisé sur l'appareil)
   const moreFrom = html.length;
-  html += budSeg() + forecastHTML(t);
+  html += forecastHTML(t);
   html += `<div class="card"><h2>Dépenses par catégorie<small>${list.filter(x => x.type === "depense").length} dépenses</small></h2>
     ${parts.length ? `<div class="donut-wrap">${donut(parts)}${legendHTML(parts)}</div>` : `<div class="empty">Aucune dépense ce mois-ci. Appuie sur + pour en ajouter une.</div>`}</div>`;
 
@@ -893,7 +893,7 @@ function renderAnnee() {
   const parts = catParts(t.byCat);
   const isNow = cur.y === now.getFullYear() && cur.m === now.getMonth() + 1;
   if (isNow && typeof todayHTML === "function" && typeof offLoaded !== "undefined" && !offLoaded && !offRefresh.busy) { offRefresh.busy = true; offRefresh(false).then(() => { if (tab === "mois" && !document.querySelector("#sheet2Root.open")) render(); }); }
-  let html = banner + (isNow && typeof todayHTML === "function" ? todayHTML(t) : "") + budSeg() + tilesHTML(t);
+  let html = banner + budSeg() + (isNow && typeof todayHTML === "function" ? todayHTML(t) : "") + tilesHTML(t);
   html += `<div class="card"><h2>Résultat mois par mois</h2>${resultBars(per.map(p => p.result))}
     <div class="legend-inline"><span><span class="sw" style="background:var(--good)"></span>Positif</span><span><span class="sw" style="background:var(--bad)"></span>Négatif</span></div></div>`;
   html += `<div class="card"><h2>Rentrées et dépenses</h2>${pairBars(per.map(p => p.rentree), per.map(p => p.depense))}
