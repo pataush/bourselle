@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "113";
+const APP_VERSION = "114";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -1033,7 +1033,8 @@ const view = document.getElementById("view");
 // Ordre des suivis : d'abord un ordre par défaut (du plus courant au plus rare), puis il s'adapte à
 // ce que chaque personne ouvre le plus souvent sur son appareil. Recalculé à l'ouverture de l'app
 // seulement, pour que les onglets ne bougent pas pendant qu'on s'en sert.
-const SUBS_DEF = [["patrimoine", "Patrimoine"], ["abos", "Abonnements"], ["objectifs", "Objectifs"], ["economies", "Économies"], ["dettes", "Dettes"], ["frais", "Frais"], ["garanties", "Garanties"]];
+const SUBS_DEF = [["dettes", "Dettes"], ["economies", "Économies"], ["objectifs", "Objectifs"], ["abos", "Abonnements"], ["garanties", "Garanties"], ["frais", "Frais"], ["patrimoine", "Patrimoine"]];
+const SUB_IC = { dettes: "💸", economies: "🌱", objectifs: "🎯", abos: "🔁", garanties: "🛡️", frais: "🧾", patrimoine: "🏦" };
 const SUB_KEY = "bourselle-suivis";
 function subUse() { try { return JSON.parse(localStorage.getItem(SUB_KEY) || "{}") || {}; } catch (e) { return {}; } }
 function bumpSub(k) { try { const u = subUse(); u[k] = (u[k] || 0) + 1; localStorage.setItem(SUB_KEY, JSON.stringify(u)); } catch (e) {} }
@@ -1044,7 +1045,7 @@ function isSub(t) { return SUBS.some(([k]) => k === t); }
 // Simple : le budget du mois, l'année, puis dans Suivis le partage des frais, les dettes (je dois / on me doit),
 // le plan d'économies et les objectifs. Complète : tout.
 // Le choix est gardé dans les réglages (donc sur tous les appareils du compte) ; un lien « ?version=simple » le propose aux nouveaux.
-const SIMPLE_SUBS = ["dettes", "abos", "garanties", "economies", "objectifs"];   // dans cet ordre
+const SIMPLE_SUBS = ["dettes", "economies", "objectifs", "abos", "garanties"];   // dans cet ordre
 {
   const v = new URLSearchParams(location.search).get("version");
   if (v === "simple" || v === "complete") { try { localStorage.setItem("bourselle-mode", v); sessionStorage.setItem("bourselle-mode-url", v); } catch (e) {} history.replaceState(null, "", location.pathname + location.hash); }
@@ -1095,7 +1096,8 @@ function render() {
   sn.hidden = !isSub(tab);
   if (isSub(tab)) {
     const c = { patrimoine: 0, frais: nFrais, garanties: nGar, abos: nAbo, dettes: 0, objectifs: 0, economies: 0, partage: 0, tontines: nTon };
-    sn.innerHTML = `<div class="seg" role="tablist">${visibleSubs().map(([k, l]) => `<button type="button" role="tab" aria-pressed="${k === tab}" data-sub="${k}">${l}${c[k] ? `<span class="cnt">${c[k]}</span>` : ""}</button>`).join("")}</div>`;
+    // Rubriques en bulles (comme les proches et les catégories de bons plans) ; un rond orange = quelque chose à voir
+    sn.innerHTML = `<div class="seg sub-bub" role="tablist">${visibleSubs().map(([k, l]) => `<button type="button" role="tab" aria-pressed="${k === tab}" data-sub="${k}"><span class="sb-ic" aria-hidden="true">${SUB_IC[k] || "•"}${c[k] ? `<i class="cnt">${c[k]}</i>` : ""}</span><span class="sb-l">${l}</span></button>`).join("")}</div>`;
     sn.querySelectorAll("[data-sub]").forEach(b => b.onclick = () => switchTab(b.dataset.sub));
     // On centre l'onglet actif en faisant défiler seulement la rangée d'onglets : scrollIntoView ferait aussi bouger la page
     // (sur iPhone, la barre du bas remontait).
