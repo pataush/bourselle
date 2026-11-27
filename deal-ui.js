@@ -202,7 +202,7 @@ DEALUI.tonCard = function (d, ctx) {
 // Relancer : notification aux membres qui ont un compte, message prêt à envoyer (avec le lien pour payer) pour les autres
 DEALUI.remind = async function (d, ctx, pids, k) {
   const t = ctx.t, m = v => ctx.money(v, d.cur), notified = [], toShare = []; let last = null;
-  const amtOf = pid => d.ton ? d.amount : d.kind === "achat" ? ((d.parts[pid] || {}).qty || 0) * d.price : (d.parts[pid] || {}).amount || 0;
+  const amtOf = pid => d.ton ? d.amount * (((d.parts[pid] || {}).sh) || 1) : d.kind === "achat" ? ((d.parts[pid] || {}).qty || 0) * d.price : (d.parts[pid] || {}).amount || 0;
   let msg = "";
   if (ctx.pickMsg) {
     const r = d.ton ? d.rounds[k] : null, who = pids.length === 1 ? (d.parts[pids[0]] || {}).name || "" : t("{x} membres", pids.length);
@@ -216,7 +216,7 @@ DEALUI.remind = async function (d, ctx, pids, k) {
   if (last) ctx.onUpdate(last);
   const nm = pid => (d.parts[pid] || {}).name || "";
   if (toShare.length) {
-    const amt = pid => d.ton ? d.amount : d.kind === "achat" ? (d.parts[pid].qty || 0) * d.price : d.parts[pid].amount || 0;
+    const amt = pid => d.ton ? d.amount * (((d.parts[pid] || {}).sh) || 1) : d.kind === "achat" ? (d.parts[pid].qty || 0) * d.price : d.parts[pid].amount || 0;
     const r = d.ton ? d.rounds[k] : null;
     const who = toShare.map(nm).join(", ");
     const lc = x => /^[A-ZÀ-Ý][a-zà-ÿ]/.test(x) ? x[0].toLowerCase() + x.slice(1) : x;
@@ -234,8 +234,12 @@ DEALUI.tonStatus = function (d, r, pid, today) {
 };
 DEALUI.tonPersonalLink = (ctx, link) => ctx.url + "&m=" + link;
 DEALUI.renderTon = function (root, S, ctx) {
+  const S0 = S;
   const d = S.deal, t = ctx.t, m = v => ctx.money(v, d.cur), st = d.stats || {}, you = d.you || {};
   const owner = you.role === "owner", me = you.pid || "", isMember = me && (d.order || []).includes(me), n = (d.order || []).length;
+  const sh = pid => (d.parts[pid] || {}).sh || 1, roles = d.roles || {}, bureau = owner || ["president", "tresorier"].includes(roles[me]);
+  const ROLE = { president: t("Président·e"), tresorier: t("Trésorier·e") }, slots = d.slots || d.order || [], NS = slots.length;
+  const potOf = r => d.amount * d.order.filter(pid => pid !== r.ben).reduce((a, pid) => a + sh(pid), 0);
   const invited = isMember && (d.parts[me] || {}).inv;
   const name = pid => (d.parts[pid] || {}).name || "?", today = new Date().toISOString().slice(0, 10);
   const fr = (window.LANG === "en" ? TON_FREQ_EN : TON_FREQ_FR)[d.freq] || "";
@@ -249,8 +253,8 @@ DEALUI.renderTon = function (root, S, ctx) {
     <div class="dc-top"><span class="dc-kind cagnotte">${hesc(t("Cagnotte"))}</span>${d.started ? `<span class="dc-st ok">${hesc(st.done ? t("Terminée") : t("En cours"))}</span>` : `<span class="dc-st">${hesc(t("Inscriptions ouvertes"))}</span>`}</div>
     <h2 class="dh-t">${hesc(d.title)}</h2><div class="hint">${hesc(t("Gérée par {x}", (d.ownerName || "") + (d.owner ? " (@" + d.owner + ")" : "")))}</div>
     ${d.desc ? `<p class="dh-d">${hesc(d.desc)}</p>` : ""}
-    <div class="dh-big"><b>${hesc(m(d.amount))}</b> <span>${hesc(t("par personne") + ", " + fr)}</span></div>
-    <div class="dh-s">${hesc(t(n === 1 ? "{x} membre" : "{x} membres", n) + " · " + t("chaque tour, un membre reçoit le pot de {x}", m(st.sum)))}</div>
+    <div class="dh-big"><b>${hesc(m(d.amount))}</b> <span>${hesc(t("par part") + ", " + fr)}</span></div>
+    <div class="dh-s">${hesc(t(n === 1 ? "{x} membre" : "{x} membres", n) + (NS !== n ? " · " + t("{x} parts", NS) : "") + " · " + t("{x} tours", NS) + " · " + t("chaque tour, un membre reçoit le pot de {x}", m(st.sum)))}</div>
     <div class="dh-s">${hesc(t("1er tour le {x}", ctx.fdate(d.start)))}</div>
     <div class="ton-clauses"><b>${hesc(t("Clauses de la cagnotte"))}</b><p>⏰ ${hesc(t("Date butoir de règlement"))} : ${hesc(dueTxt)}.</p>${d.rules ? `<p class="ton-rules">${hesc(d.rules)}</p>` : ""}</div>
     ${!d.started ? `<p class="dh-note">${hesc(t("Les inscriptions sont ouvertes. L'ordre des tours (qui reçoit le pot, et quand) sera fixé au démarrage."))}</p>` : ""}
@@ -264,25 +268,35 @@ DEALUI.renderTon = function (root, S, ctx) {
     const per = { semaine: t("Cette semaine"), mois: t("Ce mois-ci"), an: t("Cette année") }[d.freq] || t("Tour en cours");
     const lateL = payers.filter(pid => DEALUI.tonStatus(d, cur, pid, today) === "late");
     h += `<div class="card ton-now"><h2>${hesc(per)}<small>${ok}/${payers.length}</small></h2>
-      <p class="hint" style="margin:0 0 4px">${hesc(t("Tour {x}", cur.k + 1) + " · " + t("{x} reçoit le pot", name(cur.ben)) + " · " + t("à régler au plus tard le {x}", ctx.fdate(cur.due)))}</p>
+      <p class="hint" style="margin:0 0 4px">${hesc(t("Tour {x}", cur.k + 1) + " · " + t("{x} reçoit le pot", name(cur.ben)) + " (" + m(potOf(cur)) + ") · " + t("à régler au plus tard le {x}", ctx.fdate(cur.due)))}</p>
       ${payers.map(pid => { const s = DEALUI.tonStatus(d, cur, pid, today), w = (warns[cur.k + "|" + pid] || {}).n || 0;
         return `<div class="ton-st ${s}"><span class="ton-dot"></span><span class="ton-sn"><b>${hesc(name(pid))}</b>${pid === me ? ` <small>(${hesc(t("moi"))})</small>` : ""}${w ? `<small class="ton-w">⚠️ ${hesc(t(w === 1 ? "averti 1 fois" : "averti {x} fois", w))}</small>` : ""}</span>
         <span class="pj-st ${s === "late" ? "late" : s}">${hesc(stLabel(s))}</span>
-        ${owner && s !== "ok" && pid !== me ? `<span class="ton-oa"><button type="button" class="linkbtn" data-trem="${cur.k}" data-pid="${hesc(pid)}">🔔 ${hesc(t("Relancer"))}</button>${s === "late" ? `<button type="button" class="linkbtn danger" data-twarn="${cur.k}" data-pid="${hesc(pid)}">⚠️ ${hesc(t("Avertir"))}</button>` : ""}</span>` : ""}</div>`; }).join("")}
-      ${owner && lateL.length > 1 ? `<button type="button" class="btn ton-all danger-soft" data-twall="${cur.k}">⚠️ ${hesc(t("Avertir tous les retardataires ({x})", lateL.length))}</button>` : ""}
-      ${owner && payers.filter(pid => pid !== me && DEALUI.tonStatus(d, cur, pid, today) === "due").length > 1 ? `<button type="button" class="btn ton-all" data-tall="${cur.k}">🔔 ${hesc(t("Relancer ceux qui n'ont pas versé"))}</button>` : ""}</div>`;
+        ${bureau && s !== "ok" && pid !== me ? `<span class="ton-oa"><button type="button" class="linkbtn" data-trem="${cur.k}" data-pid="${hesc(pid)}">🔔 ${hesc(t("Relancer"))}</button>${s === "late" ? `<button type="button" class="linkbtn danger" data-twarn="${cur.k}" data-pid="${hesc(pid)}">⚠️ ${hesc(t("Avertir"))}</button>` : ""}</span>` : ""}</div>`; }).join("")}
+      ${bureau && lateL.length > 1 ? `<button type="button" class="btn ton-all danger-soft" data-twall="${cur.k}">⚠️ ${hesc(t("Avertir tous les retardataires ({x})", lateL.length))}</button>` : ""}
+      ${bureau && payers.filter(pid => pid !== me && DEALUI.tonStatus(d, cur, pid, today) === "due").length > 1 ? `<button type="button" class="btn ton-all" data-tall="${cur.k}">🔔 ${hesc(t("Relancer ceux qui n'ont pas versé"))}</button>` : ""}</div>`;
   }
-  // Membres et ordre des tours
-  const curK = d.started ? st.round : -1;
-  h += `<div class="card"><h2>${hesc(t(d.started ? "Ordre des tours" : "Membres et ordre des tours"))}<small>${n}</small></h2>${(d.order || []).map((pid, k) => { const p = d.parts[pid] || {};
+  // Membres (parts, rôles) puis ordre des tours
+  const curK = d.started ? st.round : -1, nextRole = r => r === "" ? "president" : r === "president" ? "tresorier" : "";
+  h += `<div class="card"><h2>${hesc(t("Membres"))}<small>${n}</small></h2>${(d.order || []).map(pid => { const p = d.parts[pid] || {}, r = roles[pid] || "";
       const badge = p.inv ? t("invitation envoyée") : !p.member ? t("sans l'appli") : "";
-      return `<div class="ton-m${pid === me ? " me" : ""}"><span class="ton-k">${k + 1}</span><span class="ton-n"><b>${hesc(name(pid))}</b>${pid === me ? ` <small>(${hesc(t("moi"))})</small>` : ""}${badge ? ` <span class="ton-b${p.inv ? " inv" : ""}">${hesc(badge)}</span>` : ""}<small>${hesc(t("reçoit le pot le {x}", ctx.fdate(d.rounds[k].date)))}</small></span>
-      ${owner ? `<span class="ton-mv">${!p.member && pid !== me ? `<button type="button" class="linkbtn" data-tlink="${hesc(pid)}" title="${hesc(t("Envoyer son lien"))}">🔗</button>` : ""}${!d.started ? `<button type="button" class="linkbtn" data-up="${k}" ${k ? "" : "disabled"}>↑</button><button type="button" class="linkbtn" data-dn="${k}" ${k < n - 1 ? "" : "disabled"}>↓</button>` : ""}${pid !== me && (!d.started || k > curK) ? `<button type="button" class="linkbtn danger" data-own="remove" data-pid="${hesc(pid)}" title="${hesc(t("Retirer"))}">✕</button>` : ""}</span>` : ""}</div>`; }).join("")}
+      const canRemove = pid !== me && (!d.started || !slots.some((x, k) => x === pid && k <= curK));
+      return `<div class="ton-m mem${pid === me ? " me" : ""}"><span class="ton-n"><b>${hesc(name(pid))}</b>${pid === me ? ` <small>(${hesc(t("moi"))})</small>` : ""}${r ? ` <span class="ton-role ${r}">${hesc(ROLE[r])}</span>` : ""}${sh(pid) > 1 ? ` <span class="ton-sh">×${sh(pid)}</span>` : ""}${badge ? ` <span class="ton-b${p.inv ? " inv" : ""}">${hesc(badge)}</span>` : ""}
+        <small>${hesc(t(sh(pid) > 1 ? "{x} parts · verse {y} par tour" : "1 part · verse {y} par tour", sh(pid)).replace("{y}", m(d.amount * sh(pid))))}</small></span>
+      ${owner ? `<span class="ton-mv">${!d.started ? `<span class="ton-shc"><button type="button" class="linkbtn" data-tsh="${hesc(pid)}" data-v="${sh(pid) - 1}" ${sh(pid) > 1 ? "" : "disabled"} aria-label="${hesc(t("Une part de moins"))}">−</button><b>${sh(pid)}</b><button type="button" class="linkbtn" data-tsh="${hesc(pid)}" data-v="${sh(pid) + 1}" ${sh(pid) < 5 ? "" : "disabled"} aria-label="${hesc(t("Une part de plus"))}">+</button></span>` : ""}
+        ${p.member || pid === me ? `<button type="button" class="linkbtn ton-rb" data-trole="${hesc(pid)}" data-r="${nextRole(r)}" title="${hesc(t("Rôle"))}">${r ? "🎖" : "☆"}</button>` : ""}${!p.member && pid !== me ? `<button type="button" class="linkbtn" data-tlink="${hesc(pid)}" title="${hesc(t("Envoyer son lien"))}">🔗</button>` : ""}${canRemove ? `<button type="button" class="linkbtn danger" data-own="remove" data-pid="${hesc(pid)}" title="${hesc(t("Retirer"))}">✕</button>` : ""}</span>` : ""}</div>`; }).join("")}
+    ${owner ? `<p class="hint" style="margin:8px 0 0">${hesc(t(d.started ? "☆ : nommer président·e ou trésorier·e. Ils peuvent relancer, avertir, confirmer les versements et échanger des tours." : "− / + : nombre de parts (une part de plus = cotiser et recevoir le pot une fois de plus). ☆ : nommer président·e ou trésorier·e."))}</p>` : ""}
     ${owner && !d.started ? `<div class="ton-add"><label class="lbl" for="tAdd">${hesc(t("Ajouter un membre"))}</label>
       <input class="field" id="tAdd" maxlength="40" autocomplete="off" autocapitalize="words" placeholder="${hesc(ctx.search ? t("Prénom, ou @tag d'un utilisateur Bourselle") : t("Prénom"))}"><div id="tAddRes" class="ton-addres"></div>
-      <p class="hint" style="margin:6px 0 0">${hesc(t("Avec l'appli : il reçoit l'invitation dans Bourselle et l'accepte. Sans l'appli : tu lui envoies son lien pour suivre la cagnotte, payer et commenter."))}</p></div>
-      <div class="acts" style="margin-top:10px"><button type="button" class="btn" data-own="shuffle">${hesc(t("Tirer au sort"))}</button><button type="button" class="btn primary" data-own="start" ${n < 2 ? "disabled" : ""}>${hesc(t("Démarrer la cagnotte"))}</button></div>` : ""}
+      <p class="hint" style="margin:6px 0 0">${hesc(t("Avec l'appli : il reçoit l'invitation dans Bourselle et l'accepte. Sans l'appli : tu lui envoies son lien pour suivre la cagnotte, payer et commenter."))}</p></div>` : ""}
     ${isMember && !owner && !d.started && !invited ? `<div class="acts" style="margin-top:10px"><button type="button" class="btn danger" id="dLeave">${hesc(t("Me retirer"))}</button></div>` : ""}</div>`;
+  const swapSel = DEALUI._swap && DEALUI._swap.id === d.id ? DEALUI._swap.k : -1;
+  h += `<div class="card"><h2>${hesc(t("Ordre des tours"))}<small>${NS}</small></h2>${slots.map((pid, k) => { const r = d.rounds[k] || {}, nth = slots.slice(0, k + 1).filter(x => x === pid).length;
+      const canSwap = bureau && (!d.started || k > curK) && NS > 1;
+      return `<div class="ton-m${pid === me ? " me" : ""}${k === curK ? " cur" : ""}${swapSel === k ? " sel" : ""}"><span class="ton-k">${k + 1}</span><span class="ton-n"><b>${hesc(name(pid))}</b>${sh(pid) > 1 ? ` <small>(${hesc(t("part {x}/{y}", nth).replace("{y}", sh(pid)))})</small>` : ""}<small>${hesc(t("reçoit {m} le {x}", ctx.fdate(r.date)).replace("{m}", m(potOf(r))))}</small></span>
+      <span class="ton-mv">${owner && !d.started ? `<button type="button" class="linkbtn" data-up="${k}" ${k ? "" : "disabled"}>↑</button><button type="button" class="linkbtn" data-dn="${k}" ${k < NS - 1 ? "" : "disabled"}>↓</button>` : ""}${canSwap && d.started ? `<button type="button" class="linkbtn ton-swap" data-tswap="${k}" title="${hesc(t("Échanger ce tour"))}">⇄</button>` : ""}</span></div>`; }).join("")}
+    ${bureau && d.started && NS > 1 ? `<p class="hint" style="margin:8px 0 0">${hesc(swapSel >= 0 ? t("Touche ⇄ sur un autre tour à venir pour l'échanger avec le tour {x}.", swapSel + 1) : t("⇄ : échanger deux tours à venir (par exemple quand deux membres s'arrangent)."))}</p>` : ""}
+    ${owner && !d.started ? `<div class="acts" style="margin-top:10px"><button type="button" class="btn" data-own="shuffle">${hesc(t("Tirer au sort"))}</button><button type="button" class="btn primary" data-own="start" ${n < 2 ? "disabled" : ""}>${hesc(t("Démarrer la cagnotte"))}</button></div>` : ""}</div>`;
   // Les tours
   if (d.started) {
     h += `<div class="hub-sec"><span>${hesc(t("Les tours"))}</span></div>`;
@@ -290,10 +304,10 @@ DEALUI.renderTon = function (root, S, ctx) {
       const payers = d.order.filter(pid => pid !== r.ben), got = payers.filter(pid => ((d.pays || {})[r.k + "|" + pid] || {}).st === "ok").length;
       const isCur = r.k === st.round, mineBen = r.ben === me;
       h += `<div class="card ton-r${isCur ? " cur" : ""}${got === payers.length ? " done" : ""}"><div class="ton-rh"><b>${hesc(t("Tour {x}", r.k + 1))}</b><span>${hesc(ctx.fdate(r.date))}</span>${isCur ? `<span class="dc-st ok">${hesc(t("en cours"))}</span>` : ""}</div>
-        <div class="hint">${hesc(t("{x} reçoit le pot", name(r.ben)) + " · " + got + "/" + payers.length + " " + t("versements reçus") + " · " + t("date butoir : {x}", ctx.fdate(r.due)))}</div>
-        ${payers.map(pid => { const s = DEALUI.tonStatus(d, r, pid, today), cls = s === "late" ? "due late" : s; return `<div class="pj-line ${cls}"><div class="pj-l"><b>${hesc(name(pid))}</b>${pid === me ? ` <small>(${hesc(t("moi"))})</small>` : ""}<small>${hesc(t("verse {x} à {y}", m(d.amount)).replace("{y}", name(r.ben)))}</small></div>
+        <div class="hint">${hesc(t("{x} reçoit le pot", name(r.ben)) + " (" + m(potOf(r)) + ") · " + got + "/" + payers.length + " " + t("versements reçus") + " · " + t("date butoir : {x}", ctx.fdate(r.due)))}</div>
+        ${payers.map(pid => { const s = DEALUI.tonStatus(d, r, pid, today), cls = s === "late" ? "due late" : s; return `<div class="pj-line ${cls}"><div class="pj-l"><b>${hesc(name(pid))}</b>${pid === me ? ` <small>(${hesc(t("moi"))})</small>` : ""}<small>${hesc(t("verse {x} à {y}", m(d.amount * sh(pid))).replace("{y}", name(r.ben)))}</small></div>
           <div class="pj-r"><span class="pj-st ${s}">${hesc(s === "ok" ? t("Reçu ✓") : stLabel(s))}</span></div>
-          <div class="pj-acts">${pid === me && (s === "due" || s === "late") && !invited ? `<button type="button" class="btn primary" data-tpay="${r.k}">${hesc(t("Payer {x}", name(r.ben)))}</button>` : ""}${owner && s !== "ok" && s !== "sent" && pid !== me && r.date <= addDaysISO(today, 7) && !isCur ? `<button type="button" class="linkbtn ton-rem" data-trem="${r.k}" data-pid="${hesc(pid)}">${hesc(t("Relancer"))}</button>` : ""}${owner && s === "late" && pid !== me && !isCur ? `<button type="button" class="linkbtn danger ton-rem" data-twarn="${r.k}" data-pid="${hesc(pid)}">${hesc(t("Avertir"))}</button>` : ""}${(mineBen || (owner && !(d.parts[r.ben] || {}).member)) && s !== "ok" && pid !== me ? `<button type="button" class="btn ${s === "sent" ? "primary" : ""}" data-trec="${r.k}" data-pid="${hesc(pid)}">${hesc(t("Confirmer la réception"))}</button>` : ""}</div>
+          <div class="pj-acts">${pid === me && (s === "due" || s === "late") && !invited ? `<button type="button" class="btn primary" data-tpay="${r.k}">${hesc(t("Payer {x}", name(r.ben)))}</button>` : ""}${bureau && s !== "ok" && s !== "sent" && pid !== me && r.date <= addDaysISO(today, 7) && !isCur ? `<button type="button" class="linkbtn ton-rem" data-trem="${r.k}" data-pid="${hesc(pid)}">${hesc(t("Relancer"))}</button>` : ""}${bureau && s === "late" && pid !== me && !isCur ? `<button type="button" class="linkbtn danger ton-rem" data-twarn="${r.k}" data-pid="${hesc(pid)}">${hesc(t("Avertir"))}</button>` : ""}${(mineBen || (bureau && (!(d.parts[r.ben] || {}).member || s === "sent"))) && s !== "ok" && pid !== me ? `<button type="button" class="btn ${s === "sent" ? "primary" : ""}" data-trec="${r.k}" data-pid="${hesc(pid)}">${hesc(t("Confirmer la réception"))}</button>` : ""}</div>
           ${pid === me && (s === "due" || s === "late") ? `<div class="ton-paybox" id="tpb${r.k}" hidden></div>` : ""}</div>`; }).join("")}</div>`;
     }
   }
@@ -334,7 +348,12 @@ DEALUI.renderTon = function (root, S, ctx) {
     };
     add.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); const g = res.querySelector("[data-tg]"); if (g) g.click(); } };
   }
-  const ord = (d.order || []).slice();
+  const ord = slots.slice();
+  root.querySelectorAll("[data-tsh]").forEach(b2 => b2.onclick = () => run("owner", { action: "shares", pid: b2.dataset.tsh, sh: +b2.dataset.v }));
+  root.querySelectorAll("[data-trole]").forEach(b2 => b2.onclick = () => { const r = b2.dataset.r; run("owner", { action: "role", pid: b2.dataset.trole, role: r }, r ? t("{x} est maintenant {y}", name(b2.dataset.trole)).replace("{y}", ROLE[r]) : t("Rôle retiré")); });
+  root.querySelectorAll("[data-tswap]").forEach(b2 => b2.onclick = async () => { const k = +b2.dataset.tswap;
+    if (swapSel < 0 || swapSel === k) { DEALUI._swap = swapSel === k ? null : { id: d.id, k }; DEALUI.render(root, S0, ctx); return; }
+    DEALUI._swap = null; await run("owner", { action: "swap", a: swapSel, b: k }, t("Tours {x} et {y} échangés", swapSel + 1).replace("{y}", k + 1)); });
   root.querySelectorAll("[data-up]").forEach(b2 => b2.onclick = () => { const k = +b2.dataset.up; [ord[k - 1], ord[k]] = [ord[k], ord[k - 1]]; run("owner", { action: "order", order: ord }); });
   root.querySelectorAll("[data-dn]").forEach(b2 => b2.onclick = () => { const k = +b2.dataset.dn; [ord[k + 1], ord[k]] = [ord[k], ord[k + 1]]; run("owner", { action: "order", order: ord }); });
   root.querySelectorAll("[data-own]").forEach(b2 => b2.onclick = () => {
@@ -346,7 +365,7 @@ DEALUI.renderTon = function (root, S, ctx) {
     const k = +b2.dataset.tpay, ben = d.rounds[k].ben, box = $("tpb" + k), p = pinfo[ben];
     if (box.hidden) {
       box.hidden = false;
-      box.innerHTML = (p ? PAY.html(p, d.amount, d.cur, d.title + " · " + t("Tour {x}", k + 1), t, m) : `<p class="hint">${hesc(t("{x} n'a pas encore indiqué comment le payer : règle-le comme d'habitude, puis appuie sur « J'ai payé ».", name(ben)))}</p>`);
+      box.innerHTML = (p ? PAY.html(p, d.amount * sh(me), d.cur, d.title + " · " + t("Tour {x}", k + 1), t, m) : `<p class="hint">${hesc(t("{x} n'a pas encore indiqué comment le payer : règle-le comme d'habitude, puis appuie sur « J'ai payé ».", name(ben)))}</p>`);
       if (p) PAY.bind(box, ctx.toast);
       b2.textContent = t("J'ai payé"); return;
     }
@@ -402,6 +421,12 @@ Object.assign(DEAL_EN, {
   "chaque tour, un membre reçoit le pot de {x}": "each round, one member receives the pot of {x}", "1er tour le {x}": "1st round on {x}",
   "Les inscriptions sont ouvertes. L'ordre des tours (qui reçoit le pot, et quand) sera fixé au démarrage.": "Sign-ups are open. The order of rounds (who gets the pot, and when) will be fixed at the start.",
   "Rejoindre la cagnotte": "Join the money pot", "Ordre des tours": "Order of rounds", "reçoit le pot le {x}": "gets the pot on {x}", "Tirer au sort": "Draw lots", "Démarrer la cagnotte": "Start the money pot",
+  "par part": "per share", "{x} parts": "{x} shares", "{x} tours": "{x} rounds", "Membres": "Members", "Président·e": "President", "Trésorier·e": "Treasurer", "Rôle": "Role", "Rôle retiré": "Role removed",
+  "{x} parts · verse {y} par tour": "{x} shares · pays {y} per round", "1 part · verse {y} par tour": "1 share · pays {y} per round", "Une part de moins": "One share less", "Une part de plus": "One more share",
+  "part {x}/{y}": "share {x}/{y}", "reçoit {m} le {x}": "gets {m} on {x}", "Échanger ce tour": "Swap this round", "Tours {x} et {y} échangés": "Rounds {x} and {y} swapped", "{x} est maintenant {y}": "{x} is now {y}",
+  "Touche ⇄ sur un autre tour à venir pour l'échanger avec le tour {x}.": "Tap ⇄ on another upcoming round to swap it with round {x}.", "⇄ : échanger deux tours à venir (par exemple quand deux membres s'arrangent).": "⇄: swap two upcoming rounds (e.g. when two members agree).",
+  "☆ : nommer président·e ou trésorier·e. Ils peuvent relancer, avertir, confirmer les versements et échanger des tours.": "☆: appoint a president or treasurer. They can remind, warn, confirm payments and swap rounds.",
+  "− / + : nombre de parts (une part de plus = cotiser et recevoir le pot une fois de plus). ☆ : nommer président·e ou trésorier·e.": "− / +: number of shares (one more share = pay and get the pot one more time). ☆: appoint a president or treasurer.",
   "Les tours": "Rounds", "en cours": "current", "{x} reçoit le pot": "{x} gets the pot", "versements reçus": "payments received", "verse {x} à {y}": "pays {x} to {y}",
   "Versé, à confirmer": "Paid, to confirm", "À verser": "To pay", "Confirmer : l'ordre sera fixé": "Confirm: the order will be fixed", "C'est parti : les membres sont prévenus": "It's on: members have been notified",
   "Ordre tiré au sort": "Order drawn", "Relancer": "Remind", "Relancer ceux qui n'ont pas versé": "Remind those who haven't paid", "Rappel envoyé à {x}": "Reminder sent to {x}",

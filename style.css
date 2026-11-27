@@ -1523,3 +1523,15 @@ body[data-sky="nuit"] { background: radial-gradient(1.5px 1.5px at 20% 6%, #fff 
 body[data-sky="nuit"] .brand h1, body[data-sky="nuit"] .brand .nm *, body[data-sky="nuit"] .brand .sync, body[data-sky="nuit"] .wg-top > b { color: #fff !important; }
 body.dyn-calm .wg-meteo .icl svg, body.dyn-calm .wg-serie .icl svg, body.dyn-calm .dyn-me, body.dyn-calm .dyn-wave { animation: none !important; }
 @media (prefers-reduced-motion: reduce) { .wg-grid > .dyn-in, .dyn-fly { animation: none !important; } .wg-bar i, .rd-ring circle + circle { transition: none !important; } }
+/* ---------- Tontine : parts, bureau, échanges ---------- */
+.ton-role { display: inline-block; font-size: .68rem; font-weight: 700; padding: 2px 7px; border-radius: 999px; background: color-mix(in srgb, var(--gold) 22%, transparent); color: #7a5b12; vertical-align: middle; }
+.ton-role.tresorier { background: color-mix(in srgb, var(--green) 16%, transparent); color: var(--green); }
+.ton-sh { display: inline-block; font-size: .7rem; font-weight: 800; padding: 1px 6px; border-radius: 8px; background: var(--green); color: #fff; vertical-align: middle; }
+.ton-shc { display: inline-flex; align-items: center; gap: 2px; background: var(--bg); border-radius: 999px; padding: 0 4px; margin-right: 4px; }
+.ton-shc b { min-width: 14px; text-align: center; font-size: .85rem; }
+.ton-shc .linkbtn { font-size: 1.1rem; padding: 2px 6px; }
+.ton-rb { font-size: 1.05rem; }
+.ton-m.cur { background: color-mix(in srgb, var(--green) 8%, transparent); border-radius: 10px; }
+.ton-m.sel { outline: 2px dashed var(--green); border-radius: 10px; }
+.ton-swap { font-size: 1.1rem; }
+.ton-m.mem { grid-template-columns: 1fr auto; } .ton-m.mem .ton-n > small:last-child { display: block; margin-left: 0; }

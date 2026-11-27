@@ -174,7 +174,7 @@ function editDeal(id, kind) {
   if (typeof socOn !== "function" || !socOn()) { toast("Connecte-toi avec Google ou Microsoft pour créer un achat groupé ou une cagnotte"); return; }
   const d = id ? (dealState && dealState.deal && dealState.deal.id === id ? dealState.deal : DEALS.find(x => x.id === id)) : null;
   kind = d ? d.kind : kind || "achat";
-  let file = null, tfreq = (d && d.freq) || "mois";
+  let file = null, tfreq = (d && d.freq) || "mois", cmode = "ton";
   const num = v => v == null || v === "" || v === 0 ? "" : esc(String(v).replace(".", ","));
   const f = openForm(`<div class="f2"><h3>${d ? "Modifier" : kind === "achat" ? "Nouvel achat groupé" : "Nouvelle cagnotte"}</h3>
     ${fld("dlTitle", "Titre", `maxlength="80" placeholder="${kind === "achat" ? "ex. Meule de comté direct producteur" : "ex. Tontine de la famille"}" value="${esc(d ? d.title : "")}"`)}
@@ -183,12 +183,14 @@ function editDeal(id, kind) {
       ${fld("dlPlaces", "Nombre de places maximum (facultatif)", `inputmode="numeric" placeholder="illimité" value="${d && d.places ? d.places : ""}"`)}
       <p class="hint" style="margin:4px 0 0">Personne ne paie tant que le minimum n'est pas atteint. Ensuite, chacun te paie directement.</p>`
     : d && !d.ton ? `<div class="two"><div>${fld("dlTarget", `Objectif (${esc(curSym())}, facultatif)`, `inputmode="decimal" placeholder="ex. 150" value="${num(d && d.target)}"`)}</div><div>${fld("dlSug", "Montant proposé (facultatif)", `inputmode="decimal" placeholder="ex. 20" value="${num(d && d.suggested)}"`)}</div></div>`
-    : `<div class="two"><div>${fld("dlAmt", `Cotisation par personne (${esc(curSym())})`, `inputmode="decimal" placeholder="ex. 100" value="${num(d && d.amount)}"`)}</div><div>${fld("dlStart", "Date du 1er tour", `type="date" value="${esc(d ? d.start || "" : todayISO())}"`)}</div></div>
+    : `${!d ? `<span class="lbl">Type de cagnotte</span><div class="chips" id="dlMode"></div><p class="hint" id="dlModeH" style="margin:4px 0 8px"></p>
+      <div id="dlSimpleW" hidden>${`<div class="two"><div>${fld("dlTarget", `Objectif (${esc(curSym())}, facultatif)`, `inputmode="decimal" placeholder="ex. 150" value="${num(d && d.target)}"`)}</div><div>${fld("dlSug", "Montant proposé (facultatif)", `inputmode="decimal" placeholder="ex. 20" value="${num(d && d.suggested)}"`)}</div></div>`}${fld("dlDate2", "Date limite (facultatif)", `type="date"`)}</div>` : ""}<div id="dlTonW">
+      <div class="two"><div>${fld("dlAmt", `Cotisation par part (${esc(curSym())})`, `inputmode="decimal" placeholder="ex. 100" value="${num(d && d.amount)}"`)}</div><div>${fld("dlStart", "Date du 1er tour", `type="date" value="${esc(d ? d.start || "" : todayISO())}"`)}</div></div>
       <span class="lbl">Versement</span><div class="chips" id="dlFreq"></div>
       <span class="lbl" style="margin-top:12px">Clauses</span>
       ${fld("dlDue", "Date butoir de règlement : nombre de jours après la date de chaque tour", `inputmode="numeric" placeholder="ex. 3 (0 = le jour même)" value="${d && d.due != null ? d.due : 3}"`)}
       <label class="lbl" for="dlRules">Autres règles (facultatif)</label><textarea class="field" id="dlRules" rows="3" maxlength="1500" placeholder="ex. En cas de retard après la date butoir : avertissement, puis exclusion au 2e retard.">${esc(d ? d.rules || "" : "")}</textarea>
-      <p class="hint" style="margin:6px 0 0">À chaque tour, tous les membres versent la cotisation à celui dont c'est le tour : chacun reçoit le pot une fois. Tu fixes l'ordre (ou tu le tires au sort) avant de démarrer.</p>`}
+      <p class="hint" style="margin:6px 0 0">À chaque tour, tous les membres versent la cotisation à celui dont c'est le tour : chacun reçoit le pot une fois. Tu fixes l'ordre (ou tu le tires au sort) avant de démarrer.</p></div>`}
     ${kind === "achat" || (d && !d.ton) ? fld("dlDate", "Date limite (facultatif)", `type="date" value="${esc(d ? d.deadline || "" : "")}"`) : ""}
     ${!d ? `<span class="lbl">Photo (facultatif)</span><label class="btn" style="display:inline-flex;gap:6px;align-items:center;cursor:pointer">📷 <span id="dlPhL">Ajouter une photo</span><input type="file" accept="image/*" id="dlPh" hidden></label>` : ""}
     ${!SOC.pay ? `<p class="hint" style="margin:10px 0 0">Pense à indiquer ton IBAN ou ton lien de paiement (Profil › Me faire payer) : les participants pourront te payer en un geste.</p>` : ""}</div>`, () => {
@@ -198,7 +200,7 @@ function editDeal(id, kind) {
       body.price = parseAmount(val("dlPrice")); body.min = parseInt(val("dlMin"), 10) || 1; body.places = parseInt(val("dlPlaces"), 10) || 0;
       if (!(body.price > 0)) { toast("Indique le prix par place"); return false; }
       if (body.places && body.min > body.places) { toast("Le minimum dépasse le nombre de places"); return false; }
-    } else if (d && !d.ton) { body.target = parseAmount(val("dlTarget")) || 0; body.suggested = parseAmount(val("dlSug")) || 0; }
+    } else if ((d && !d.ton) || (!d && cmode === "simple")) { body.target = parseAmount(val("dlTarget")) || 0; body.suggested = parseAmount(val("dlSug")) || 0; if (!d) { body.mode = "simple"; body.deadline = val("dlDate2") || ""; } }
     else {
       body.amount = parseAmount(val("dlAmt")); body.freq = tfreq; body.start = val("dlStart");
       body.due = Math.max(0, Math.min(60, parseInt(val("dlDue"), 10) || 0)); body.rules = val("dlRules");
@@ -221,6 +223,11 @@ function editDeal(id, kind) {
       } catch (e) { toast(e.message); }
     })();
   });
+  if (f.querySelector("#dlMode")) {
+    const H = { ton: "Tontine : chacun cotise à chaque tour, et un membre reçoit le pot à tour de rôle. Parts multiples, président et trésorier possibles.", simple: "Cagnotte simple : chacun participe du montant qu'il veut pour un cadeau, un projet, une sortie… L'argent te revient." };
+    const setM = v => { cmode = v; f.querySelector("#dlSimpleW").hidden = v !== "simple"; f.querySelector("#dlTonW").hidden = v !== "ton"; f.querySelector("#dlModeH").textContent = H[v]; f.querySelector("#dlTitle").placeholder = v === "ton" ? "ex. Tontine de la famille" : "ex. Cadeau pour Léa"; };
+    chipsPick("dlMode", [["ton", "🔄 Tontine"], ["simple", "🎁 Cagnotte simple"]], cmode, setM); setM(cmode);
+  }
   if (f.querySelector("#dlFreq")) chipsPick("dlFreq", [["semaine", "Chaque semaine"], ["mois", "Chaque mois"], ["an", "Chaque année"]], tfreq, v => tfreq = v);
   const ph = f.querySelector("#dlPh"); if (ph) ph.onchange = () => { file = ph.files && ph.files[0]; if (file) f.querySelector("#dlPhL").textContent = file.name.slice(0, 24); };
 }
