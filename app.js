@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "114";
+const APP_VERSION = "115";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -61,7 +61,7 @@ const MOIS_C = ["Jan","Fév","Mar","Avr","Mai","Juin","Juil","Août","Sep","Oct"
 // ---------- État ----------
 let settings = clone(DEFAULT_SETTINGS);
 let months = {};          // "2026-11" -> { items: { id: tx } }
-let tab = "mois";
+let tab = (() => { try { if (navigator.webdriver) return localStorage.getItem("bourselle-test-tab") || "mois"; } catch (e) {} return "home"; })();   // les tests automatiques démarrent sur Budget
 const now = new Date();
 let cur = { y: now.getFullYear(), m: now.getMonth() + 1 };
 let store = null;         // adaptateur de stockage (voir storage.js)
@@ -230,6 +230,42 @@ function deleteCat(i) {
   });
   const sb = f.querySelector("button[type=submit]"); sb.textContent = "Supprimer"; sb.classList.remove("primary"); sb.classList.add("danger");
 }
+// ---------- Budgets : estimer, repartir de zéro, remettre les catégories proposées ----------
+// Estimation : moyenne de ce qui a été dépensé par catégorie sur les 3 derniers mois complets (arrondie à 5) ;
+// sans historique, le budget proposé par défaut. Ça marche aussi avec des catégories créées soi-même.
+function budEstimateValues() {
+  const n = new Date(), sums = {}; let months0 = 0;
+  for (let i = 1; i <= 3; i++) { const d = new Date(n.getFullYear(), n.getMonth() - i, 1), L = itemsOf(d.getFullYear(), d.getMonth() + 1); if (!L.length) continue; months0++;
+    for (const [k, v] of Object.entries(totals(L).byCat)) sums[k] = (sums[k] || 0) + v; }
+  return { months: months0, val: c => { if (months0 && sums[c.id]) return Math.max(5, Math.round(sums[c.id] / months0 / 5) * 5); const d = DEFAULT_SETTINGS.cats.find(x => x.id === c.id); return months0 ? 0 : (d ? d.budget : 0); } };
+}
+function budEstimate() {
+  const E = budEstimateValues(), rows = settings.cats.map(c => ({ c, v: E.val(c) }));
+  const f = openForm(`<div class="f2"><h3>✨ Estimer mes budgets</h3><p class="hint" style="margin-top:0">${E.months ? `D'après tes dépenses des ${E.months > 1 ? E.months + " derniers mois" : "dernier mois"} (moyenne par catégorie).` : "Pas encore assez de dépenses : voici des montants de départ, à ajuster."}</p>
+    <div class="bud-est">${rows.map((r, i) => `<label><input type="checkbox" data-be="${i}" checked><span>${esc(r.c.name)}</span><b class="num">${esc(eur(r.v, true))}</b><small>${r.c.budget ? "actuel " + esc(eur(r.c.budget, true)) : ""}</small></label>`).join("")}</div>
+    <p class="hint">Total : <b class="num">${esc(eur(rows.reduce((a, r) => a + r.v, 0), true))}</b> par mois.</p></div>`, () => {
+    f.querySelectorAll("[data-be]").forEach(cb => { if (cb.checked) rows[+cb.dataset.be].c.budget = rows[+cb.dataset.be].v; });
+    saveSettings(); render(); toast("Budgets mis à jour");
+  });
+  f.querySelector("button[type=submit]").textContent = "Appliquer";
+}
+function budRestore() {
+  const miss = DEFAULT_SETTINGS.cats.filter(d => !settings.cats.some(c => c.id === d.id));
+  if (!miss.length) { toast("Toutes les catégories proposées sont déjà là."); return; }
+  for (const d of miss) settings.cats.push({ ...clone(d), name: window.LANG === "en" && window.TEN ? TEN(d.name) : d.name });
+  saveSettings(); render(); toast(`${miss.length} catégorie${miss.length > 1 ? "s" : ""} remise${miss.length > 1 ? "s" : ""}`);
+}
+function budClear() {
+  const used = settings.cats.filter(c => catUses(c.id)), unused = settings.cats.length - used.length;
+  const f = openForm(`<div class="f2"><h3>Tout effacer ?</h3><p class="hint" style="margin-top:0">Tous les montants de budget passent à zéro${unused ? ` et les ${unused} catégorie${unused > 1 ? "s" : ""} sans opération ${unused > 1 ? "sont supprimées" : "est supprimée"}` : ""}. Tu pourras ensuite créer tes propres catégories.</p>
+    ${used.length ? `<p class="hint">Gardées car déjà utilisées : ${esc(used.map(c => c.name).join(", "))}.</p>` : ""}
+    <p class="hint">Tu pourras retrouver des estimations à tout moment avec « ✨ Estimer mes budgets » ou « ↺ Catégories proposées ».</p></div>`, () => {
+    let keep = used.length ? used : [{ id: "divers", name: window.LANG === "en" ? "Other" : "Divers", color: "#cbc3b1", fixe: false }];
+    settings.cats = keep.map(c => ({ ...c, budget: 0 }));
+    saveSettings(); render(); toast("Budgets effacés");
+  });
+  const sb = f.querySelector("button[type=submit]"); sb.textContent = "Tout effacer"; sb.classList.remove("primary"); sb.classList.add("danger");
+}
 function homeMoreOpen(v) {
   if (v === undefined) { try { return localStorage.getItem("bourselle-home-more") === "1"; } catch (e) { return false; } }
   try { localStorage.setItem("bourselle-home-more", v ? "1" : "0"); } catch (e) {} return v;
@@ -254,7 +290,7 @@ function showProfileMenu() {
   const go = (id, ic, col, label, val) => `<button type="button" class="pmx-r" id="${id}">${sq(ic, col)}<b>${esc(label)}</b>${val ? `<span class="pmx-v">${esc(val)}</span>` : ""}<span class="pmx-chev" aria-hidden="true">›</span></button>`;
   const nC = (settings.contacts || []).length;
   const f = openForm(`<div class="f2 pmx">
-    <div class="pmx-top"><span class="pmx-av">${esc((document.getElementById("avatar").textContent || "B"))}</span>
+    <div class="pmx-top"><button type="button" class="pmx-av" id="pmAv" aria-label="Changer ma photo">${esc((document.getElementById("avatar").dataset.init || "B"))}<span class="pmx-cam" aria-hidden="true">📷</span></button>
       <b>${esc(u.name || "Mon compte")}</b><small>${esc(u.email || (local ? "Données gardées sur cet appareil" : ""))}${!local && store.label ? " · " + esc(store.label) : ""}${typeof isPlus === "function" && isPlus() ? " · Bourselle Plus" : ""}</small>
       ${soc && SOC.tag ? `<div class="pmx-tag"><button type="button" id="pmCopy" title="Toucher pour copier"><span class="num">@${esc(SOC.tag)}</span><small>${IC.copy} <span class="pm-copyhint">Copier</span></small></button><button type="button" id="pmQr" aria-label="Mon QR code">${IC.qr} QR code</button></div>` : ""}</div>
     <div class="pmx-cap">Préférences</div>
@@ -289,6 +325,8 @@ function showProfileMenu() {
   on("pmFolder", () => { window.open(store.folderUrl(), "_blank", "noopener"); });
   on("pmSettings", () => { closeForm(); switchTab("reglages"); });
   on("pmFb", () => { closeForm(); setTimeout(() => fbOpen(), 250); });
+  { const pa = f.querySelector("#pmAv"); if (pa && typeof avPaint === "function") { const cam = pa.querySelector(".pmx-cam"); avPaint(pa); if (cam && !pa.contains(cam)) pa.appendChild(cam); } }
+  on("pmAv", () => { closeForm(); setTimeout(() => avPick(), 250); });
 }
 // Alertes regroupées derrière la cloche.
 // Chaque alerte a une clé stable (k) : « Gérer » emmène à l'endroit concerné ; ✕ la masque (choix gardé dans les réglages,
@@ -846,7 +884,8 @@ function renderReglages() {
       <input class="field" value="${esc(c.name)}" data-i="${i}" data-f="name" aria-label="Nom de la catégorie">
       <input class="field num" inputmode="decimal" value="${c.budget || ""}" placeholder="0 ${esc(curSym())}" data-i="${i}" data-f="budget" aria-label="Budget ${esc(c.name)}">
       <button type="button" class="hbtn cat-del" data-delcat="${i}" aria-label="Supprimer la catégorie ${esc(c.name)}" title="Supprimer">✕</button></div>`).join("")}
-    <div style="display:flex;gap:8px;margin-top:10px"><button class="btn" id="addCat">+ Ajouter une catégorie</button></div>
+    <div class="bud-tools"><button class="btn" id="addCat">+ Ajouter une catégorie</button><button class="btn" id="budEstim">✨ Estimer mes budgets</button>
+      <button class="btn" id="budReset">↺ Catégories proposées</button><button class="btn danger" id="budClear">🗑 Tout effacer</button></div>
     <p class="hint">Les modifications sont enregistrées dès que tu quittes le champ.</p></div>`;
   html += importCardHTML();
   html += recsCardHTML();
@@ -927,6 +966,9 @@ function renderReglages() {
     saveSettings(); render();
   });
   view.querySelectorAll("[data-delcat]").forEach(b => b.onclick = () => deleteCat(Number(b.dataset.delcat)));
+  document.getElementById("budEstim").onclick = () => budEstimate();
+  document.getElementById("budReset").onclick = () => budRestore();
+  document.getElementById("budClear").onclick = () => budClear();
   document.getElementById("addCat").onclick = () => {
     settings.cats.push({ id: "c" + Date.now().toString(36), name: "Nouvelle catégorie", budget: 0, color: "#8e9eab", fixe: false });
     saveSettings(); render();
@@ -1069,24 +1111,26 @@ function render() {
   if (!subAllowed(tab) || tab === "tontines") tab = "mois";
   document.body.classList.toggle("mode-simple", isSimple());
   document.body.classList.toggle("tab-reglages", tab === "reglages");
-  document.body.classList.toggle("ep-nohero", (tab === "partage" || tab === "accueil") && !openGroup);
+  document.body.classList.toggle("ep-nohero", ((tab === "partage" || tab === "accueil") && !openGroup) || tab === "home" || (typeof SV_HEAD !== "undefined" && SV_HEAD.includes(tab)));
   if (tab !== "bons") document.body.classList.remove("bp-nohero");
   { const sb = document.querySelector("header .nm .sub"); if (sb) sb.textContent = isSimple() ? "Version simple" : ""; }
   {
     const u = store && store.user ? store.user() : {}, first = store && store.id === "local" ? "" : String((u && u.name) || "").trim().split(/[\s@]/)[0];
     const nm = first ? first.charAt(0).toUpperCase() + first.slice(1) : "";
-    document.getElementById("helloName").textContent = nm; document.getElementById("avatar").textContent = (nm || "B").charAt(0).toUpperCase();
+    document.getElementById("helloName").textContent = nm; { const av = document.getElementById("avatar"); av.dataset.init = (nm || "B").charAt(0).toUpperCase(); av.textContent = av.dataset.init; if (typeof avPaint === "function") avPaint(av); }
     { const h = document.querySelector("header .nm .hello"); if (h) h.textContent = nm ? "Bonjour," : "Bonjour !"; }
     const n = alertsList().reduce((a, x) => a + x.n, 0); document.getElementById("bellDot").hidden = !n;
     if (typeof chatBtnSync === "function") chatBtnSync();
   }
-  const arrows = !["accueil", "bons", "garanties", "abos", "dettes", "recherche", "objectifs", "economies", "partage", "tontines", "patrimoine"].includes(tab);
+  const arrows = !["home", "accueil", "bons", "garanties", "abos", "dettes", "recherche", "objectifs", "economies", "partage", "tontines", "patrimoine"].includes(tab);
   if (!document.getElementById("app").hidden) document.getElementById("fab").hidden = tab === "economies" || tab === "bons" || (tab === "accueil" && (!!openDeal || (typeof openProject !== "undefined" && !!openProject)));
   document.getElementById("prev").style.visibility = arrows ? "visible" : "hidden";
   document.getElementById("next").style.visibility = arrows ? "visible" : "hidden";
   if (tab === "accueil" && !(typeof openDeal !== "undefined" && openDeal) && !(typeof openProject !== "undefined" && openProject)) tab = "partage";
-  if (tab === "bons" && typeof renderBons === "function") renderBons(); else if (tab === "accueil") renderAccueil(); else if (tab === "mois") renderMois(); else if (tab === "annee") renderAnnee(); else if (tab === "frais") renderFrais();
+  if (tab === "home") { if (typeof renderHome === "function") renderHome(); else { tab = "mois"; renderMois(); } }
+  else if (tab === "bons" && typeof renderBons === "function") renderBons(); else if (tab === "accueil") renderAccueil(); else if (tab === "mois") renderMois(); else if (tab === "annee") renderAnnee(); else if (tab === "frais") renderFrais();
   else if (tab === "garanties") renderGaranties(); else if (tab === "abos") renderAbos(); else if (tab === "dettes") renderDettes(); else if (tab === "recherche") renderRecherche(); else if (tab === "objectifs") renderObjectifs(); else if (tab === "economies" && typeof renderEconomies === "function") renderEconomies(); else if (tab === "partage") renderPartage(); else if (tab === "tontines") renderTontines(); else if (tab === "patrimoine") renderPatrimoine(); else renderReglages();
+  if (typeof svApply === "function") svApply(tab);
   const nGar = garItems().filter(x => garStatus(x.warranty) === "soon").length;
   const nAbo = Object.values(subs).filter(x => subStatus(x).st === "soon").length;
   const nFrais = allItems().filter(x => x.type === "depense" && x.ndf && x.ndfStatus !== "rembourse").length;
@@ -1875,6 +1919,7 @@ function renderDettes() {
   const monthly = open.filter(x => x.kind === "credit").reduce((a, x) => a + (Number(x.monthly) || 0), 0);
   document.getElementById("periodLabel").textContent = "Dettes";
   document.getElementById("resCap").textContent = "Ce qu'il te reste à rembourser";
+  if (typeof svDet !== "undefined") svDet = { iOwe, owed, monthly };
   const big = document.getElementById("resBig"); big.textContent = eur(iOwe); big.className = "big num";
   document.getElementById("resPill").innerHTML = owed ? `<span class="pill" style="background:rgba(255,255,255,.15);color:#fff">On te doit ${esc(eur(owed))}</span>` : "";
   let html = banner + `<div class="tiles" style="grid-template-columns:repeat(3,1fr)">
