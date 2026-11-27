@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "131";
+const APP_VERSION = "132";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -3626,7 +3626,8 @@ async function connect(id, interactive, existing, claim) {
       localStorage.removeItem(DEMO_KEY); localStorage.removeItem(MIGRATE_KEY);
     }
     hideLogin(); applyRecurring(); render();
-    if (typeof obMaybe === "function") setTimeout(obMaybe, 300);
+    if (typeof accDeleteFromUrl === "function" && sessionStorage.getItem("bourselle-del")) setTimeout(accDeleteFromUrl, 300);
+    else if (typeof obMaybe === "function") setTimeout(obMaybe, 300);
     if (typeof statHit === "function") setTimeout(() => statHit("actif"), 2000);
     if (id !== "local") setTimeout(() => driveFoldersInit(), 4000);
     if (moved >= 0) toast(moved ? `Tes données d'essai (${moved} élément${moved > 1 ? "s" : ""}) sont maintenant dans ton ${st.label}.` : `Connecté à ton ${st.label}.`);

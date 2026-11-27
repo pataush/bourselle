@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Supprimer son compte – Bourselle</title>
+<link rel="icon" href="icons/favicon-32.png" sizes="32x32">
+<style>
+  body { font: 16px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; color: #1c2b39; background: #f6f3ec; margin: 0; }
+  main { max-width: 760px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 1.8rem; color: #16324a; margin-bottom: .2em; }
+  h2 { font-size: 1.15rem; color: #16324a; margin-top: 1.8em; }
+  a { color: #1b6b5a; }
+  .muted { color: #5b6b78; font-size: .9rem; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .langs { display: flex; gap: 4px; background: #e9e3d6; border-radius: 99px; padding: 3px; }
+  .langs button { border: 0; background: none; font: inherit; font-size: .9rem; padding: 4px 12px; border-radius: 99px; cursor: pointer; color: #1c2b39; }
+  .langs button[aria-pressed="true"] { background: #fff; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+<div class="top"><a class="back" href="./" data-fr="← Retour à Bourselle" data-en="← Back to Bourselle">← Retour à Bourselle</a>
+<div class="langs" role="group" aria-label="Langue / Language"><button type="button" data-set="fr">Français</button><button type="button" data-set="en">English</button></div></div>
+<div data-l="fr" lang="fr">
+<h1>Supprimer son compte Bourselle</h1>
+<p>Tu peux supprimer ton compte à tout moment, directement dans l'application :</p>
+<ol>
+  <li>Ouvre Bourselle et connecte-toi.</li>
+  <li>Va dans <strong>Paramètres › Recommencer à zéro</strong>.</li>
+  <li>Touche <strong>Supprimer mon compte</strong>, écris SUPPRIMER et confirme.</li>
+</ol>
+<p><a href="./?supprimer=1"><strong>Se connecter et supprimer mon compte</strong></a> : ce lien ouvre Bourselle et, une fois connecté, la fenêtre de suppression.</p>
+<h2>Ce qui est supprimé</h2>
+<ul>
+  <li>Tout ton budget (opérations, suivis, réglages) : le fichier Bourselle de ton Google Drive ou OneDrive est vidé, et les données gardées sur ton appareil sont effacées.</li>
+  <li>Sur notre serveur : ton tag, ton avatar, tes moyens de paiement, tes notifications, tes rappels et la liste de tes discussions et partages. Ton tag est libéré.</li>
+</ul>
+<h2>Ce qui est gardé</h2>
+<ul>
+  <li>Ce que tu as partagé avec d'autres personnes (dépenses de groupe, cagnottes, messages) reste visible pour elles, sous ton prénom seulement, pour que leurs comptes restent justes.</li>
+  <li>Si tu as acheté Bourselle Plus, les informations de facturation sont gardées par le prestataire de paiement le temps exigé par la loi.</li>
+</ul>
+<p>Tu peux aussi effacer toi-même le dossier « Bourselle » de ton Drive ou OneDrive, et retirer l'accès de Bourselle sur <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">myaccount.google.com/permissions</a> (Google) ou <a href="https://account.live.com/consent/Manage" target="_blank" rel="noopener">account.live.com/consent/Manage</a> (Microsoft).</p>
+<p class="muted"><a href="privacy.html">Politique de confidentialité</a></p>
+</div>
+
+<div data-l="en" lang="en" hidden>
+<h1>Delete your Bourselle account</h1>
+<p>You can delete your account at any time, directly in the app:</p>
+<ol>
+  <li>Open Bourselle and sign in.</li>
+  <li>Go to <strong>Settings › Start over</strong>.</li>
+  <li>Tap <strong>Delete my account</strong>, type SUPPRIMER and confirm.</li>
+</ol>
+<p><a href="./?supprimer=1"><strong>Sign in and delete my account</strong></a>: this link opens Bourselle and, once you are signed in, the deletion window.</p>
+<h2>What is deleted</h2>
+<ul>
+  <li>Your whole budget (transactions, trackers, settings): the Bourselle file in your Google Drive or OneDrive is emptied, and the data kept on your device is erased.</li>
+  <li>On our server: your tag, avatar, payment details, notifications, reminders and the list of your conversations and shares. Your tag is released.</li>
+</ul>
+<h2>What is kept</h2>
+<ul>
+  <li>What you shared with other people (group expenses, money pots, messages) stays visible to them, under your first name only, so their accounts stay correct.</li>
+  <li>If you bought Bourselle Plus, billing information is kept by the payment provider for as long as the law requires.</li>
+</ul>
+<p>You can also erase the “Bourselle” folder from your Drive or OneDrive yourself, and remove Bourselle's access at <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">myaccount.google.com/permissions</a> (Google) or <a href="https://account.live.com/consent/Manage" target="_blank" rel="noopener">account.live.com/consent/Manage</a> (Microsoft).</p>
+<p class="muted"><a href="privacy.html?lang=en">Privacy policy</a></p>
+</div>
+
+</main>
+<script>
+// Langue : ?lang=en dans l'adresse, sinon celle choisie dans l'appli, sinon celle du téléphone
+(function () {
+  var q = new URLSearchParams(location.search).get("lang"), l = q;
+  if (l !== "fr" && l !== "en") { try { l = localStorage.getItem("bourselle-lang"); } catch (e) {} }
+  if (l !== "fr" && l !== "en") l = (navigator.language || "fr").toLowerCase().indexOf("fr") === 0 ? "fr" : "en";
+  function set(v) {
+    document.documentElement.lang = v;
+    document.querySelectorAll("[data-l]").forEach(function (e) { e.hidden = e.getAttribute("data-l") !== v; });
+    document.querySelectorAll("[data-set]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-set") === v)); });
+    document.querySelectorAll("[data-fr]").forEach(function (e) { e.textContent = e.getAttribute("data-" + v); });
+    document.title = document.querySelector('[data-l="' + v + '"] h1').textContent + " – Bourselle";
+  }
+  document.querySelectorAll("[data-set]").forEach(function (b) { b.onclick = function () { set(b.getAttribute("data-set")); }; });
+  set(l);
+})();
+</script>
+</body>
+</html>

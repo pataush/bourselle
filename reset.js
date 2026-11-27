@@ -15,10 +15,12 @@ function resetCardHTML() {
       <button type="button" class="btn danger" data-reset="data">🗑 Effacer mes données</button>
       <button type="button" class="btn danger" data-reset="all">⚠️ Réinitialiser toute l'appli</button>
     </div>
+    <button type="button" class="linkbtn danger acc-del" id="delAcc">Supprimer mon compte</button>
     ${bk ? `<button type="button" class="linkbtn" id="resetUndo" style="margin-top:10px">↩︎ Restaurer la sauvegarde du ${esc(new Date(bk.at).toLocaleDateString("fr-FR", { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }))}</button>` : ""}</div>`;
 }
 function resetBind() {
   document.querySelectorAll("[data-reset]").forEach(b => b.onclick = () => resetOpen(b.dataset.reset));
+  const da = document.getElementById("delAcc"); if (da) da.onclick = () => accDeleteOpen();
   const u = document.getElementById("resetUndo"); if (u) u.onclick = resetRestore;
 }
 // Partages en cours : groupes partagés avec un solde, dettes liées à un proche Bourselle, demandes de paiement ouvertes
@@ -85,3 +87,47 @@ function resetRestore() {
   });
   f.querySelector("button[type=submit]").textContent = "Restaurer";
 }
+
+// ---------- Supprimer mon compte ----------
+// Efface tout : le budget (dans le Drive ou OneDrive, et sur l'appareil), et sur le serveur le tag, l'avatar, les moyens de
+// paiement, les notifications et rappels. Ce qui a été partagé avec d'autres (groupes, cagnottes, messages) reste chez eux,
+// sous le seul prénom. Puis on se déconnecte en retirant l'accès au Drive. Exigé par Google Play et l'App Store.
+function accDeleteOpen() {
+  const soc = typeof socOn === "function" && socOn(), tag = typeof SOC !== "undefined" && SOC.tag ? SOC.tag : "";
+  const f = openForm(`<div class="f2"><h3>Supprimer mon compte</h3>
+    <p style="margin:0 0 8px">C'est définitif. Seront effacés :</p>
+    <ul class="acc-del-l"><li>tout ton budget : opérations, suivis, réglages${store && store.label && store.id !== "local" ? ` (le fichier Bourselle de ton ${esc(store.label)} est vidé)` : ""} ;</li>
+      ${soc ? `<li>ton tag${tag ? " @" + esc(tag) : ""}, ton avatar, tes moyens de paiement, tes notifications et tes rappels ;</li>` : ""}
+      <li>les données gardées sur ce téléphone.</li></ul>
+    ${soc ? `<p class="hint" style="margin:0 0 10px">Ce que tu as partagé avec d'autres (groupes, cagnottes, messages) reste visible pour eux, sous ton prénom seulement, pour que leurs comptes restent justes.</p>` : ""}
+    <p class="hint" style="margin:0 0 10px">Conseil : exporte d'abord tes données (Paramètres › Exporter mes données) si tu veux les garder.</p>
+    <label class="lbl" for="adConfirm">Pour confirmer, écris SUPPRIMER</label>
+    <input class="field" id="adConfirm" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="SUPPRIMER"></div>`, () => {
+    if (f.querySelector("#adConfirm").value.trim().toUpperCase() !== "SUPPRIMER") { toast("Écris SUPPRIMER pour confirmer"); return false; }
+    accDeleteDo(); return true;
+  });
+  const sb = f.querySelector("button[type=submit]"); sb.textContent = "Supprimer définitivement"; sb.classList.remove("primary"); sb.classList.add("danger");
+}
+async function accDeleteDo() {
+  toast("Suppression en cours…");
+  // 1. Le serveur (si connecté)
+  if (typeof socOn === "function" && socOn()) {
+    try { await socApi("/me/delete", { method: "POST", body: JSON.stringify({ confirm: "SUPPRIMER" }) }); }
+    catch (e) { toast("Suppression impossible pour l'instant : " + (e.message || "réessaie") + ". Rien n'a été effacé."); return; }
+    try { const sub = typeof pushSupported === "function" && pushSupported() ? await Promise.race([pushSub(false), new Promise(r => setTimeout(() => r(null), 1500))]) : null; if (sub) await sub.unsubscribe(); } catch (e) {}
+  }
+  // 2. Le budget : on enregistre un fichier vide dans le Drive ou OneDrive
+  months = {}; subs = {}; recs = {}; goals = {}; tontines = {}; trips = {}; accounts = {}; patri = {}; debts = {}; groups = {};
+  settings = clone(DEFAULT_SETTINGS); settings.deleted = Date.now();
+  try { if (store && store.id !== "local") { const v = await store.save(snapshot()); if (v) version = v; } } catch (e) {}
+  // 3. L'appareil : toutes les clés de Bourselle
+  try { for (const k of Object.keys(localStorage)) if (/^(bourselle|mb-)/.test(k)) localStorage.removeItem(k); sessionStorage.clear(); } catch (e) {}
+  try { if (typeof dropPending === "function") dropPending(); } catch (e) {}
+  dirty = false;
+  // 4. Déconnexion en retirant l'accès au Drive
+  try { signOut(true); } catch (e) { location.reload(); return; }
+  const m = document.getElementById("loginMsg"); if (m) m.textContent = "Ton compte Bourselle est supprimé. Tu peux aussi effacer le dossier « Bourselle » de ton Drive ou OneDrive.";
+}
+// Lien « …/?supprimer=1 » (page web de suppression de compte) : après la connexion, la fenêtre de suppression s'ouvre
+{ if (new URLSearchParams(location.search).get("supprimer") === "1") { try { sessionStorage.setItem("bourselle-del", "1"); } catch (e) {} history.replaceState(null, "", location.pathname); } }
+function accDeleteFromUrl() { let w = ""; try { w = sessionStorage.getItem("bourselle-del"); sessionStorage.removeItem("bourselle-del"); } catch (e) {} if (w) { switchTab("reglages"); setTimeout(accDeleteOpen, 600); } }

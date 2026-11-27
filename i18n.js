@@ -1586,6 +1586,13 @@
     "Pas de publicité, pas de revente de données.": "No ads, no selling of data.",
     "Connexion avec Google ou Microsoft, verrouillage par Face ID, empreinte ou code, et plusieurs appareils en même temps.": "Sign in with Google or Microsoft, lock with Face ID, fingerprint or a code, and use several devices at once.",
     "Bourselle est gratuite. Elle peut toucher une commission quand tu profites d'un bon plan.": "Bourselle is free. It may earn a commission when you use a deal."});
+  Object.assign(EXACT, {"Supprimer mon compte": "Delete my account", "C'est définitif. Seront effacés :": "This is permanent. The following will be deleted:", "les données gardées sur ce téléphone.": "the data kept on this phone.",
+    "Ce que tu as partagé avec d'autres (groupes, cagnottes, messages) reste visible pour eux, sous ton prénom seulement, pour que leurs comptes restent justes.": "What you shared with others (groups, money pots, messages) stays visible to them, under your first name only, so their accounts stay correct.",
+    "Conseil : exporte d'abord tes données (Paramètres › Exporter mes données) si tu veux les garder.": "Tip: export your data first (Settings › Export my data) if you want to keep it.",
+    "Pour confirmer, écris SUPPRIMER": "To confirm, type SUPPRIMER", "Supprimer définitivement": "Delete permanently", "Écris SUPPRIMER pour confirmer": "Type SUPPRIMER to confirm", "Suppression en cours…": "Deleting…",
+    "Ton compte Bourselle est supprimé. Tu peux aussi effacer le dossier « Bourselle » de ton Drive ou OneDrive.": "Your Bourselle account is deleted. You can also erase the “Bourselle” folder from your Drive or OneDrive."});
+  PATTERNS.push(["tout ton budget : opérations, suivis, réglages (le fichier Bourselle de ton {x} est vidé) ;", "your whole budget: transactions, trackers, settings (the Bourselle file in your {x} is emptied);"], ["tout ton budget : opérations, suivis, réglages ;", "your whole budget: transactions, trackers, settings;"],
+    ["ton tag @{x}, ton avatar, tes moyens de paiement, tes notifications et tes rappels ;", "your tag @{x}, your avatar, your payment details, your notifications and your reminders;"]);
   EXACT["Rechercher ou demander"] = "Search or ask"; EXACT["Rechercher ou demander à Bourselle"] = "Search or ask Bourselle";
   const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
   const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];

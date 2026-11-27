@@ -1652,3 +1652,5 @@ nav.tabs button[hidden] { display: none !important; }
 .about-more-d { margin: 4px 0 10px; }
 .about-more-d summary { cursor: pointer; color: var(--green); font-weight: 600; padding: 6px 0; }
 .about-more-d ul { margin: 4px 0 0; padding-left: 20px; display: grid; gap: 6px; color: var(--muted); line-height: 1.4; }
+.acc-del { display: block; margin: 14px auto 0; font-size: .9rem; color: var(--bad); }
+.acc-del-l { margin: 0 0 10px; padding-left: 20px; line-height: 1.45; }
