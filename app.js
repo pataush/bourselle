@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "136";
+const APP_VERSION = "137";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -3589,10 +3589,15 @@ function nlStage() {
 }
 function nlFit() {
   const L = document.getElementById("login"); if (!L || L.hidden) return;
-  const b = L.querySelector(".nl-body"), h = L.querySelector(".nl-hero"), top = 58;
-  const room = window.innerHeight - b.offsetHeight - top - 10;
-  const sc = Math.max(.5, Math.min(1.1, window.innerWidth / 390, room / 236));
-  h.style.setProperty("--sc", sc.toFixed(3)); h.style.height = Math.round(top + 236 * sc + 8) + "px";
+  const b = L.querySelector(".nl-body"), h = L.querySelector(".nl-hero"), st = document.getElementById("nlStage"), br = L.querySelector(".nl-brand");
+  if (!b || !h || !st || !br) return;
+  // Sous le logo (qui tient compte de l'encoche de l'iPhone), la place qui reste au-dessus du texte et des boutons
+  const top = br.offsetTop + br.offsetHeight + 10, H = window.innerHeight, need = b.offsetHeight;
+  const room = H - need - top - 12;
+  const sc = Math.max(.5, Math.min(1.15, window.innerWidth / 390, room / 236));
+  const heroH = Math.max(top + 236 * sc + 12, H - need);   // la place en trop agrandit la partie verte : rien n'est perdu en bas
+  st.style.top = Math.round(top + Math.max(0, (heroH - top - 236 * sc - 12) / 2)) + "px";
+  h.style.setProperty("--sc", sc.toFixed(3)); h.style.height = Math.round(heroH) + "px";
 }
 function showLogin(msg) {
   document.getElementById("login").hidden = false; setTimeout(nlStage, 0);

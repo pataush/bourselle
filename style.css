@@ -1736,3 +1736,4 @@ nav.tabs button[hidden] { display: none !important; }
 .nl-stage .nl-deal { top: 128px; right: 6px; }
 .nl-stage .nl-paid { left: 4px; top: 164px; z-index: 3; }
 .nl-stage .nl-promo { z-index: 3; }
+.login-in.nl-body { flex: none; width: 100%; }
