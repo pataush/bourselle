@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "149";
+const APP_VERSION = "150";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -1254,7 +1254,7 @@ function step(d) {
   else { cur.m += d; if (cur.m < 1) { cur.m = 12; cur.y--; } if (cur.m > 12) { cur.m = 1; cur.y++; } }
   render();
 }
-document.getElementById("searchBtn").onclick = () => switchTab("recherche");
+document.getElementById("searchBtn").onclick = () => { if (typeof smFocusNext !== "undefined") { smFocusNext = true; if (typeof Q !== "undefined" && tab !== "recherche") Q.text = ""; } switchTab("recherche"); const t = document.getElementById("qText"); if (t && !t.value) t.focus(); };
 document.getElementById("bellBtn").onclick = () => showAlerts();
 // Œil : cacher / afficher les montants (pratique en public ; gardé sur cet appareil)
 function applyHideAmounts(on) {

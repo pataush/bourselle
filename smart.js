@@ -248,6 +248,7 @@ if (typeof drawResults === "function") {
         const shown = (r.items || []).slice(0, 100), tot = smSum(shown.filter(x => x.type === "depense"));
         document.getElementById("resCap").textContent = "Réponse calculée sur ton téléphone";
         const big = document.getElementById("resBig"); big.textContent = eur(tot); big.className = "big num"; document.getElementById("resPill").innerHTML = "";
+        { const ex = view.querySelector(".sm-ex"); if (ex) ex.remove(); }   // la réponse remplace les exemples (d'autres sont proposés sous la réponse)
         const more = SM_EXAMPLES.filter(x => smN(x) !== smN(t)).slice(0, 5);
         document.getElementById("qRes").innerHTML = `<div class="card sm-ans"><h2>💡 Réponse</h2>${r.html}
           <div class="sm-next"><button type="button" class="btn" data-smnew>✏️ Poser une autre question</button>
@@ -265,12 +266,31 @@ if (typeof drawResults === "function") {
 }
 // Exemples de questions, affichés sous le champ de recherche
 const SM_EXAMPLES = ["Combien me reste-t-il après mes factures ?", "Puis-je dépenser 200 € ce mois-ci ?", "Qui me doit de l'argent ?", "Combien en resto ce mois-ci ?", "Mes 5 plus grosses dépenses en octobre", "Combien de fois chez Carrefour cette année ?", "Compare mes courses avec le mois dernier", "Moyenne par mois en transport", "Où j'ai le plus dépensé la semaine dernière ?", "Dépenses de plus de 100 € cette année", "Quand ai-je payé Netflix pour la dernière fois ?"];
+let smRecognizer = null, smFocusNext = false;
 if (typeof renderRecherche === "function") {
   const _rr = renderRecherche;
   renderRecherche = function () {
     _rr.apply(this, arguments);
     const t = document.getElementById("qText"); if (!t) return;
-    t.placeholder = "Carrefour, 42,50… ou une question : « combien en resto ce mois-ci ? »";
+    t.placeholder = "Pose ta question ou cherche (Carrefour, 42,50…)";
+    // Une vraie case de question : le champ, le micro (si le téléphone sait écouter) et « Demander »
+    const box = document.createElement("div"); box.className = "sm-askbox"; t.parentNode.insertBefore(box, t); box.appendChild(t);
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    box.insertAdjacentHTML("beforeend", `${SR ? `<button type="button" class="sm-mic" id="smMic" aria-label="Parler">🎤</button>` : ""}<button type="button" class="btn primary sm-go" id="smGo">Demander</button>`);
+    const go = () => { Q.text = t.value; drawResults(); t.blur(); const r = document.getElementById("qRes"); if (r && r.firstChild) r.scrollIntoView({ block: "start", behavior: "smooth" }); };
+    box.querySelector("#smGo").onclick = go;
+    const mic = box.querySelector("#smMic");
+    if (mic) mic.onclick = () => {
+      if (smRecognizer) { try { smRecognizer.stop(); } catch (e) {} return; }
+      const rec = new SR(); smRecognizer = rec; rec.lang = window.LANG === "en" ? "en-GB" : "fr-FR"; rec.interimResults = true; rec.maxAlternatives = 1;
+      mic.classList.add("on"); t.placeholder = "Je t'écoute…";
+      rec.onresult = e => { const txt = [...e.results].map(r => r[0].transcript).join(" "); t.value = txt; if (e.results[e.results.length - 1].isFinal) { Q.text = txt; drawResults(); } };
+      rec.onerror = e => { if (e.error === "not-allowed") toast("Autorise le micro pour Bourselle dans les réglages du téléphone"); };
+      rec.onend = () => { smRecognizer = null; mic.classList.remove("on"); t.placeholder = "Pose ta question ou cherche (Carrefour, 42,50…)"; if (t.value.trim()) go(); };
+      try { rec.start(); } catch (e) { smRecognizer = null; mic.classList.remove("on"); }
+    };
+    // Ouvert depuis la loupe : le clavier s'ouvre tout de suite, prêt pour une question
+    if (smFocusNext && !Q.text) { smFocusNext = false; try { t.focus({ preventScroll: true }); } catch (e) { t.focus(); } }
     const h = document.getElementById("periodLabel"); if (h) h.textContent = "Rechercher ou demander";
     if (!Q.text) t.closest(".card").insertAdjacentHTML("beforeend", `<div class="sm-ex"><small>Essaie une question :</small><div class="chips">${SM_EXAMPLES.slice(0, 8).map(s => `<button type="button" class="chip" data-smq="${esc(s)}">${esc(s)}</button>`).join("")}</div></div>`);
     view.querySelectorAll("[data-smq]").forEach(b => b.onclick = () => { Q.text = b.dataset.smq; t.value = Q.text; drawResults(); const ex = view.querySelector(".sm-ex"); if (ex) ex.remove(); });

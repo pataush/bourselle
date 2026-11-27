@@ -1758,3 +1758,10 @@ nav.tabs button[hidden] { display: none !important; }
 .oi-row { display: flex; gap: 10px; align-items: flex-start; background: var(--bg); border-radius: 12px; padding: 8px 10px; }
 .oi-row small { display: block; color: var(--muted); } .oi-row em { color: var(--bad); font-style: normal; }
 .oi-row.dup { opacity: .6; } .oi-row.bad { box-shadow: inset 3px 0 0 var(--bad); } .oi-row.ok { box-shadow: inset 3px 0 0 var(--good); }
+/* Recherche : une case de question avec micro */
+.sm-askbox { display: flex; gap: 8px; align-items: center; }
+.sm-askbox #qText { flex: 1; min-width: 0; font-size: 16px; }
+.sm-mic { flex: none; width: 46px; height: 46px; border-radius: 50%; border: 0; background: var(--bg); font-size: 20px; cursor: pointer; }
+.sm-mic.on { background: #fde2df; animation: smPulse 1s ease-in-out infinite; }
+@keyframes smPulse { 50% { box-shadow: 0 0 0 8px rgba(196,60,51,.15); } }
+.sm-go { flex: none; padding-left: 14px !important; padding-right: 14px !important; }
