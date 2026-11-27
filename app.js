@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "133";
+const APP_VERSION = "134";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -3577,8 +3577,10 @@ function nlStage() {
     const A = o => typeof avChar === "function" ? avChar(o) : "";
     st.innerHTML = `<div class="nl-card nl-chat"><span class="av">${A({ hs: "afro", skin: "#6b4429", hair: "#2a1d16", bg: "#fbe0d2", shirt: "#c8553d" })}</span><span><small>Awa · Les copains</small><b>On se fait un resto samedi ? 🍕</b><span class="re">👍 3 · ❤️ 2</span></span></div>
       <div class="nl-card nl-pj"><small>Projet entre amis</small><b>✈️ Week-end à Lisbonne</b><div class="avs"><span>${A({ hs: "long", skin: "#f1c7a5", hair: "#a5673f", bg: "#e6ddf6", shirt: "#3b3f73" })}</span><span>${A({ hs: "rasta", skin: "#9c6644", hair: "#2a1d16", bg: "#cfe8d9", shirt: "#1f6b4b", beard: true })}</span><span>${A({ hs: "chignon", skin: "#dba47a", hair: "#2a1d16", bg: "#f6e7b8", shirt: "#e0a84a", glasses: true })}</span><span>${A({ hs: "court", skin: "#c98e62", hair: "#2a1d16", bg: "#d9e8fb", shirt: "#1d5f86" })}</span></div><small>340 € sur 600 €</small><div class="bar2"><i></i></div></div>
+      <div class="nl-card nl-promo"><span class="tk">🛒</span><span><small>Code promo en ligne</small><b>BOURSE10 · −10 %</b></span></div>
       <div class="nl-card nl-paid">✅ Karim t'a remboursé 25 €</div>
-      <div class="nl-card nl-deal"><span class="pct">−20 %</span><span><b>Café Lumière</b><small>à 300 m</small></span></div>`;
+      <div class="nl-card nl-deal"><span class="pct">−20 %</span><span><b>Café Lumière</b><small>à 300 m</small></span></div>
+      <div class="nl-card nl-ndf">🧾 Note de frais · <b>TVA lue ✓</b></div>`;
     addEventListener("resize", nlFit);
   }
   nlFit(); requestAnimationFrame(nlFit);
@@ -3587,8 +3589,8 @@ function nlFit() {
   const L = document.getElementById("login"); if (!L || L.hidden) return;
   const b = L.querySelector(".nl-body"), h = L.querySelector(".nl-hero"), top = 58;
   const room = window.innerHeight - b.offsetHeight - top - 10;
-  const sc = Math.max(.55, Math.min(1, window.innerWidth / 390, room / 202));
-  h.style.setProperty("--sc", sc.toFixed(3)); h.style.height = Math.round(top + 202 * sc + 8) + "px";
+  const sc = Math.max(.5, Math.min(1.1, window.innerWidth / 390, room / 236));
+  h.style.setProperty("--sc", sc.toFixed(3)); h.style.height = Math.round(top + 236 * sc + 8) + "px";
 }
 function showLogin(msg) {
   document.getElementById("login").hidden = false; setTimeout(nlStage, 0);

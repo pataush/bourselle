@@ -1711,3 +1711,28 @@ nav.tabs button[hidden] { display: none !important; }
 :root[data-theme="light"] .nl-body h1 { color: #16324a; } :root[data-theme="light"] .nl-body h1 em { color: #1f6b4b; }
 :root[data-theme="light"] .nl-sub, :root[data-theme="light"] .login.nl .fine { color: #5b6b78; }
 :root[data-theme="light"] .login.nl .demo { color: #1f6b4b; }
+/* Écran de connexion : cartes en cascade, qui tombent l'une après l'autre puis flottent */
+.nl-stage { height: 236px; }
+.nl-stage .nl-chat { left: 12px; top: 0; width: 200px; --r: -4deg; }
+.nl-stage .nl-pj { right: 10px; top: 18px; width: 150px; --r: 4deg; }
+.nl-stage .nl-promo { left: 34px; top: 92px; --r: 3deg; display: flex; gap: 9px; align-items: center; border: 2px dashed #f2b928; padding: 8px 12px; }
+.nl-promo .tk { font-size: 20px; } .nl-promo b { font-size: 14px; letter-spacing: .02em; }
+.nl-stage .nl-paid { left: 8px; top: 152px; --r: -3deg; }
+.nl-stage .nl-deal { right: 16px; top: 142px; --r: 3deg; }
+.nl-stage .nl-ndf { left: 118px; top: 198px; --r: -2deg; padding: 7px 12px; border-radius: 99px; font-size: 12.5px; }
+.nl-stage .nl-card { transform: rotate(var(--r, 0deg)); }
+@media (prefers-reduced-motion: no-preference) {
+  .nl-stage .nl-card { animation: nlDrop .55s cubic-bezier(.2,1.4,.4,1) both, nlFloat 5s ease-in-out infinite; }
+  .nl-stage .nl-card:nth-child(1) { animation-delay: .05s, .6s; } .nl-stage .nl-card:nth-child(2) { animation-delay: .17s, 1.4s; }
+  .nl-stage .nl-card:nth-child(3) { animation-delay: .29s, 2.2s; } .nl-stage .nl-card:nth-child(4) { animation-delay: .41s, .9s; }
+  .nl-stage .nl-card:nth-child(5) { animation-delay: .53s, 1.8s; } .nl-stage .nl-card:nth-child(6) { animation-delay: .65s, 2.6s; }
+  @keyframes nlDrop { from { opacity: 0; transform: translateY(-40px) rotate(calc(var(--r, 0deg) * -2)) scale(.9); } }
+  @keyframes nlFloat { 0%, 100% { transform: translateY(0) rotate(var(--r, 0deg)); } 50% { transform: translateY(-4px) rotate(var(--r, 0deg)); } }
+}
+.nl-stage .nl-promo { left: 22px; top: 96px; }
+.nl-stage .nl-deal { right: 10px; top: 140px; }
+.nl-stage .nl-paid { left: 10px; top: 160px; }
+.nl-stage .nl-ndf { left: auto; right: 18px; top: 200px; }
+.nl-stage .nl-deal { top: 128px; right: 6px; }
+.nl-stage .nl-paid { left: 4px; top: 164px; z-index: 3; }
+.nl-stage .nl-promo { z-index: 3; }
