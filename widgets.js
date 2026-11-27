@@ -2,7 +2,7 @@
  * La disposition est gardée dans les réglages (donc dans le compte, sur tous les appareils) : settings.widgets = [{ k, w }]
  * k : le widget, w : 1 (demi-largeur) ou 2 (toute la largeur). Chaque widget mène à la rubrique concernée. */
 const WG_SERVICES = [["budget", "💶 Budget"], ["proches", "🤝 Entre proches"], ["suivis", "📋 Suivis"], ["bons", "🎁 Bons plans"]];
-const WG_DEFAULT = [["reste", 2], ["owed", 1], ["owe", 1], ["msgs", 2], ["prelev", 1], ["objectif", 1], ["deal", 2], ["saved", 1], ["mois", 1]];
+const WG_DEFAULT = [["reste", 2], ["meteo", 1], ["serie", 1], ["prelev", 1], ["objectif", 1], ["deal", 2], ["saved", 1], ["jour", 1], ["owed", 1], ["owe", 1], ["msgs", 2], ["anniv", 1], ["projet", 1]];
 let wgEdit = false;
 // Couleurs au choix pour chaque widget (🎨 en mode Personnaliser) : fond, texte, texte secondaire
 const WG_COLORS = {
@@ -39,8 +39,8 @@ const WG = {
     return `<small>Dépenses par catégorie</small>${parts.length ? parts.map(p => `<div class="wg-cat"><span>${esc(p.name)}</span><span class="wg-cb"><i style="width:${Math.round(p.v / mx * 100)}%;background:${p.color}"></i></span><b class="num">${esc(wgMoney(p.v, true))}</b></div>`).join("") : `<i>Aucune dépense ce mois-ci</i>`}`; } },
   comptes: { s: "budget", ic: "🏦", t: "Solde de mes comptes", d: "Tous comptes confondus", w: 1, go: () => switchTab("mois"), html: () => typeof accHasBalance === "function" && accHasBalance() ? `<small>Mes comptes</small><b class="num">${esc(wgMoney(accTotalAt(accRefDay()), true))}</b><i>aujourd'hui</i>` : `<small>Mes comptes</small><b style="font-size:1rem">Indique ton solde</b><i>pour le suivre au jour le jour</i>` },
   ajout: { s: "budget", ic: "➕", t: "Ajouter vite", d: "Dépense, ticket, relevé", w: 2, html: () => `<small>Ajouter</small><div class="wg-acts"><button type="button" data-wa="tx">➕ Dépense</button><button type="button" data-wa="scan">📷 Ticket</button><button type="button" data-wa="imp">📄 Relevé</button></div>` },
-  owed: { s: "proches", ic: "🤝", t: "On te doit", d: "Entre proches", w: 1, go: () => switchTab("partage"), html: () => { const d = wgDues(); return `<small>On te doit</small><b class="num ${d.owed > 0.004 ? "good" : ""}">${esc(wgMoney(d.owed, true))}</b><i>${d.inn.length ? esc(d.inn.slice(0, 3).map(p => favFirst(p.name)).join(", ")) : "personne"}</i>`; } },
-  owe: { s: "proches", ic: "💸", t: "Tu dois", d: "Entre proches", w: 1, go: () => switchTab("partage"), html: () => { const d = wgDues(); return `<small>Tu dois</small><b class="num ${d.owe > 0.004 ? "bad" : ""}">${esc(wgMoney(d.owe, true))}</b><i>${d.out.length ? esc(d.out.slice(0, 3).map(p => favFirst(p.name)).join(", ")) : "rien à régler"}</i>`; } },
+  owed: { s: "proches", ic: "🤝", t: "On te doit", d: "Entre proches", w: 1, go: () => switchTab("partage"), html: () => { const d = wgDues(); return `<small>On te doit</small><b class="num ${d.owed > 0.004 ? "good" : ""}">${esc(wgMoney(d.owed, true))}</b><i>${d.inn.length ? esc(d.inn.slice(0, 3).map(p => favFirst(p.name)).join(", ")) : "personne"}</i>${d.owed > 0.004 ? `<div class="wg-acts"><button type="button" data-wa="remind">🔔 Relancer</button></div>` : ""}`; } },
+  owe: { s: "proches", ic: "💸", t: "Tu dois", d: "Entre proches", w: 1, go: () => switchTab("partage"), html: () => { const d = wgDues(); return `<small>Tu dois</small><b class="num ${d.owe > 0.004 ? "bad" : ""}">${esc(wgMoney(d.owe, true))}</b><i>${d.out.length ? esc(d.out.slice(0, 3).map(p => favFirst(p.name)).join(", ")) : "rien à régler"}</i>${d.owe > 0.004 ? `<div class="wg-acts"><button type="button" data-wa="settle">💸 Régler</button></div>` : ""}`; } },
   msgs: { s: "proches", ic: "💬", t: "Messages", d: "Dernière discussion", w: 2, go: () => { epSub = "discussions"; switchTab("partage"); }, html: () => {
     const t = typeof DMS !== "undefined" ? DMS.slice().sort((a, b) => (b.unread || 0) - (a.unread || 0) || b.at - a.at)[0] : null;
     if (!t) return `<small>Messages</small><i>Écris à un proche, propose une sortie…</i>`;
@@ -54,8 +54,8 @@ const WG = {
   epargne: { s: "suivis", ic: "🌱", t: "Mis de côté ce mois", d: "Épargne et économies", w: 1, go: () => switchTab("economies"), html: () => { const t = wgMonth(); return `<small>Mis de côté ce mois</small><b class="num good">${esc(wgMoney((t.epargne || 0) + (t.invest || 0), true))}</b><i>épargne et placements</i>`; } },
   objectif: { s: "suivis", ic: "🎯", t: "Objectif", d: "Ton objectif principal", w: 1, go: () => switchTab("objectifs"), html: () => { const g = Object.entries(goals || {}).map(([id, x]) => ({ ...x, id, s: goalSaved(id) })).filter(x => x.target > 0).sort((a, b) => b.s / b.target - a.s / a.target)[0];
     return g ? `<small>Objectif ${esc(g.name)}</small><b class="num">${Math.min(100, Math.round(g.s / g.target * 100))} %</b><div class="wg-bar sm"><i style="width:${Math.min(100, Math.round(g.s / g.target * 100))}%"></i></div>` : `<small>Objectif</small><i>Vacances, voiture… fixe-toi un objectif ›</i>`; } },
-  prelev: { s: "suivis", ic: "🔁", t: "Prochain prélèvement", d: "Abonnements", w: 1, go: () => switchTab("abos"), html: () => { const l = Object.values(subs || {}).filter(x => x.status !== "resilie").map(x => ({ x, n: nextOcc(x) })).filter(o => o.n).sort((a, b) => a.n.localeCompare(b.n))[0];
-    return l ? `<small>Prochain prélèvement</small><b style="font-size:1.02rem">${esc(l.x.name)}</b><i class="${daysUntil(l.n) <= 3 ? "warn" : ""}">${esc(wgMoney(Number(l.x.amount) || 0))} · ${esc(leftTxt(daysUntil(l.n)))}</i>` : `<small>Abonnements</small><i>Ajoute tes abonnements pour ne plus être surpris ›</i>`; } },
+  prelev: { s: "suivis", ic: "🔁", t: "Prochain prélèvement", d: "Abonnements", w: 1, go: () => switchTab("abos"), html: () => { const l = Object.entries(subs || {}).filter(([, x]) => x.status !== "resilie").map(([id, x]) => ({ id, x, n: nextOcc(x) })).filter(o => o.n).sort((a, b) => a.n.localeCompare(b.n))[0];
+    return l ? `<small>Prochain prélèvement</small><b style="font-size:1.02rem">${esc(l.x.name)}</b><i class="${daysUntil(l.n) <= 3 ? "warn" : ""}">${esc(wgMoney(Number(l.x.amount) || 0))} · ${esc(leftTxt(daysUntil(l.n)))}</i>${daysUntil(l.n) <= 3 ? `<div class="wg-acts"><button type="button" data-wa="prel:${esc(l.id)}">✓ Payé</button></div>` : ""}` : `<small>Abonnements</small><i>Ajoute tes abonnements pour ne plus être surpris ›</i>`; } },
   garantie: { s: "suivis", ic: "🛡️", t: "Garantie qui expire", d: "Garanties", w: 1, go: () => switchTab("garanties"), html: () => { const g = garItems().filter(x => garStatus(x.warranty) !== "exp").sort((a, b) => a.warranty.end.localeCompare(b.warranty.end))[0];
     return g ? `<small>Garantie</small><b style="font-size:1.02rem">${esc(g.warranty.item || g.note || "Achat")}</b><i class="${garStatus(g.warranty) === "soon" ? "warn" : ""}">${esc(leftTxt(daysUntil(g.warranty.end)))}</i>` : `<small>Garanties</small><i>Aucun article sous garantie</i>`; } },
   deal: { s: "bons", ic: "🎁", t: "Bon plan du moment", d: "Près de chez toi", w: 2, go: () => switchTab("bons"), html: () => { const L = (typeof BPLANS !== "undefined" ? BPLANS : []).filter(o => o.status !== "off" && !(typeof offOnline === "function" && offOnline(o)) && offVisible(o));
@@ -66,36 +66,51 @@ const WG = {
   saved: { s: "bons", ic: "💰", t: "Économisé grâce à Bourselle", d: "Avec les bons plans", w: 1, go: () => savedOpen(), html: () => `<small>Économisé</small><b class="num good">${esc(wgMoney(savedTotal(), true))}</b><i>grâce à Bourselle</i>` },
 };
 // Couleurs de départ (une seule fois : ensuite chacun choisit avec 🎨)
-const WG_DEF_COL = { owed: "menthe", owe: "peche", msgs: "lavande", prelev: "ciel", objectif: "or", garantie: "ciel", projet: "lavande", epargne: "menthe", promo: "corail" };
+const WG_DEF_COL = { owed: "menthe", owe: "peche", msgs: "lavande", prelev: "ciel", objectif: "or", garantie: "ciel", projet: "lavande", epargne: "menthe", promo: "corail", meteo: "ciel", serie: "peche", anniv: "or", jour: "menthe", bilan: "nuit" };
 function wgList() {
   if (!Array.isArray(settings.widgets)) settings.widgets = WG_DEFAULT.map(([k, w]) => ({ k, w }));
+  if (!settings.wgPg0) { settings.wgPg0 = 1; for (const x of settings.widgets) if (WG[x.k] && WG[x.k].s === "proches" && x.p === undefined) x.p = 1; }
   if (!settings.wgCol0) { settings.wgCol0 = 1; for (const x of settings.widgets) if (!x.c && WG_DEF_COL[x.k]) x.c = WG_DEF_COL[x.k]; }
   return settings.widgets.filter(x => WG[x.k]);
 }
+const WG_PAGES = ["Mon argent", "Mes proches"];
+let wgPage = 0;
+function wgCard(x, i) { const W = WG[x.k];
+  return `<div class="wg wg-${x.k}${x.w === 2 ? " full" : ""}" data-wg="${x.k}" data-i="${i}"${wgStyle(x.c)} role="button" tabindex="0"><span class="wg-ic" aria-hidden="true">${W.ic}</span>${W.html()}
+    ${wgEdit ? `<button type="button" class="wg-x" data-wx="${i}" aria-label="Retirer">✕</button><button type="button" class="wg-sz" data-wsz="${i}" aria-label="Changer la taille">${x.w === 2 ? "⤡" : "⤢"}</button><button type="button" class="wg-col" data-wcol="${i}" aria-label="Couleur et page">🎨</button>` : ""}</div>`; }
 function renderHome() {
   document.getElementById("periodLabel").textContent = "Accueil";
   const L = wgList();
-  let html = banner + `<div class="wg-top"><b>Mon accueil</b><button type="button" class="ep-btn ${wgEdit ? "on" : "good"}" id="wgEdit">${wgEdit ? "✓ Terminé" : "✏️ Personnaliser"}</button></div>`;
-  if (wgEdit) html += `<p class="wg-tip">✋ Appuie longuement sur un widget puis fais-le glisser pour le déplacer · ✕ pour le retirer · ⤢ sa taille · 🎨 sa couleur</p>`;
-  html += `<div class="wg-grid${wgEdit ? " edit" : ""}" id="wgGrid">${L.map((x, i) => { const W = WG[x.k];
-    return `<div class="wg wg-${x.k}${x.w === 2 ? " full" : ""}" data-wg="${x.k}" data-i="${i}"${wgStyle(x.c)} role="button" tabindex="0"><span class="wg-ic" aria-hidden="true">${W.ic}</span>${W.html()}
-      ${wgEdit ? `<button type="button" class="wg-x" data-wx="${i}" aria-label="Retirer">✕</button><button type="button" class="wg-sz" data-wsz="${i}" aria-label="Changer la taille">${x.w === 2 ? "⤡" : "⤢"}</button><button type="button" class="wg-col" data-wcol="${i}" aria-label="Couleur">🎨</button>` : ""}</div>`; }).join("")}
-    <button type="button" class="wg-add" id="wgAdd">＋ Ajouter un widget</button></div>`;
+  let html = banner + `<div class="wg-top"><b>Mon accueil</b><span class="wg-tb">${wgEdit ? `<button type="button" class="ep-btn" id="wgBg">🖼 Fond</button>` : ""}<button type="button" class="ep-btn ${wgEdit ? "on" : "good"}" id="wgEdit">${wgEdit ? "✓ Terminé" : "✏️ Personnaliser"}</button></span></div>`;
+  if (wgEdit) html += `<p class="wg-tip">✋ Appuie longuement sur un widget puis fais-le glisser pour le déplacer · ✕ pour le retirer · ⤢ sa taille · 🎨 sa couleur ou sa page</p>`;
+  else if (typeof funTip === "function") html += `<p class="wg-hint">${esc(funTip())}</p>`;
+  html += `<div class="wg-pt" role="tablist">${WG_PAGES.map((t, p) => `<button type="button" role="tab" data-wpg="${p}" aria-selected="${p === wgPage}">${t}</button>`).join("")}</div>
+    <div class="wg-pages" id="wgPages">${WG_PAGES.map((t, p) => `<div class="wg-grid${wgEdit ? " edit" : ""}" data-p="${p}">${L.map((x, i) => [x, i]).filter(([x]) => (x.p || 0) === p).map(([x, i]) => wgCard(x, i)).join("")}
+      ${L.some(x => (x.p || 0) === p) ? "" : `<p class="wg-empty">Page vide : ajoute des widgets ici.</p>`}<button type="button" class="wg-add" data-wadd="${p}">＋ Ajouter un widget</button></div>`).join("")}</div>`;
   view.innerHTML = html;
+  const pages = view.querySelector("#wgPages");
+  const setPg = (p, smooth) => { wgPage = p; view.querySelectorAll("[data-wpg]").forEach(b => b.setAttribute("aria-selected", String(+b.dataset.wpg === p))); pages.scrollTo({ left: p * pages.clientWidth, behavior: smooth ? "smooth" : "auto" }); };
+  requestAnimationFrame(() => setPg(wgPage, false));
+  pages.addEventListener("scroll", () => { const p = Math.round(pages.scrollLeft / Math.max(1, pages.clientWidth)); if (p !== wgPage) { wgPage = p; view.querySelectorAll("[data-wpg]").forEach(b => b.setAttribute("aria-selected", String(+b.dataset.wpg === p))); } }, { passive: true });
+  view.querySelectorAll("[data-wpg]").forEach(b => b.onclick = () => setPg(+b.dataset.wpg, true));
   const save = () => { saveSettings(); render(); };
   view.querySelector("#wgEdit").onclick = () => { wgEdit = !wgEdit; if (!wgEdit) saveSettings(); render(); };
-  view.querySelector("#wgAdd").onclick = () => wgCatalog();
+  const bg = view.querySelector("#wgBg"); if (bg) bg.onclick = () => funBgOpen();
+  view.querySelectorAll("[data-wadd]").forEach(b => b.onclick = () => { wgPage = +b.dataset.wadd; wgCatalog(); });
   view.querySelectorAll("[data-wx]").forEach(b => b.onclick = e => { e.stopPropagation(); settings.widgets.splice(+b.dataset.wx, 1); save(); });
   view.querySelectorAll("[data-wsz]").forEach(b => b.onclick = e => { e.stopPropagation(); const x = settings.widgets[+b.dataset.wsz]; x.w = x.w === 2 ? 1 : 2; save(); });
   view.querySelectorAll("[data-wcol]").forEach(b => b.onclick = e => { e.stopPropagation(); wgColor(+b.dataset.wcol); });
-  view.querySelectorAll("[data-wa]").forEach(b => b.onclick = e => { e.stopPropagation(); if (wgEdit) return;
+  view.querySelectorAll("[data-wa]").forEach(b => b.onclick = e => { e.stopPropagation(); if (wgEdit) return; const a = b.dataset.wa;
+    if (a.startsWith("prel:")) { const id = a.slice(5), x = subs[id]; if (!x) return; const d = nextOcc(x) || todayISO();
+      addTx({ type: "depense", amount: Number(x.amount), cat: x.cat, date: d, note: x.name, fixe: true }); subs[id].next = advance(d, x.freq); saveSubs(); render(); toast(`${x.name} : prélèvement ajouté aux dépenses ✓`); return; }
     ({ tx: () => openSheet(null), scan: () => { openSheet(null); setTimeout(() => { const s = document.getElementById("scanBtn"); if (s && !s.hidden) s.click(); }, 300); }, imp: () => startImport(),
-      pay: () => editProject(), ask: () => editPay(), note: () => noteShare() })[b.dataset.wa](); });
+      pay: () => editProject(), ask: () => editPay(), note: () => noteShare(),
+      remind: () => typeof epWho === "function" ? epWho("in") : switchTab("partage"), settle: () => typeof epWho === "function" ? epWho("out") : switchTab("partage") })[a](); });
   view.querySelectorAll("[data-wg]").forEach(el => el.addEventListener("click", e => { if (wgEdit || el.dataset.dragged) return; const W = WG[el.dataset.wg]; if (W && W.go) W.go(); }));
   // Appui long : mode édition
   view.querySelectorAll("[data-wg]").forEach(el => { let t = null; el.addEventListener("pointerdown", () => { if (wgEdit) return; t = setTimeout(() => { wgEdit = true; render(); try { navigator.vibrate && navigator.vibrate(15); } catch (e) {} }, 550); });
     ["pointerup", "pointerleave", "pointercancel", "pointermove"].forEach(n => el.addEventListener(n, ev => { if (n === "pointermove" && t && Math.abs(ev.movementY) + Math.abs(ev.movementX) < 3) return; clearTimeout(t); t = null; })); });
-  if (wgEdit) wgDrag(view.querySelector("#wgGrid"));
+  if (wgEdit) view.querySelectorAll(".wg-grid").forEach(g => wgDrag(g));
 }
 // Glisser-déposer des widgets : seulement après un appui long (≈ 0,4 s sans bouger).
 // Un geste rapide fait défiler la page normalement, rien ne bouge par erreur.
@@ -104,7 +119,7 @@ function wgDrag(grid) {
     let armed = false;
     el.addEventListener("touchmove", e => { if (armed) e.preventDefault(); }, { passive: false });   // iPhone : pas de défilement pendant le déplacement
     el.addEventListener("pointerdown", e => {
-      if (e.target.closest("[data-wx],[data-wsz]") || (e.pointerType === "mouse" && e.button !== 0)) return;
+      if (e.target.closest("[data-wx],[data-wsz],[data-wcol]") || (e.pointerType === "mouse" && e.button !== 0)) return;
       const x0 = e.clientX, y0 = e.clientY; let r0 = null, moved = false;
       const hold = setTimeout(() => { armed = true; r0 = el.getBoundingClientRect(); el.classList.add("drag"); el.style.transform = "scale(1.04)"; try { navigator.vibrate && navigator.vibrate(12); } catch (er) {} }, 400);
       const move = ev => {
@@ -124,7 +139,7 @@ function wgDrag(grid) {
         window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", end); window.removeEventListener("pointercancel", end);
         const was = armed; armed = false; el.classList.remove("drag"); el.style.transform = "";
         if (!was || !moved) return;
-        settings.widgets = [...grid.querySelectorAll("[data-wg]")].map(n => settings.widgets[+n.dataset.i]); saveSettings(); render();
+        settings.widgets = [...document.querySelectorAll("#wgPages [data-wg]")].map(n => settings.widgets[+n.dataset.i]); saveSettings(); render();
       };
       window.addEventListener("pointermove", move, { passive: false }); window.addEventListener("pointerup", end); window.addEventListener("pointercancel", end);
     });
@@ -139,10 +154,10 @@ function wgCatalog() {
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Terminé";
   f.querySelectorAll("[data-wk]").forEach(b => b.onclick = () => {
     const k = b.dataset.wk, L = wgList(), i = L.findIndex(x => x.k === k);
-    if (i >= 0) settings.widgets = L.filter(x => x.k !== k); else settings.widgets = L.concat([{ k, w: WG[k].w, ...(WG_DEF_COL[k] ? { c: WG_DEF_COL[k] } : {}) }]);
+    if (i >= 0) settings.widgets = L.filter(x => x.k !== k); else settings.widgets = L.concat([{ k, w: WG[k].w, p: wgPage, ...(WG_DEF_COL[k] ? { c: WG_DEF_COL[k] } : {}) }]);
     b.setAttribute("aria-checked", String(i < 0)); saveSettings(); render();
   });
-  f.querySelector("#wgReset").onclick = () => { settings.widgets = WG_DEFAULT.map(([k, w]) => ({ k, w, ...(WG_DEF_COL[k] ? { c: WG_DEF_COL[k] } : {}) })); saveSettings(); closeForm(); render(); toast("Accueil par défaut"); };
+  f.querySelector("#wgReset").onclick = () => { settings.widgets = WG_DEFAULT.map(([k, w]) => ({ k, w, ...(WG_DEF_COL[k] ? { c: WG_DEF_COL[k] } : {}), ...(WG[k].s === "proches" ? { p: 1 } : {}) })); saveSettings(); closeForm(); render(); toast("Accueil par défaut"); };
 }
 
 // ---------- Suivis : l'en-tête à deux cartes (comme Entre proches), une par rubrique ----------
@@ -199,7 +214,9 @@ function wgColor(i) {
   const f = openForm(`<div class="f2"><h3>🎨 Couleur · ${esc(W.t)}</h3>
     <div class="wg-pal"><button type="button" data-pc="" aria-pressed="${!x.c}"><span class="wg-sw" style="background:var(--surface)"></span>Normal</button>
     ${Object.entries(WG_COLORS).map(([k, C]) => `<button type="button" data-pc="${k}" aria-pressed="${x.c === k}"><span class="wg-sw" style="background:${C[0]}"></span>${C[3]}</button>`).join("")}</div>
-    <button type="button" class="linkbtn" id="wgAll" style="display:block;margin:12px auto 0">Appliquer à tous les widgets</button></div>`, () => true);
+    <button type="button" class="linkbtn" id="wgAll" style="display:block;margin:12px auto 0">Appliquer à tous les widgets</button>
+    <button type="button" class="btn" id="wgMove" style="display:block;margin:12px auto 0">↔ Déplacer vers « ${esc(WG_PAGES[1 - (x.p || 0)])} »</button></div>`, () => true);
+  f.querySelector("#wgMove").onclick = () => { x.p = 1 - (x.p || 0); const it = settings.widgets.splice(i, 1)[0]; settings.widgets.push(it); wgPage = x.p; saveSettings(); closeForm(); render(); toast(`Widget déplacé vers « ${WG_PAGES[x.p]} »`); };
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Terminé";
   let pick = x.c || "";
   f.querySelectorAll("[data-pc]").forEach(b => b.onclick = () => { pick = b.dataset.pc; if (pick) x.c = pick; else delete x.c;

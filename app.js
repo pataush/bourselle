@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "118";
+const APP_VERSION = "119";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -293,9 +293,11 @@ function showProfileMenu() {
     <div class="pmx-top"><button type="button" class="pmx-av" id="pmAv" aria-label="Changer ma photo">${esc((document.getElementById("avatar").dataset.init || "B"))}<span class="pmx-cam" aria-hidden="true">📷</span></button>
       <b>${esc(u.name || "Mon compte")}</b><small>${esc(u.email || (local ? "Données gardées sur cet appareil" : ""))}${!local && store.label ? " · " + esc(store.label) : ""}${typeof isPlus === "function" && isPlus() ? " · Bourselle Plus" : ""}</small>
       ${soc && SOC.tag ? `<div class="pmx-tag"><button type="button" id="pmCopy" title="Toucher pour copier"><span class="num">@${esc(SOC.tag)}</span><small>${IC.copy} <span class="pm-copyhint">Copier</span></small></button><button type="button" id="pmQr" aria-label="Mon QR code">${IC.qr} QR code</button></div>` : ""}</div>
+    ${typeof funBadges === "function" ? (() => { const B = funBadges(), on = B.filter(b => b.on); return `<button type="button" class="pmx-bdg" id="pmBdg"><span>${on.length ? on.map(b => b.ic).join("") : "🏅"}</span><small>${on.length} / ${B.length} badges ›</small></button>`; })() : ""}
     <div class="pmx-cap">Préférences</div>
     <div class="pmx-sec">
       ${sw("pmDark", "moon", "#3b4a6b", "Mode sombre", dark)}
+      ${typeof FUN_THEMES !== "undefined" ? go("pmTheme", "leaf", "var(--green)", "Thème de l'appli", FUN_THEMES[settings.pal || "vert"][0]) : ""}
       ${soc ? sw("pmPush", "bell", "#e67e22", "Notifications", push) : ""}
       ${sw("pmFull", "leaf", "#2e8a5b", "Version complète", !isSimple(), "Patrimoine, notes de frais…")}
     </div>
@@ -327,6 +329,8 @@ function showProfileMenu() {
   on("pmFb", () => { closeForm(); setTimeout(() => fbOpen(), 250); });
   { const pa = f.querySelector("#pmAv"); if (pa && typeof avPaint === "function") { const cam = pa.querySelector(".pmx-cam"); avPaint(pa); if (cam && !pa.contains(cam)) pa.appendChild(cam); } }
   on("pmAv", () => { closeForm(); setTimeout(() => avPick(), 250); });
+  on("pmBdg", () => { closeForm(); setTimeout(() => funBadgesOpen(), 250); });
+  on("pmTheme", () => { closeForm(); setTimeout(() => funThemeOpen(), 250); });
 }
 // Alertes regroupées derrière la cloche.
 // Chaque alerte a une clé stable (k) : « Gérer » emmène à l'endroit concerné ; ✕ la masque (choix gardé dans les réglages,
@@ -1118,7 +1122,7 @@ function render() {
     const u = store && store.user ? store.user() : {}, first = store && store.id === "local" ? "" : String((u && u.name) || "").trim().split(/[\s@]/)[0];
     const nm = first ? first.charAt(0).toUpperCase() + first.slice(1) : "";
     document.getElementById("helloName").textContent = nm; { const av = document.getElementById("avatar"); av.dataset.init = (nm || "B").charAt(0).toUpperCase(); av.textContent = av.dataset.init; if (typeof avPaint === "function") avPaint(av); }
-    { const h = document.querySelector("header .nm .hello"); if (h) h.textContent = nm ? "Bonjour," : "Bonjour !"; }
+    { const h = document.querySelector("header .nm .hello"); if (h) h.textContent = typeof funHello === "function" ? (nm ? funHello() : funHello().replace(/,$/, " !")) : (nm ? "Bonjour," : "Bonjour !"); }
     const n = alertsList().reduce((a, x) => a + x.n, 0); document.getElementById("bellDot").hidden = !n;
     if (typeof chatBtnSync === "function") chatBtnSync();
   }
@@ -1149,6 +1153,10 @@ function render() {
     if (act && seg) seg.scrollLeft = Math.max(0, act.offsetLeft - seg.offsetLeft - (seg.clientWidth - act.offsetWidth) / 2);
   }
   if (typeof epFeedRefresh === "function") epFeedRefresh();
+  document.body.classList.toggle("tab-home", tab === "home");
+  if (settings.homeBg && tab === "home") document.body.dataset.hbg = settings.homeBg; else delete document.body.dataset.hbg;
+  if (typeof funApplyTheme === "function") funApplyTheme();
+  if (typeof funCheck === "function" && store && !document.getElementById("app").hidden) { try { funCheck(); } catch (e) { console.error(e); } if (!funStoryAuto.done) { funStoryAuto.done = 1; try { funStoryAuto(); } catch (e) {} } }
 }
 function switchTab(t) {
   // « Partage » est réuni dans « Entre proches » : l'ancien onglet ne sert plus qu'à afficher un achat groupé, une cagnotte ou un paiement ouvert
