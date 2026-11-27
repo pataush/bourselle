@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "153";
+const APP_VERSION = "154";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -28,7 +28,7 @@ async function autoUpdate(force) {
   if (busy) { autoUpdAt = 0; return; }   // on réessaiera au prochain retour
   try { const r = await navigator.serviceWorker?.getRegistration(); if (r) await r.update(); } catch (e) {}
   try { if (typeof lockMark === "function") lockMark(true); } catch (e) {}
-  try { sessionStorage.setItem("bourselle-updated", String(v)); } catch (e) {}
+  try { localStorage.setItem("bourselle-updated", String(v)); } catch (e) {}
   location.reload();
 }
 document.addEventListener("visibilitychange", () => {
@@ -37,8 +37,13 @@ document.addEventListener("visibilitychange", () => {
 });
 window.addEventListener("pageshow", e => { if (e.persisted) autoUpdate(true); });
 setTimeout(() => autoUpdate(true), 8000);
-{ let u = ""; try { u = sessionStorage.getItem("bourselle-updated") || ""; sessionStorage.removeItem("bourselle-updated"); } catch (e) {}
-  if (u) setTimeout(() => typeof toast === "function" && toast("Bourselle est à jour ✨ (version " + u + ")"), 1500); }
+// Après une mise à jour : un message bien visible, une fois l'appli affichée (après la connexion et le déverrouillage)
+function updNotice() {
+  let u = ""; try { u = localStorage.getItem("bourselle-updated") || ""; } catch (e) {}
+  if (!u || !store || document.documentElement.classList.contains("locked")) return;
+  try { localStorage.removeItem("bourselle-updated"); } catch (e) {}
+  setTimeout(() => toast("✨ Bourselle vient de se mettre à jour (version " + u + ")", 5000), 900);
+}
 // Catégories proposées : aucun montant par défaut (budget 0). « w » n'est pas un budget : c'est le poids d'un foyer type,
 // qui sert seulement à répartir un budget quand la personne le demande (premier lancement, « Estimer mes budgets »).
 const DEFAULT_SETTINGS = {
@@ -3721,6 +3726,7 @@ async function connect(id, interactive, existing, claim) {
     if (typeof accDeleteFromUrl === "function" && sessionStorage.getItem("bourselle-del")) setTimeout(accDeleteFromUrl, 300);
     else if (typeof obMaybe === "function") setTimeout(obMaybe, 300);
     if (typeof statHit === "function") setTimeout(() => statHit("actif"), 2000);
+    setTimeout(updNotice, 600);
     if (id !== "local") setTimeout(() => driveFoldersInit(), 4000);
     if (moved >= 0) toast(moved ? `Tes données d'essai (${moved} élément${moved > 1 ? "s" : ""}) sont maintenant dans ton ${st.label}.` : `Connecté à ton ${st.label}.`);
     if (recovered) toast("Tes dernières saisies, pas encore enregistrées dans le Drive, ont été récupérées.");

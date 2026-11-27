@@ -65,7 +65,7 @@ function lockShow() {
   // de l'appli (ensuite il exige un toucher) : on en profite, et le bouton reste là si iOS refuse.
   if (!/iP(hone|ad|od)/.test(navigator.userAgent) || atStart) setTimeout(() => go(true), 300);
 }
-function lockHide() { lockShown = false; document.documentElement.classList.remove("locked"); const el = document.getElementById("lockScreen"); if (el) el.hidden = true; }
+function lockHide() { lockShown = false; document.documentElement.classList.remove("locked"); if (typeof updNotice === "function") setTimeout(updNotice, 400); const el = document.getElementById("lockScreen"); if (el) el.hidden = true; }
 document.addEventListener("visibilitychange", () => {
   if (!lockOn()) return;
   if (document.visibilityState === "hidden") { lockHiddenAt = Date.now(); lockMark(); }
