@@ -1198,3 +1198,6 @@ body.ep-nohero .hero { display: none; }
 .ep-warn { padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, #e67e22 12%, var(--surface)); border: 1px solid color-mix(in srgb, #e67e22 40%, transparent); }
 .ep-warn b { display: block; margin-bottom: 4px; } .ep-warn ul { margin: 4px 0; padding-left: 18px; } .ep-warn li { margin: 3px 0; font-size: .9rem; } .ep-warn p { margin: 6px 0 0; font-size: .85rem; color: var(--muted); }
 .ep-delbtns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+
+.off-intro { display: flex; gap: 10px; align-items: flex-start; margin: 4px 0 12px; padding: 12px 14px; border-radius: 16px; background: color-mix(in srgb, var(--good, #2e8a5b) 9%, var(--surface)); border: 1px solid color-mix(in srgb, var(--good, #2e8a5b) 25%, var(--line)); }
+.off-intro span { font-size: 1.4rem; line-height: 1.2; } .off-intro p { margin: 0; font-size: .86rem; color: var(--muted); } .off-intro b { color: var(--ink); }

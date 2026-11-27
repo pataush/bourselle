@@ -130,13 +130,13 @@ function offHubBind(root) {
 function offListRender(root, focus, filter) {
   filter = filter || "all";
   const allCities = filter === "cities";
-  const list = (filter === "now" ? l => l.slice().sort((a, b) => offLocal(b) - offLocal(a)) : offSort)(BPLANS.filter(o => (OFF_ADMIN || o.status !== "off") && offVisible(o, allCities || (focus && o.id === focus)) && (filter === "all" || filter === "cities" || (filter === "now" ? !!offNow(o) : filter === "near" ? offLocal(o) : filter === "group" ? o.kind === "group" : o.kind !== "group"))));
+  const list = (filter === "now" ? l => l.slice().sort((a, b) => offLocal(b) - offLocal(a)) : offSort)(BPLANS.filter(o => (OFF_ADMIN || o.status !== "off") && offVisible(o, allCities || (focus && o.id === focus)) && (filter === "all" || filter === "cities" || (filter === "now" ? !!offNow(o) : filter === "near" ? offLocal(o) : filter === "group" ? o.kind === "group" : filter === "promo" ? !!o.code : true))));
   const elsewhere = !allCities && BPLANS.some(o => o.city && !offVisible(o));
   root.insertAdjacentHTML("beforeend", `<div class="off-sheet" id="offAll"><div class="hub-sec"><span>Tous les bons plans</span></div>
     <button type="button" class="off-where" id="offCity">${flag(myCountry())} ${myCity() ? `Près de chez toi : <b>${esc(myCity())}</b> · changer` : "Indique ta ville pour les bons plans près de chez toi ›"}</button>
     <div class="chips" id="offF">${[["all", "Tout"], ...(BPLANS.some(o => offTimed(o) && offNow(o)) ? [["now", "En ce moment"]] : []), ...(myCity() ? [["near", "Près de moi"]] : []), ["group", "Offres de groupe"], ["promo", "Codes promo"], ...(BPLANS.some(o => o.city) ? [["cities", "Toutes les villes"]] : [])].map(([k, l]) => `<button type="button" class="chip" data-of="${k}" aria-pressed="${filter === k}">${l}</button>`).join("")}</div>
     ${OFF_ADMIN ? `<button type="button" class="btn" id="offAdmin" style="width:100%;margin-top:10px">⚙️ Gérer les bons plans${OFF_LEADS.length ? ` <i class="badge">${OFF_LEADS.length}</i>` : ""}</button>` : ""}
-    <div class="off-list">${list.length ? list.map(o => offCardHTML(o, true)).join("") : `<p class="hint" style="text-align:center;margin:24px 0">${filter === "near" ? `Pas encore de bon plan à ${esc(myCity())}. Tu connais un commerce ? Envoie-lui la page « Devenir partenaire » !` : "Pas encore de bon plan ici. Reviens bientôt !"}</p>`}</div>
+    <div class="off-list">${list.length ? list.map(o => offCardHTML(o, true)).join("") : `<p class="hint" style="text-align:center;margin:24px 0">${filter === "near" ? `Pas encore de bon plan à ${esc(myCity())}. Tu connais un commerce ? Envoie-lui la page « Devenir partenaire » !` : filter === "group" ? `Pas encore d'offre de groupe${myCity() ? ` à ${esc(myCity())}` : ""}. ${BPLANS.some(o => o.kind === "group" && o.status !== "off") ? "Il y en a dans d'autres villes : touche « Voir aussi les bons plans des autres villes »." : "Reviens bientôt !"}` : filter === "promo" ? `Pas encore de code promo${myCity() ? ` à ${esc(myCity())}` : ""}. ${BPLANS.some(o => o.code && o.status !== "off") ? "Il y en a dans d'autres villes : touche « Voir aussi les bons plans des autres villes »." : "Reviens bientôt !"}` : "Pas encore de bon plan ici. Reviens bientôt !"}</p>`}</div>
     ${elsewhere ? `<button type="button" class="linkbtn" data-of="cities" style="display:block;margin:10px auto 0">Voir aussi les bons plans des autres villes ›</button>` : ""}
     <p class="hint off-legal">Offres de nos partenaires. Tu paies directement le partenaire, sur son site : l'argent ne passe pas par Bourselle. Bourselle peut toucher une commission quand tu achètes via ces liens. Tes données de budget ne sont jamais partagées.</p>
     <button type="button" class="linkbtn" id="offLead" style="display:block;margin:4px auto 0">Tu es une marque ? Propose ton offre ›</button></div>`);
@@ -383,7 +383,10 @@ function offPoster(o) {
 function offersOpen(focus, filter) {
   offState = { focus: focus || null, filter: filter || (focus ? "all" : offState.filter || "all") };
   if (document.querySelector("#sheet2Root.open")) closeForm();
+  const toList = !focus && filter && filter !== "all";
   if (typeof tab !== "undefined" && tab === "bons") { render(); if (!focus) window.scrollTo(0, 0); } else switchTab("bons");
+  // Un filtre choisi : on descend jusqu'à la liste filtrée (sinon on croit que rien n'a changé)
+  if (toList) setTimeout(() => { const el = document.getElementById("offF") || document.getElementById("offAll"); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120);
 }
 function offBigCardHTML(o) {
   const pct = offPctOf(o) || (o.tiers && o.tiers.length ? Math.max(...o.tiers.map(t => t.pct)) : 0), now = offTimed(o) && offNow(o);
@@ -400,7 +403,8 @@ function renderBons() {
   const vis = offSort(BPLANS.filter(o => o.status !== "off" && offVisible(o)));
   const top = vis.slice().sort((a, b) => !!(offTimed(b) && offNow(b)) - !!(offTimed(a) && offNow(a)) || offLocal(b) - offLocal(a) || b.featured - a.featured).slice(0, 8);
   const reward = OFF_HASREWARD && OFF_MYINV < 3 && typeof socOn === "function" && socOn() ? `<div class="card off-reward"><b>🎁 Un bon plan exclusif t'attend</b><small>Invite tes amis dans tes sorties : quand 3 d'entre eux créent leur compte, il se débloque.</small><div class="act-bar"><i style="width:${Math.round(OFF_MYINV / 3 * 100)}%"></i></div><small><b>${OFF_MYINV} / 3</b> amis</small></div>` : "";
-  view.innerHTML = banner + reward + (top.length ? `<div class="off-carousel">${top.map(offBigCardHTML).join("")}</div>` : "") + `<button type="button" class="off-where" id="offAlert">🔔 ${settings.offAlert ? `Alerte nouveaux bons plans activée${myCity() ? ` · ${esc(myCity())}` : ""} · régler` : "Être prévenu des nouveaux bons plans près de chez moi ›"}</button>` + offNowHTML();
+  const intro = `<div class="off-intro"><span>💰</span><p><b>Des réductions près de chez toi pour faire des économies.</b> Chaque bon plan utilisé s'ajoute à ton compteur « Économisé grâce à Bourselle ».</p></div>`;
+  view.innerHTML = banner + intro + reward + (top.length ? `<div class="off-carousel">${top.map(offBigCardHTML).join("")}</div>` : "") + `<button type="button" class="off-where" id="offAlert">🔔 ${settings.offAlert ? `Alerte nouveaux bons plans activée${myCity() ? ` · ${esc(myCity())}` : ""} · régler` : "Être prévenu des nouveaux bons plans près de chez moi ›"}</button>` + offNowHTML();
   offListRender(view, offState.focus, offState.filter);
   view.querySelectorAll("[data-ofocus]").forEach(b => b.onclick = () => { const el = document.getElementById("off-" + b.dataset.ofocus); if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); offApi("/offers/" + b.dataset.ofocus, { action: "view" }).catch(() => {}); } });
   view.querySelectorAll(".off-nowlist [data-oopen]").forEach(b => b.onclick = () => offersOpen(b.dataset.oopen));
