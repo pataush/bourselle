@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "137";
+const APP_VERSION = "138";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -234,9 +234,13 @@ function budEstimateValues() {
   const n = new Date(), sums = {}; let months0 = 0;
   for (let i = 1; i <= 3; i++) { const d = new Date(n.getFullYear(), n.getMonth() - i, 1), L = itemsOf(d.getFullYear(), d.getMonth() + 1); if (!L.length) continue; months0++;
     for (const [k, v] of Object.entries(totals(L).byCat)) sums[k] = (sums[k] || 0) + v; }
-  return { months: months0, val: c => { if (months0 && sums[c.id]) return Math.max(5, Math.round(sums[c.id] / months0 / 5) * 5); const d = DEFAULT_SETTINGS.cats.find(x => x.id === c.id); return months0 ? 0 : (d ? d.w || 0 : 0); } };
+  return { months: months0, val: c => { if (months0 && sums[c.id]) return Math.max(5, Math.round(sums[c.id] / months0 / 5) * 5); return 0; } };   // sans dépenses enregistrées : aucune somme proposée
 }
 function budEstimate() {
+  if (!budEstimateValues().months) {
+    const f = openForm(`<div class="f2"><h3>✨ Estimer mes budgets</h3><p style="margin:0">Enregistre d'abord tes dépenses d'un mois (ou importe un relevé) : Bourselle calculera tes budgets d'après ce que tu dépenses vraiment.</p></div>`, () => true);
+    f.querySelector("button[type=submit]").textContent = "OK"; f.querySelector("#f2Cancel").hidden = true; return;
+  }
   const E = budEstimateValues(), rows = settings.cats.map(c => ({ c, v: E.val(c) }));
   const f = openForm(`<div class="f2"><h3>✨ Estimer mes budgets</h3><p class="hint" style="margin-top:0">${E.months ? `D'après tes dépenses des ${E.months > 1 ? E.months + " derniers mois" : "dernier mois"} (moyenne par catégorie).` : "Pas encore assez de dépenses : voici des montants de départ, à ajuster."}</p>
     <div class="bud-est">${rows.map((r, i) => `<label><input type="checkbox" data-be="${i}" checked><span>${esc(r.c.name)}</span><b class="num">${esc(eur(r.v, true))}</b><small>${r.c.budget ? "actuel " + esc(eur(r.c.budget, true)) : ""}</small></label>`).join("")}</div>
@@ -491,6 +495,13 @@ function applyData(d) {
   }
   if (!(d && d.settings) && !settings.currency) settings.currency = regionCurrency();   // nouveau compte : devise de la région
   catLangSync(); catColorsSync(); applyCurrency();
+  // Anciens comptes : budgets jamais modifiés (exactement les montants proposés autrefois) → remis à 0, plus aucune somme par défaut
+  if (!settings.bud0 && Array.isArray(settings.cats)) {
+    const OLD = { logement: 900, energie: 120, telecom: 60, assurances: 80, credits: 0, courses: 450, transport: 150, sante: 40, enfants: 100, loisirs: 120, shopping: 80, maison: 50, impots: 150, cadeaux: 30, divers: 50 };
+    const def = settings.cats.filter(c => c.id in OLD);
+    if (def.length && def.every(c => (Number(c.budget) || 0) === OLD[c.id]) && def.some(c => c.budget)) for (const c of def) c.budget = 0;
+    settings.bud0 = 1;
+  }
   // Premier lancement : version simple ; un compte qui a déjà des données garde la version complète qu'il connaissait
   if (!settings.mode) {
     let m = ""; try { m = localStorage.getItem("bourselle-mode") || ""; } catch (e) {}

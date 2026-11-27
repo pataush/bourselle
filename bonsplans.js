@@ -489,7 +489,7 @@ function offRecommend() {
 function bonsNavSync() {
   const b = document.querySelector('nav.tabs [data-tab="bons"]'); if (!b) return;
   let n; if (offLoaded) { n = offAvail(); try { localStorage.setItem("bourselle-bons-n", String(n)); } catch (e) {} } else { try { n = Number(localStorage.getItem("bourselle-bons-n")) || 0; } catch (e) { n = 0; } }
-  b.hidden = !(n > 0 || OFF_ADMIN || (typeof tab !== "undefined" && tab === "bons"));
+  b.hidden = false;   // l'onglet Bons plans est toujours là, même vide (il explique alors comment en avoir)
 }
 // Dans « Entre proches » : juste un petit rappel vers l'onglet Bons plans
 function offTeaserHTML() {
