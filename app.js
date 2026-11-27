@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "148";
+const APP_VERSION = "149";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -285,10 +285,11 @@ function showProfileMenu() {
     folder: I('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'), msg: I('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'),
     pal: I('<circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2a10 10 0 0 0 0 20c1.1 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1.1.9-2 2-2h2.4A5.6 5.6 0 0 0 22 10c0-4.4-4.5-8-10-8z"/>'),
     img: I('<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/>'),
+    bank: I('<path d="M3 10l9-6 9 6"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18"/>'),
     gear: I('<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>'),
     qr: I('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v7h-7"/>'),
     copy: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>' };
-  const sq = (ic, col) => `<span class="pmx-sq" style="background:color-mix(in srgb, ${col} 15%, transparent);color:${col}" aria-hidden="true">${IC[ic]}</span>`;
+  const sq = (ic, col) => `<span class="pmx-sq" style="background:color-mix(in srgb, ${col} 15%, transparent);color:${col}" aria-hidden="true">${IC[ic] || ""}</span>`;
   const sw = (id, ic, col, label, on, sub) => `<button type="button" class="pmx-r" id="${id}" role="switch" aria-checked="${on}">${sq(ic, col)}<b>${esc(label)}${sub ? `<small>${esc(sub)}</small>` : ""}</b><span class="pmx-sw" aria-hidden="true"></span></button>`;
   const go = (id, ic, col, label, val) => `<button type="button" class="pmx-r" id="${id}">${sq(ic, col)}<b>${esc(label)}</b>${val ? `<span class="pmx-v">${esc(val)}</span>` : ""}<span class="pmx-chev" aria-hidden="true">›</span></button>`;
   const nC = (settings.contacts || []).length;
@@ -308,7 +309,7 @@ function showProfileMenu() {
     </div>
     <div class="pmx-cap">Mon compte</div>
     <div class="pmx-sec">
-      ${go("pmImport", "bank", "#1d5f86", "Importer un relevé bancaire", "CSV, OFX ou PDF de ta banque")}
+      ${go("pmImport", "bank", "#1d5f86", "Importer un relevé", "CSV, OFX, PDF")}
       ${soc ? go("pmContacts", "user", "#1f6b4b", "Mes contacts", String(nC)) : ""}
       ${soc ? go("pmPay", "card", "#0070ba", "Me faire payer", "IBAN, PayPal…") : ""}
       ${go("pmLang", "globe", "#6b5bd6", window.LANG === "en" ? "Language" : "Langue", window.LANG === "en" ? "English" : "Français")}
