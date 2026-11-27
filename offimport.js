@@ -66,3 +66,17 @@ function offImportOpen() {
     else { closeForm(); toast(`${ok} offre${ok > 1 ? "s" : ""} publiée${ok > 1 ? "s" : ""} ✓`); setTimeout(offAdminOpen, 250); }
   };
 }
+// Lien « …/#oi=<liste> » : ouvre l'import déjà rempli (pour le propriétaire, une fois connecté)
+{
+  const m = /[#&]oi=([^&]+)/.exec(location.hash);
+  if (m) { try { sessionStorage.setItem("bourselle-oi", decodeURIComponent(m[1])); } catch (e) {} history.replaceState(null, "", location.pathname + location.search); }
+  let tries = 0;
+  const tick = setInterval(() => {
+    let txt = ""; try { txt = sessionStorage.getItem("bourselle-oi") || ""; } catch (e) {}
+    if (!txt || ++tries > 120) return clearInterval(tick);
+    if (typeof offLoaded === "undefined" || !offLoaded || typeof store === "undefined" || !store) { if (typeof offRefresh === "function" && store && !offRefresh.busy) { offRefresh.busy = true; offRefresh(false).finally(() => { offRefresh.busy = false; }); } return; }
+    clearInterval(tick); try { sessionStorage.removeItem("bourselle-oi"); } catch (e) {}
+    if (!OFF_ADMIN) { toast("L'import d'offres est réservé au propriétaire de Bourselle"); return; }
+    switchTab("bons"); setTimeout(() => { offImportOpen(); const t = document.getElementById("oiText"); if (t) { t.value = txt; t.dispatchEvent(new Event("input")); } }, 400);
+  }, 1000);
+}
