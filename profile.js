@@ -2,11 +2,12 @@
  * Les cartes des réglages sont rangées en rubriques ; chacune se replie et se déroule d'un toucher (l'état est retenu).
  * « Mon compte » reste toujours ouvert. Les trois listes de choix sont réunies en une seule carte. */
 const PF_GROUPS = [
-  ["Argent et partage", ["Mes comptes", "Combien as-tu vraiment ?", "Me faire payer", "Mes contacts Bourselle", "Notifications en direct", "Bourselle Plus", "Outils"]],
-  ["Budget", ["Budget mensuel par catégorie", "Opérations automatiques", "Importer un relevé bancaire", "Listes de choix", "Rappel des garanties"]],
-  ["Application", ["Verrouillage et clé d'accès", "Apparence", "Langue et devise", "Version de l'app", "Installer sur ton téléphone"]],
-  ["Mes données", ["Exporter mes données"]],
-  ["Bourselle", ["À propos"]],
+  ["Paiements et contacts", ["Me faire payer", "Mes contacts Bourselle", "Verrouillage et clé d'accès", "Mes comptes", "Bourselle Plus"]],
+  ["Préférences", ["Apparence", "Langue et devise", "Notifications en direct", "Rappel des garanties"]],
+  ["Mon budget", ["Combien as-tu vraiment ?", "Budget mensuel par catégorie", "Listes de choix", "Opérations automatiques", "Importer un relevé bancaire"]],
+  ["Données et app", ["Exporter mes données", "Installer sur ton téléphone", "Version de l'app", "Outils"]],
+  ["Aide", ["Une suggestion, un problème ?", "À propos"]],
+  ["", ["Recommencer à zéro"]],
 ];
 const PF_KEY = "bourselle-profil-ouvert";
 const pfOpen = () => { try { return new Set(JSON.parse(localStorage.getItem(PF_KEY) || "[]")); } catch (e) { return new Set(); } };
@@ -34,16 +35,21 @@ function pfOrganize() {
   let anchor = first;
   const place = el => { anchor.after(el); anchor = el; };
   const used = new Set([first]);
+  // Chaque rubrique = un bloc arrondi de lignes (comme le menu de la photo) ; une ligne se déroule d'un toucher
+  const grps = [];
   for (const [label, titles] of PF_GROUPS) {
     const items = titles.map(t => byTitle.get(t)).filter(Boolean);
     if (!items.length) continue;
-    const h = document.createElement("div"); h.className = "pf-sec"; h.textContent = label; place(h);
-    for (const c of items) { place(c); used.add(c); pfFold(c, open); }
+    if (label) { const h = document.createElement("div"); h.className = "pf-sec"; h.textContent = label; place(h); }
+    const g = document.createElement("div"); g.className = "pf-grp"; place(g); grps.push(g);
+    for (const c of items) { g.appendChild(c); used.add(c); pfFold(c, open); }
   }
-  // Cartes non prévues (ajoutées plus tard) : à la fin, repliables aussi
-  for (const c of cards) if (!used.has(c) && c.isConnected && c !== first && !lists.includes(c)) { v.appendChild(c); pfFold(c, open); }
-  // « À propos » toujours tout en bas
-  const ab = byTitle.get("À propos"); if (ab) { const h = ab.previousElementSibling; if (h && h.classList.contains("pf-sec")) v.appendChild(h); v.appendChild(ab); }
+  // Cartes non prévues (ajoutées plus tard) : avant l'aide, repliables aussi
+  const extra = cards.filter(c => !used.has(c) && c.isConnected && c !== first && !lists.includes(c));
+  if (extra.length) { const g = document.createElement("div"); g.className = "pf-grp"; const aide = [...v.querySelectorAll(".pf-sec")].find(h => h.textContent === "Aide");
+    if (aide) aide.before(g); else v.appendChild(g); for (const c of extra) { g.appendChild(c); pfFold(c, open); } }
+  // Ce qui n'est pas une carte (anciens titres de rubrique…) et reste entre les blocs : retiré
+  [...v.children].forEach(el => { if (el.classList.contains("pf-sec") || el.classList.contains("pf-grp") || el === first || el.classList.contains("banner")) return; if (!el.classList.contains("card")) el.remove(); });
 }
 function pfFold(card, open) {
   if (card.classList.contains("pf-card")) return;
