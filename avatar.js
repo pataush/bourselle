@@ -27,7 +27,7 @@ function avChar(o) {
   <circle cx="${50 - F[0]}" cy="50" r="4.5" fill="${o.skin}"/><circle cx="${50 + F[0]}" cy="50" r="4.5" fill="${o.skin}"/>
   <ellipse cx="50" cy="48" rx="${F[0]}" ry="${F[1]}" fill="${o.skin}"/>
   ${o.beard ? `<path d="M${50 - F[0] + 1} 50 Q${50 - F[0] + 3} ${48 + F[1] + 5} 50 ${48 + F[1] + 4} Q${50 + F[0] - 3} ${48 + F[1] + 5} ${50 + F[0] - 1} 50 Q${50 + F[0] - 6} 64 50 63 Q${50 - F[0] + 6} 64 ${50 - F[0] + 1} 50z" fill="${o.hair}"/>` : ""}
-  <circle cx="42" cy="49" r="2.6" fill="#2a1f1a"/><circle cx="58" cy="49" r="2.6" fill="#2a1f1a"/>
+  <g class="av-eyes" style="animation-delay:-${(avUid * 1.7) % 5}s"><circle cx="42" cy="49" r="2.6" fill="#2a1f1a"/><circle cx="58" cy="49" r="2.6" fill="#2a1f1a"/></g>
   <path d="M38 42.5 Q42 40.5 46 42.5M54 42.5 Q58 40.5 62 42.5" stroke="${o.hair}" stroke-width="2" fill="none" stroke-linecap="round"/>
   <ellipse cx="37" cy="56" rx="3.5" ry="2" fill="#e88a8a" opacity=".35"/><ellipse cx="63" cy="56" rx="3.5" ry="2" fill="#e88a8a" opacity=".35"/>
   <path d="M${o.beard ? "45 59 Q50 62 55 59" : "44 58 Q50 64 56 58"}" stroke="#8a3b32" stroke-width="2.2" fill="${o.beard ? "none" : "#fff"}" stroke-linecap="round"/>
@@ -55,7 +55,7 @@ function avPaint(el) {
   else if (a && a.emo) { el.style.backgroundImage = "none"; el.style.backgroundColor = a.bg || ""; el.textContent = a.emo; }
   else { el.style.backgroundImage = ""; el.style.backgroundColor = ""; }
 }
-function avSet(v) { settings.avatar = v; saveSettings(); avPaint(document.getElementById("avatar")); }
+function avSet(v) { settings.avatar = v; saveSettings(); avPaint(document.getElementById("avatar")); avPush(); }
 function avResize(file) {
   return new Promise((res, rej) => {
     const img = new Image(), url = URL.createObjectURL(file);
@@ -122,4 +122,73 @@ function avPick(tab0) {
   };
   f.querySelectorAll("[data-abt]").forEach(b => b.onclick = () => { tab = b.dataset.abt; draw(); });
   draw();
+}
+
+// ---------- Les avatars des proches ----------
+// Mon avatar est envoyé au serveur (personnage, initiales ou petite photo) ; ceux des proches sont gardés ici 15 min.
+const AV_HEXC = v => typeof v === "string" && /^#[0-9a-f]{6}$/i.test(v) ? v : "#cccccc";
+function avSafe(a) {   // même contrôle que le serveur : rien d'autre que des couleurs et des choix connus
+  if (!a || typeof a !== "object") return null;
+  if (a.char) { const c = a.char; return { char: { bg: AV_HEXC(c.bg), skin: AV_HEXC(c.skin), hair: AV_HEXC(c.hair), shirt: AV_HEXC(c.shirt), hs: AV_HS.some(h => h[0] === c.hs) ? c.hs : "court", face: ["oval", "rond", "long"].includes(c.face) ? c.face : "oval", glasses: !!c.glasses, beard: !!c.beard } }; }
+  if (a.ini) { const c = a.ini; return { ini: { t: String(c.t || "?").slice(0, 8), pat: AV_PAT[c.pat] ? c.pat : "points", bg: AV_HEXC(c.bg), fg: AV_HEXC(c.fg), ink: AV_HEXC(c.ink) } }; }
+  if (typeof a.img === "string" && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(a.img)) return { img: a.img };
+  return null;
+}
+let AV_CACHE = (() => { try { return JSON.parse(localStorage.getItem("bourselle-avs") || "{}"); } catch (e) { return {}; } })();
+const avSaveCache = () => { try { localStorage.setItem("bourselle-avs", JSON.stringify(AV_CACHE)); } catch (e) {} };
+let avBusy = false;
+async function avFetch(tags) {
+  if (avBusy || !(typeof socOn === "function" && socOn())) return;
+  const now = Date.now(), need = [...new Set(tags)].filter(t => t && t !== (typeof SOC !== "undefined" && SOC.tag) && (!AV_CACHE[t] || now - AV_CACHE[t].at > 15 * 60e3)).slice(0, 40);
+  if (!need.length) return;
+  avBusy = true;
+  try { const j = await socApi("/avatars?t=" + encodeURIComponent(need.join(","))); for (const t of need) AV_CACHE[t] = { av: avSafe((j.avatars || {})[t]), at: now }; avSaveCache(); avHydrate(true); }
+  catch (e) { for (const t of need) AV_CACHE[t] = { av: (AV_CACHE[t] || {}).av || null, at: now - 14 * 60e3 }; }   // réessai dans une minute
+  finally { avBusy = false; }
+}
+async function avPush() {
+  if (!(typeof socOn === "function" && socOn())) return;
+  const a = settings.avatar && (settings.avatar.char || settings.avatar.ini || settings.avatar.img) ? settings.avatar : null, sig = JSON.stringify(a);
+  try { if (localStorage.getItem("bourselle-av-sent") === sig) return; } catch (e) {}
+  try { await socApi("/me/avatar", { method: "POST", body: JSON.stringify({ av: a }) }); localStorage.setItem("bourselle-av-sent", sig); } catch (e) {}
+}
+// Remplace les pastilles à initiale des proches par leur avatar (et lance les petites animations)
+function avHydrate(force) {
+  const els = document.querySelectorAll("[data-avtag]"), miss = [];
+  els.forEach(el => {
+    const t = el.dataset.avtag; if (!t) return;
+    const c = AV_CACHE[t]; if (!c) { miss.push(t); return; }
+    if (Date.now() - c.at > 15 * 60e3) miss.push(t);
+    if (!c.av || (el.dataset.avdone === "1" && !force)) return;
+    const svg = avSvg(c.av);
+    [...el.childNodes].forEach(n => { if (n.nodeType === 3 || (n.tagName === "svg") || (n.classList && n.classList.contains("avb"))) n.remove(); });   // garde l'étoile et la pastille « non lu »
+    if (svg) { el.insertAdjacentHTML("afterbegin", svg); el.classList.add("av-svg"); }
+    else if (c.av.img) { el.style.backgroundImage = `url("${c.av.img}")`; el.style.backgroundSize = "cover"; el.style.backgroundPosition = "center"; el.classList.add("av-img"); }
+    el.classList.add("av-in");
+    if (el.dataset.avwave === "1" && el.dataset.avdone !== "1") { el.classList.add("av-wave"); el.insertAdjacentHTML("beforeend", `<i class="av-hand" aria-hidden="true">👋</i>`); setTimeout(() => { el.classList.remove("av-wave"); const h = el.querySelector(".av-hand"); if (h) h.remove(); }, 2200); }
+    el.dataset.avdone = "1";
+  });
+  // Dans une discussion : un petit avatar à côté du premier message de chaque série
+  document.querySelectorAll(".dm-box").forEach(box => {
+    let prev = "";
+    box.querySelectorAll(".dm-m").forEach(m => {
+      const t = m.dataset.from || "", mine = m.classList.contains("me");
+      if (!mine && t && !t.startsWith("g:") && t !== "sys") {
+        const c = AV_CACHE[t]; if (!c) miss.push(t);
+        if (c && c.av && t !== prev && !m.querySelector(".dm-pav")) {
+          const svg = avSvg(c.av); m.classList.add("has-pav");
+          m.insertAdjacentHTML("afterbegin", svg ? `<span class="dm-pav av-svg">${svg}</span>` : `<span class="dm-pav av-img" style="background-image:url('${c.av.img}')"></span>`);
+        } else if (c && c.av && t === prev) m.classList.add("has-pav");
+      }
+      prev = mine ? "" : t;
+    });
+  });
+  if (miss.length) avFetch(miss);
+}
+// Surveille l'écran : dès qu'une pastille de proche apparaît, on y met son avatar
+{
+  let q = 0;
+  const run = () => { q = 0; try { avHydrate(); } catch (e) {} };
+  new MutationObserver(() => { if (!q) q = requestAnimationFrame(run); }).observe(document.body, { childList: true, subtree: true });
+  setTimeout(() => { try { avPush(); } catch (e) {} }, 4000);
 }

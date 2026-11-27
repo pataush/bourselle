@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "122";
+const APP_VERSION = "123";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -2506,7 +2506,7 @@ function renderPartage() {
       html += `<div class="card ep-gr" data-open="${esc(g.id)}" role="button" tabindex="0"><div class="act-top"><span class="act-emo">${esc(g.emoji || "👥")}</span><span class="act-tt"><b>${esc(g.name)}${gForeign(g) ? ` <em class="ep-tag">${esc(curSymOf(gCur(g)))}</em>` : ""}</b><small>${g.members.length} pers. · ${n} dépense${n > 1 ? "s" : ""}${g.shared && g.owner && typeof SOC !== "undefined" && g.owner !== SOC.tag ? ` · par @${esc(g.owner)}` : ""}</small></span>
         <span class="ep-pill ${b > 0.004 ? "good" : b < -0.004 ? "bad" : ""}">${b > 0.004 ? "On te doit " + esc(gMoney(g, b, true)) : b < -0.004 ? "Tu dois " + esc(gMoney(g, -b, true)) : "Équilibré"}</span></div>
         ${lastTxt ? `<div class="ep-last">🧾 <span>${esc(lastTxt)}</span><small>${esc(agoText(last.created || last.updated || Date.now()))}</small></div>` : ""}
-        <div class="ep-foot"><span class="ep-avs">${g.members.slice(0, 6).map(m => `<span style="background:${favColor(m.tag ? "@" + m.tag : "n:" + String(m.name || "").toLowerCase())}">${esc(String(m.name || "?").charAt(0).toUpperCase())}</span>`).join("")}</span>
+        <div class="ep-foot"><span class="ep-avs">${g.members.slice(0, 6).map(m => `<span${m.tag ? ` data-avtag="${esc(m.tag)}"` : ""} style="background:${favColor(m.tag ? "@" + m.tag : "n:" + String(m.name || "").toLowerCase())}">${esc(String(m.name || "?").charAt(0).toUpperCase())}</span>`).join("")}</span>
           ${owers.length ? `<button type="button" class="btn ep-b" data-grem="${esc(g.id)}">🔔 Relancer</button>` : b < -0.004 ? `<button type="button" class="btn ep-b" data-gpay2="${esc(g.id)}">💸 Régler</button>` : ""}<button type="button" class="btn primary ep-b" data-gexp="${esc(g.id)}">＋ Dépense</button></div></div>`;
     }
     html += `<button type="button" class="ep-feedlink" id="epFeed"><span>📰 Le fil et les défis d'épargne</span><i>›</i></button>`;

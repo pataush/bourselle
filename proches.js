@@ -82,7 +82,7 @@ function favRowHTML() {
   return `<div class="hub-sec"><span>Mes proches</span>${list.length > 5 ? `<button type="button" class="linkbtn" id="favAll">Tout voir</button>` : ""}</div>
     <div class="fav-row bub">${list.map(p => { const net = Math.round((p.owe - p.due) * 100) / 100, cls = net > 0.004 ? "good" : net < -0.004 ? "bad" : "";
       const un = p.tag && typeof dmUnread === "function" && dmUnread(p.tag);
-      return `<button type="button" class="fav" data-fav="${esc(p.key)}"><span class="fav-ring ${cls}"><span class="fav-av" style="background:${favColor(p.key)}">${esc(favFirst(p.name).charAt(0))}${p.pinned ? `<i>⭐</i>` : ""}${un ? `<em class="fav-un" aria-label="${un} message(s) non lu(s)"></em>` : ""}</span></span><b>${esc(favFirst(p.name))}</b><small class="${cls}">${cls ? `${net > 0 ? "+" : "−"}${esc(eur(Math.abs(net), true))}` : "quitte"}</small></button>`; }).join("")}
+      return `<button type="button" class="fav" data-fav="${esc(p.key)}"><span class="fav-ring ${cls}"><span class="fav-av" data-avtag="${esc(p.tag || "")}" style="background:${favColor(p.key)}">${esc(favFirst(p.name).charAt(0))}${p.pinned ? `<i>⭐</i>` : ""}${un ? `<em class="fav-un" aria-label="${un} message(s) non lu(s)"></em>` : ""}</span></span><b>${esc(favFirst(p.name))}</b><small class="${cls}">${cls ? `${net > 0 ? "+" : "−"}${esc(eur(Math.abs(net), true))}` : "quitte"}</small></button>`; }).join("")}
       ${typeof socOn === "function" && socOn() ? `<button type="button" class="fav fav-add" id="favAdd"><span class="fav-ring"><span class="fav-av">+</span></span><b>Ajouter</b><small>@tag, QR</small></button>` : ""}</div>`;
 }
 function favBind(root) {
@@ -94,7 +94,7 @@ function favBind(root) {
 function favAllOpen() {
   const list = prochesList();
   const f = openForm(`<div class="f2"><h3>Mes proches (${list.length})</h3><div class="pm-list">${list.map(p => { const st = favStatus(p);
-    return `<button type="button" class="pm-row" data-fa2="${esc(p.key)}"><span class="fav-av" style="background:${favColor(p.key)};width:38px;height:38px;font-size:1rem">${esc(favFirst(p.name).charAt(0))}</span><span class="pm-t"><b>${esc(p.name)}</b>${p.tag ? `<small>@${esc(p.tag)}</small>` : ""}</span><span class="fav-st ${st.cls}" style="font-size:.8rem;font-weight:600">${esc(st.txt)}</span></button>`; }).join("")}</div></div>`, () => true);
+    return `<button type="button" class="pm-row" data-fa2="${esc(p.key)}"><span class="fav-av" data-avtag="${esc(p.tag || "")}" style="background:${favColor(p.key)};width:38px;height:38px;font-size:1rem">${esc(favFirst(p.name).charAt(0))}</span><span class="pm-t"><b>${esc(p.name)}</b>${p.tag ? `<small>@${esc(p.tag)}</small>` : ""}</span><span class="fav-st ${st.cls}" style="font-size:.8rem;font-weight:600">${esc(st.txt)}</span></button>`; }).join("")}</div></div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
   f.querySelectorAll("[data-fa2]").forEach(b => b.onclick = () => { closeForm(); setTimeout(() => favOpen(b.dataset.fa2), 220); });
 }
@@ -120,7 +120,7 @@ function favOpen(key) {
   const p = prochesList().find(x => x.key === key); if (!p) return;
   const st = favStatus(p), money = (v, c) => typeof fmtCur === "function" ? fmtCur(v, c || baseCurrency()) : eur(v);
   const groupsIn = [...new Set(p.groups)].filter(g => groups[g]);
-  const f = openForm(`<div class="f2 fav-sheet"><div class="fav-head"><span class="fav-av big" style="background:${favColor(p.key)}">${esc(favFirst(p.name).charAt(0))}</span>
+  const f = openForm(`<div class="f2 fav-sheet"><div class="fav-head"><span class="fav-av big" data-avtag="${esc(p.tag || "")}" style="background:${favColor(p.key)}">${esc(favFirst(p.name).charAt(0))}</span>
       <div><h3 style="margin:0">${esc(p.name)}</h3><small class="hint">${p.tag ? "@" + esc(p.tag) : "sans l'appli"}</small><div class="fav-st ${st.cls}">${esc(st.txt)}</div></div></div>
     <div class="fav-acts">
       <button type="button" class="fav-act" data-fa="pay" ${p.due > 0.004 ? "" : "disabled"}><span>💸</span>Payer</button>

@@ -55,7 +55,7 @@ function ensThreadsHTML() {
   const row = (t, isArch) => {
     const act = t.act && typeof ACTS !== "undefined" ? ACTS.find(a => a.id === t.act) : null;
     const av = t.gid ? `<span class="ep-av g" style="background:${act ? "#c9a24a" : "#1f6b4b"}">${esc(act ? act.emoji || "📅" : "👥")}</span>`
-      : `<span class="ep-av" style="background:${favColor("@" + t.tag)}">${esc(favFirst(chatTitle(t)).charAt(0).toUpperCase())}</span>`;
+      : `<span class="ep-av" data-avtag="${esc(t.tag)}" style="background:${favColor("@" + t.tag)}">${esc(favFirst(chatTitle(t)).charAt(0).toUpperCase())}</span>`;
     const other = t.unread && !t.last.mine && t.last.from !== "sys";
     const q = other ? `<span class="ep-q">${t.last.kind === "dates" ? `<i data-open="1">📅 Voter</i>` : t.last.kind === "place" ? `<i class="p" data-qr="👍 Ça me va !">👍 Ça me va</i><i data-open="1">Répondre</i>` : `<i class="p" data-qr="👍 Partant !">👍 Partant</i><i data-open="1">Répondre</i>`}</span>` : "";
     const k = esc(chatKey(t));
@@ -216,7 +216,7 @@ async function chatOpen(ref) {
   const th = DMS.find(t => chatKey(t) === chatKey(ref)); if (th) th.unread = 0;
   const group = !!ref.gid, others = group ? d.members.filter(m => !m.me) : [];
   const name = group ? (d.title || others.map(m => favFirst(m.name || m.tag)).join(", ")) : d.peer.name || ref.nameHint || "@" + ref.tag;
-  const av = group ? `<span class="fav-av grp">👥</span>` : `<span class="fav-av" style="background:${favColor("@" + ref.tag)}">${esc(favFirst(name).charAt(0))}</span>`;
+  const av = group ? `<span class="fav-av grp">👥</span>` : `<span class="fav-av" data-avtag="${esc(ref.tag)}" data-avwave="1" style="background:${favColor("@" + ref.tag)}">${esc(favFirst(name).charAt(0))}</span>`;
   const f = openForm(`<div class="f2 dm-sheet" data-chat="${esc(chatKey(ref))}"><div class="dm-head"><button type="button" class="dm-back" id="dmBack" aria-label="Retour">‹</button>${av}<div class="dm-hd"><h3 style="margin:0">${esc(name)}</h3><small class="hint">${group ? `${d.members.length} personnes` : "@" + esc(ref.tag)}</small></div>
       <button type="button" class="btn dm-add" id="dmAdd" title="Ajouter des personnes">👥 +</button></div>
     <div class="dm-bar"><button type="button" class="btn" id="dmInvite">🔗 Inviter (WhatsApp, SMS)</button>${group ? `<button type="button" class="btn${(d.rsvp || {})[SOC.tag] === "yes" ? " primary" : ""}" id="dmGo">${(d.rsvp || {})[SOC.tag] === "yes" ? "✓ J'y vais" : "J'y vais ?"}<small>${Object.values(d.rsvp || {}).filter(v => v === "yes").length || ""}</small></button>` : ""}</div>
@@ -301,13 +301,13 @@ function chatMsgHTML(m, ctx) {
   if (m.from === "sys") return `<div class="dm-sys">${esc(m.text)}</div>`;
   const nameOf = tg => { if (tg === SOC.tag) return "Toi"; if (String(tg).startsWith("g:")) { const gx = (ctx.d.guests || []).find(y => y.id === tg); return (gx ? gx.name : m.name || "Invité") + " (sans l'appli)"; } if (!ctx.group) return favFirst(ctx.name); const x = ctx.d.members.find(y => y.tag === tg); return favFirst(x ? x.name || x.tag : m.name || tg); };
   const who = m.mine ? "Toi" : nameOf(m.from), whoTag = !m.mine && ctx.group ? `<small class="dm-who">${esc(who)}</small>` : "";
-  if (m.del) return `<div class="dm-m ${m.mine ? "me" : ""}"><div class="dm-b del">Message supprimé</div></div>`;
+  if (m.del) return `<div class="dm-m ${m.mine ? "me" : ""}" data-from="${esc(m.from || "")}"><div class="dm-b del">Message supprimé</div></div>`;
   if (m.kind === "idea") {
     const i = m.idea, v = m.votes || {}, mine = v[SOC.tag];
     const people = ctx.group ? ctx.d.members.map(x => x.tag) : [SOC.tag, ctx.ref.tag];
     const yes = Object.entries(v).filter(([, x]) => x === "yes").map(([t]) => t), can = mine === "yes" && yes.length >= 2;
     const waiting = people.filter(t => !v[t]);
-    return `<div class="dm-m ${m.mine ? "me" : ""}">${whoTag}<div class="dm-card"><small>💡 ${m.mine ? "Tu proposes" : `${esc(who)} propose`} de financer ensemble</small><b>${esc(i.title)}</b>
+    return `<div class="dm-m ${m.mine ? "me" : ""}" data-from="${esc(m.from || "")}">${whoTag}<div class="dm-card"><small>💡 ${m.mine ? "Tu proposes" : `${esc(who)} propose`} de financer ensemble</small><b>${esc(i.title)}</b>
       <span class="hint">${[i.budget ? ensMoney(i.budget, i.cur) : "", i.when ? `le ${frDate(i.when)}` : ""].filter(Boolean).map(esc).join(" · ")}</span>${i.note ? `<p>${linkify(i.note)}</p>` : ""}
       <div class="dm-votes">${people.map(t => `<span>${esc(nameOf(t))} ${v[t] === "yes" ? "👍" : v[t] === "no" ? "✋" : "…"}</span>`).join("")}</div>
       ${m.act ? `<button type="button" class="btn primary" data-dmact="${esc(m.act)}">Voir l'activité</button>`
@@ -318,19 +318,19 @@ function chatMsgHTML(m, ctx) {
   if (m.kind === "place") {
     const p = m.place, n = Object.keys(m.votes || {}).length, mine = !!(m.votes || {})[SOC.tag], o = p.offer && typeof BPLANS !== "undefined" ? BPLANS.find(x => x.id === p.offer) : null;
     const top = Math.max(0, ...ctx.d.msgs.filter(x => x.kind === "place").map(x => Object.keys(x.votes || {}).length));
-    return `<div class="dm-m ${m.mine ? "me" : ""}">${whoTag}<div class="dm-card dm-place${n && n === top ? " best" : ""}"><small>📍 ${m.mine ? "Tu proposes" : `${esc(who)} propose`}</small><b>${esc(p.name)}</b>${p.addr ? `<span class="hint">${esc(p.addr)}</span>` : ""}
+    return `<div class="dm-m ${m.mine ? "me" : ""}" data-from="${esc(m.from || "")}">${whoTag}<div class="dm-card dm-place${n && n === top ? " best" : ""}"><small>📍 ${m.mine ? "Tu proposes" : `${esc(who)} propose`}</small><b>${esc(p.name)}</b>${p.addr ? `<span class="hint">${esc(p.addr)}</span>` : ""}
       ${o ? `<button type="button" class="off-teaser" data-dmoffer="${esc(o.id)}">🎁 <span><b>${esc(o.title)}</b> avec Bourselle</span><span class="pm-chev">›</span></button>` : ""}
       <div class="dm-cta"><button type="button" class="btn${mine ? " primary" : ""}" data-pvote="${esc(m.id)}">👍 ${n}</button><a class="btn" href="${esc(mapsUrl(p))}" target="_blank" rel="noopener">🗺️ Maps</a><button type="button" class="btn" data-pproj="${esc(m.id)}">💰 Projet</button></div></div><small class="dm-t">${esc(dmTime(m.at))}</small></div>`;
   }
   if (m.kind === "dates") {
     const D = m.dates, picks = m.picks || {}, myP = new Set(picks[SOC.tag] || []), cnt = D.opts.map((_, i) => Object.values(picks).filter(l => (l || []).includes(i)).length), best = Math.max(...cnt);
-    return `<div class="dm-m ${m.mine ? "me" : ""}">${whoTag}<div class="dm-card dm-dates"><small>📅 ${m.mine ? "Tu proposes des dates" : `${esc(who)} propose des dates`}</small>${D.title ? `<b>${esc(D.title)}</b>` : ""}
+    return `<div class="dm-m ${m.mine ? "me" : ""}" data-from="${esc(m.from || "")}">${whoTag}<div class="dm-card dm-dates"><small>📅 ${m.mine ? "Tu proposes des dates" : `${esc(who)} propose des dates`}</small>${D.title ? `<b>${esc(D.title)}</b>` : ""}
       ${D.opts.map((x, i) => `<div class="dd-row${m.chosen === i ? " chosen" : cnt[i] && cnt[i] === best && m.chosen < 0 ? " best" : ""}"><button type="button" class="dd-ck" data-dpick="${esc(m.id)}" data-i="${i}" aria-pressed="${myP.has(i)}">${myP.has(i) ? "☑" : "☐"}</button><span>${esc(ddFmt(x))}${cnt[i] && cnt[i] === best && m.chosen < 0 ? " ⭐" : ""}</span><small>${cnt[i]} ✓</small>${m.mine && m.chosen < 0 ? `<button type="button" class="linkbtn" data-dchoose="${esc(m.id)}" data-i="${i}">Choisir</button>` : ""}</div>`).join("")}
       ${m.chosen >= 0 ? `<div class="dm-cta"><a class="btn primary" href="${esc(gcalUrl(D.title || ctx.name, D.opts[m.chosen], ctx))}" target="_blank" rel="noopener">🗓️ Google Agenda</a><button type="button" class="btn" data-dics="${esc(m.id)}">📲 Mon agenda</button></div><small class="hint">Rappels la veille et 2 h avant.</small>` : ""}</div><small class="dm-t">${esc(dmTime(m.at))}</small></div>`;
   }
-  if (m.kind === "offer") { const o = typeof BPLANS !== "undefined" ? BPLANS.find(x => x.id === m.offer) : null; return `<div class="dm-m ${m.mine ? "me" : ""}">${whoTag}<button type="button" class="dm-card dm-actlink" data-dmoffer="${esc(m.offer)}"><small>🎁 Bon plan</small><b>${esc(o ? `${o.emoji} ${o.partner}` : "Bon plan")}</b>${o ? `<span class="hint">${esc(o.title)}</span>` : ""}<span class="linkbtn">Voir ›</span></button><small class="dm-t">${esc(dmTime(m.at))}</small></div>`; }
-  if (m.kind === "act") { const a = ACTS.find(x => x.id === m.act); return `<div class="dm-m ${m.mine ? "me" : ""}">${whoTag}<button type="button" class="dm-card dm-actlink" data-dmact="${esc(m.act)}"><small>📅 Activité</small><b>${esc(a ? `${a.emoji} ${a.title}` : m.text || "Activité")}</b><span class="linkbtn">Ouvrir ›</span></button><small class="dm-t">${esc(dmTime(m.at))}</small></div>`; }
-  return `<div class="dm-m ${m.mine ? "me" : ""}">${whoTag}<div class="dm-b">${linkify(m.text || "")}</div><small class="dm-t">${esc(dmTime(m.at))}</small></div>`;
+  if (m.kind === "offer") { const o = typeof BPLANS !== "undefined" ? BPLANS.find(x => x.id === m.offer) : null; return `<div class="dm-m ${m.mine ? "me" : ""}" data-from="${esc(m.from || "")}">${whoTag}<button type="button" class="dm-card dm-actlink" data-dmoffer="${esc(m.offer)}"><small>🎁 Bon plan</small><b>${esc(o ? `${o.emoji} ${o.partner}` : "Bon plan")}</b>${o ? `<span class="hint">${esc(o.title)}</span>` : ""}<span class="linkbtn">Voir ›</span></button><small class="dm-t">${esc(dmTime(m.at))}</small></div>`; }
+  if (m.kind === "act") { const a = ACTS.find(x => x.id === m.act); return `<div class="dm-m ${m.mine ? "me" : ""}" data-from="${esc(m.from || "")}">${whoTag}<button type="button" class="dm-card dm-actlink" data-dmact="${esc(m.act)}"><small>📅 Activité</small><b>${esc(a ? `${a.emoji} ${a.title}` : m.text || "Activité")}</b><span class="linkbtn">Ouvrir ›</span></button><small class="dm-t">${esc(dmTime(m.at))}</small></div>`; }
+  return `<div class="dm-m ${m.mine ? "me" : ""}" data-from="${esc(m.from || "")}">${whoTag}<div class="dm-b">${linkify(m.text || "")}</div><small class="dm-t">${esc(dmTime(m.at))}</small></div>`;
 }
 function chatMsgBind(box, ctx, upd) {
   box.querySelectorAll("[data-dmvote]").forEach(b => b.onclick = async () => { try { await ctx.post({ action: "vote", mid: b.dataset.dmvote, v: b.dataset.v }); } catch (e) { toast(e.message); } });
