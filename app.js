@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "121";
+const APP_VERSION = "122";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -292,7 +292,7 @@ function showProfileMenu() {
   const go = (id, ic, col, label, val) => `<button type="button" class="pmx-r" id="${id}">${sq(ic, col)}<b>${esc(label)}</b>${val ? `<span class="pmx-v">${esc(val)}</span>` : ""}<span class="pmx-chev" aria-hidden="true">›</span></button>`;
   const nC = (settings.contacts || []).length;
   const f = openForm(`<div class="f2 pmx">
-    <div class="pmx-top"><button type="button" class="pmx-av" id="pmAv" aria-label="Changer ma photo">${esc((document.getElementById("avatar").dataset.init || "B"))}<span class="pmx-cam" aria-hidden="true">📷</span></button>
+    <div class="pmx-top"><button type="button" class="pmx-av" id="pmAv" aria-label="Changer mon avatar">${esc((document.getElementById("avatar").dataset.init || "B"))}<span class="pmx-cam" aria-hidden="true">📷</span></button>
       <b>${esc(u.name || "Mon compte")}</b><small>${esc(u.email || (local ? "Données gardées sur cet appareil" : ""))}${!local && store.label ? " · " + esc(store.label) : ""}${typeof isPlus === "function" && isPlus() ? " · Bourselle Plus" : ""}</small>
       ${soc && SOC.tag ? `<div class="pmx-tag"><button type="button" id="pmCopy" title="Toucher pour copier"><span class="num">@${esc(SOC.tag)}</span><small>${IC.copy} <span class="pm-copyhint">Copier</span></small></button><button type="button" id="pmQr" aria-label="Mon QR code">${IC.qr} QR code</button></div>` : ""}</div>
     ${typeof funBadges === "function" ? (() => { const B = funBadges(), on = B.filter(b => b.on); return `<button type="button" class="pmx-bdg" id="pmBdg"><span>${on.length ? on.map(b => b.ic).join("") : "🏅"}</span><small>${on.length} / ${B.length} badges ›</small></button>`; })() : ""}

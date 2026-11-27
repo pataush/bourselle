@@ -1411,3 +1411,22 @@ body[data-hbg] { background: linear-gradient(180deg, var(--hbg) 0, var(--hbg2, t
 .wg.rd .rd-ring { position: absolute; inset: 0; width: 100%; height: 100%; }
 .wg.rd > small { font-size: .76rem; font-weight: 600; color: var(--ink) !important; max-width: 100%; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 !important; }
 .wg-grid.edit .wg.rd .c .wg-x { top: -4px; left: -4px; } .wg-grid.edit .wg.rd .c .wg-sz { top: -4px; right: -4px; } .wg-grid.edit .wg.rd .c .wg-col { bottom: -4px; right: -4px; }
+/* ---------- Mon avatar : personnage, initiales, photo ---------- */
+.avb { display: block; width: 100%; height: 100%; }
+.av-svg { padding: 0 !important; overflow: hidden; background: none !important; font-size: 0 !important; }
+.av-svg svg { width: 100%; height: 100%; border-radius: 50%; }
+button.pmx-av.av-svg { overflow: visible; } button.pmx-av.av-svg > svg { border-radius: 50%; }
+.ab-tabs { display: flex; gap: 6px; margin: 0 0 12px; }
+.ab-tabs button { flex: 1; border: 0; padding: 10px; border-radius: 12px; background: var(--bg); font: inherit; font-weight: 600; font-size: .9rem; color: inherit; }
+.ab-tabs button[aria-selected="true"] { background: var(--green); color: #fff; }
+.ab-prev { width: 130px; height: 130px; margin: 4px auto 10px; border-radius: 50%; box-shadow: 0 0 0 4px var(--surface), 0 0 0 6px color-mix(in srgb, var(--green) 25%, transparent), 0 8px 20px rgba(0,0,0,.12); overflow: hidden; }
+.ab-img { display: block; width: 100%; height: 100%; background-size: cover; background-position: center; }
+.ab-cap { font-size: .72rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 12px 2px 6px; }
+.ab-row { display: flex; gap: 8px; overflow-x: auto; padding: 3px; scrollbar-width: none; } .ab-row::-webkit-scrollbar { display: none; }
+.ab-hs { flex: none; border: 2px solid transparent; background: var(--bg); border-radius: 14px; padding: 4px; width: 58px; height: 58px; }
+.ab-hs[aria-pressed="true"] { border-color: var(--green); }
+.ab-sw { flex: none; width: 36px; height: 36px; border-radius: 50%; border: 3px solid var(--surface); box-shadow: 0 0 0 1px var(--line); padding: 0; }
+.ab-sw[aria-pressed="true"] { box-shadow: 0 0 0 3px var(--green); }
+.ab-chip { flex: none; border: 0; border-radius: 999px; padding: 8px 14px; background: var(--bg); font: inherit; font-weight: 600; color: inherit; }
+.ab-chip[aria-pressed="true"] { background: var(--green); color: #fff; }
+#avatar.av-svg { overflow: visible; }
