@@ -1082,3 +1082,9 @@ i.badge { font-style: normal; background: var(--bad); color: #fff; border-radius
 .reset-card { border: 1.5px dashed var(--bad); } .reset-btns { display: grid; gap: 8px; }
 .reset-btns .btn.danger, .btn.danger { color: var(--bad); border-color: var(--bad); }
 .btn.primary.danger { background: var(--bad); color: #fff; border-color: var(--bad); }
+
+.pm-tag { gap: 10px; }
+.pm-tagbtn { flex: 1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; padding: 8px 10px; border: 1px dashed var(--line); border-radius: 12px; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.pm-tagbtn:active { background: var(--bg); } .pm-copyhint { width: 100%; color: var(--muted); font-size: .72rem; }
+.pm-qrbtn { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.pm-push { padding: 10px 0; border-bottom: 1px solid var(--line); }

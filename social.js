@@ -62,7 +62,7 @@ async function socRefresh() {
     try { await socPullGroups(); await socPushGroups(); } catch (e) {}
     socLoadPay(); socLoadReminders();
     if (!SOC.addChecked) { SOC.addChecked = true; socPendingAdd(); if (typeof reqTakeFromUrl === "function") reqTakeFromUrl(); }
-    socOpenPending(); pushResync(); if (typeof dealsRefresh === "function") dealsRefresh(); if (typeof projRefresh === "function") projRefresh(); if (typeof chalRefresh === "function") chalRefresh(); if (typeof ensRefresh === "function") ensRefresh(); if (typeof offRefresh === "function") offRefresh();
+    socOpenPending(); pushResync(); pushAsk(); if (typeof dealsRefresh === "function") dealsRefresh(); if (typeof projRefresh === "function") projRefresh(); if (typeof chalRefresh === "function") chalRefresh(); if (typeof ensRefresh === "function") ensRefresh(); if (typeof offRefresh === "function") offRefresh();
     { const paid = (SOC.out || []).flatMap(c => (c.payments || []).filter(p => p.pend && !socSeen.has("pd:" + p.id)).map(p => ({ c, p })));
       if (paid.length) {
         const { c, p } = paid[0], who = c.to ? "@" + c.to : c.guest || "Quelqu'un";
@@ -553,6 +553,21 @@ async function disablePush() {
   toast("Notifications désactivées"); render();
 }
 // À chaque connexion : l'abonnement de cet appareil est rattaché au compte connecté (et à la langue choisie)
+// À l'ouverture : si les notifications sont coupées, on propose de les activer (au plus tous les 3 jours)
+function pushAsk() {
+  if (pushOn() || !socOn() || !pushSupported() || Notification.permission === "denied" || (isIOS() && !isStandalone())) return;
+  let last = 0; try { last = Number(localStorage.getItem("bourselle-push-ask")) || 0; } catch (e) {}
+  if (Date.now() - last < 3 * 864e5 || pushAsk.done) return;
+  try { if (navigator.webdriver && !localStorage.getItem("bourselle-push-ask-test")) return; } catch (e) {}   // pas pendant les tests automatiques
+  pushAsk.done = true;
+  setTimeout(() => {
+    if (document.documentElement.classList.contains("locked") || document.querySelector("#sheet2Root.open") || pushOn()) { pushAsk.done = false; return; }
+    try { localStorage.setItem("bourselle-push-ask", String(Date.now())); } catch (e) {}
+    const f = openForm(`<div class="f2 push-ask"><div style="font-size:2.4rem;text-align:center">🔔</div><h3 style="text-align:center">Activer les notifications ?</h3>
+      <p style="margin:0;text-align:center">Pour savoir tout de suite quand un proche te paie, t'écrit, t'ajoute, ou quand un bon plan arrive près de chez toi.</p></div>`, () => { enablePush(); return true; });
+    f.querySelector("button[type=submit]").textContent = "Activer"; f.querySelector("#f2Cancel").textContent = "Plus tard";
+  }, 2500);
+}
 async function pushResync() {
   if (!pushOn() || !socOn() || !pushSupported() || SOC.pushSynced) return;
   SOC.pushSynced = true;

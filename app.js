@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "106";
+const APP_VERSION = "107";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -245,26 +245,30 @@ function showProfileMenu() {
   const f = openForm(`<div class="f2 pm">
     <div class="pm-head"><span class="avatar">${esc((document.getElementById("avatar").textContent || "B"))}</span>
       <div><b>${esc(u.name || "Mon compte")}</b><div class="hint">${esc(u.email || (local ? "Données gardées sur cet appareil" : ""))}</div><div class="hint">${local ? "" : esc(store.label || "")}${typeof isPlus === "function" && isPlus() ? " · Bourselle Plus" : ""}</div></div></div>
-    ${soc && SOC.tag ? `<div class="pm-tag"><span class="hint">Mon tag</span> <b class="num">@${esc(SOC.tag)}</b><span style="flex:1"></span><button type="button" class="linkbtn" id="pmCopy">Copier</button></div>` : ""}
     <div class="pm-segs">
       <div><span class="lbl">Apparence</span><div class="seg2" id="pmTheme"><button type="button" data-th="light" aria-pressed="${theme === "light"}">☀︎ Clair</button><button type="button" data-th="dark" aria-pressed="${theme === "dark"}">☾ Sombre</button></div></div>
       <div><span class="lbl">Version</span><div class="seg2" id="pmMode"><button type="button" data-m="simple" aria-pressed="${isSimple()}">Simple</button><button type="button" data-m="complete" aria-pressed="${!isSimple()}">Complète</button></div></div></div>
+    ${soc && SOC.tag ? `<div class="pm-tag"><button type="button" class="pm-tagbtn" id="pmCopy" title="Toucher pour copier"><span class="hint">Mon tag</span> <b class="num">@${esc(SOC.tag)}</b><small class="pm-copyhint">Toucher pour copier</small></button>
+      <button type="button" class="btn pm-qrbtn" id="pmQr" aria-label="Mon QR code"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v7h-7"/></svg> QR code</button></div>` : ""}
+    ${soc ? `<div class="pm-push"><span class="lbl">Notifications</span><div class="seg2" id="pmPushSeg"><button type="button" data-p="on" aria-pressed="${typeof pushOn === "function" && pushOn()}">🔔 Activées</button><button type="button" data-p="off" aria-pressed="${!(typeof pushOn === "function" && pushOn())}">🔕 Désactivées</button></div></div>` : ""}
     <div class="pm-list">
-      ${soc && SOC.tag ? row("pmQr", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v7h-7"/></svg>', "Mon QR code", "Pour qu'on t'ajoute en contact") : ""}
       ${soc ? row("pmContacts", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.6.9 2.6 2.6 3 5.2"/></svg>', "Mes contacts", `${(settings.contacts || []).length} contact${(settings.contacts || []).length > 1 ? "s" : ""}`) : ""}
-      ${soc ? row("pmPush", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/><circle cx="19" cy="5" r="2.5" fill="currentColor"/></svg>', "Notifications en direct", typeof pushOn === "function" && pushOn() ? "Activées sur cet appareil" : "Désactivées") : ""}
       ${soc ? row("pmPay", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>', "Me faire payer", "IBAN, PayPal.me, lien de paiement") : ""}
-      ${typeof showPlus === "function" && !(typeof PLUS_HIDDEN !== "undefined" && PLUS_HIDDEN && !isPlus()) ? row("pmPlus", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z"/></svg>', "Bourselle Plus", typeof isPlus === "function" && isPlus() ? "Activé" : "Découvrir l'offre") : ""}
-      ${row("pmFb", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>', "Une idée, un souci ?", "Écrire à l'équipe Bourselle")}
       ${row("pmLang", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9s1.3-6.3 3.8-9z"/></svg>', window.LANG === "en" ? "Français" : "English", window.LANG === "en" ? "Langue : anglais" : "Langue : français")}
       ${!local && store.folderUrl && store.folderUrl() ? row("pmFolder", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>', "Ouvrir mon dossier", store.label) : ""}
+      ${row("pmFb", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>', "Une suggestion, un problème ?", "Écrire à l'équipe Bourselle")}
       ${row("pmSettings", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>', "Paramètres", "Mon compte, budget, catégories, devise, exports")}
     </div></div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
   const on = (id, fn) => { const b = f.querySelector("#" + id); if (b) b.onclick = fn; };
-  on("pmPush", () => { closeForm(); setTimeout(() => (pushOn() ? disablePush() : enablePush()), 250); });
+  f.querySelectorAll("#pmPushSeg [data-p]").forEach(b => b.onclick = async () => {
+    const want = b.dataset.p === "on"; if (want === pushOn()) return;
+    await (want ? enablePush() : disablePush());
+    f.querySelectorAll("#pmPushSeg [data-p]").forEach(x => x.setAttribute("aria-pressed", String((x.dataset.p === "on") === pushOn())));
+  });
   on("pmPay", () => { closeForm(); setTimeout(editPay, 250); });
-  on("pmCopy", () => { navigator.clipboard?.writeText("@" + SOC.tag).then(() => toast("Tag copié")).catch(() => toast("@" + SOC.tag)); });
+  on("pmCopy", () => { const done = () => { toast(`@${SOC.tag} copié`); const h = f.querySelector(".pm-copyhint"); if (h) { h.textContent = "✓ Copié"; setTimeout(() => { h.textContent = "Toucher pour copier"; }, 1800); } };
+    try { navigator.clipboard.writeText("@" + SOC.tag).then(done).catch(() => toast("@" + SOC.tag)); } catch (e) { toast("@" + SOC.tag); } });
   on("pmQr", () => { closeForm(); socShowQr(); });
   on("pmContacts", () => { closeForm(); switchTab("reglages"); setTimeout(() => document.getElementById("socSearch")?.scrollIntoView({ block: "center" }), 80); });
   on("pmPlus", () => { closeForm(); showPlus(); });

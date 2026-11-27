@@ -1,8 +1,8 @@
 // Écrire à l'équipe Bourselle : une idée, un souci. Le message arrive au propriétaire (notification + liste dans ses Paramètres).
-const FB_KINDS = [["idee", "💡 Une idée"], ["souci", "🐞 Un souci"], ["autre", "💬 Autre"]];
+const FB_KINDS = [["idee", "💡 Une suggestion"], ["souci", "🐞 Un problème"], ["autre", "💬 Autre"]];
 let FB_OWNER = null;   // null : pas encore vérifié
 function fbCardHTML() {
-  return `<div class="card fb-card"><h2>Une idée, un souci ?</h2>
+  return `<div class="card fb-card"><h2>Une suggestion, un problème ?</h2>
     <p class="hint" style="margin:0 0 10px">Dis-nous ce qui te manque ou ce qui ne marche pas : on lit tout et Bourselle s'améliore grâce à toi.</p>
     <button type="button" class="btn primary block" id="fbOpen">✉️ Écrire à l'équipe Bourselle</button>
     <div id="fbAdmin"></div></div>`;

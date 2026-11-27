@@ -1525,7 +1525,7 @@ async function social(req, env, url, cors) {
     const it = { id: rid(10), at: Date.now(), kind, text, from: String(me.name || "").slice(0, 60), email: me.email, tag: await myTag(env, me).catch(() => ""), tech: String(body.tech || "").slice(0, 300) };
     L.unshift(it); await kvP(env, "feedbacks", L.slice(0, 300));
     const owners = await listOf(env, "owners");
-    if (owners.length) notify(env, owners, () => ({ title: kind === "souci" ? "🐞 Souci signalé" : kind === "idee" ? "💡 Nouvelle idée" : "💬 Nouveau message", body: `${it.from || "Quelqu'un"} : ${text.slice(0, 120)}`, url: "./?feedback=1", tag: "fb-" + it.id }));
+    if (owners.length) notify(env, owners, () => ({ title: kind === "souci" ? "🐞 Problème signalé" : kind === "idee" ? "💡 Nouvelle suggestion" : "💬 Nouveau message", body: `${it.from || "Quelqu'un"} : ${text.slice(0, 120)}`, url: "./?feedback=1", tag: "fb-" + it.id }));
     return json({ ok: true }, 200, cors);
   }
   // Recherche de lieux via Google (clé GOOGLE_PLACES_KEY posée en secret sur Cloudflare) ; sans clé, l'appli utilise OpenStreetMap
