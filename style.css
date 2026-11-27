@@ -1391,3 +1391,23 @@ body[data-hbg] { background: linear-gradient(180deg, var(--hbg) 0, var(--hbg2, t
 .st-acts button + button { background: rgba(255,255,255,.2); color: #fff; }
 .st-brand { position: absolute; bottom: calc(20px + env(safe-area-inset-bottom)); left: 0; right: 0; text-align: center; opacity: .7; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; font-size: .72rem; }
 .wg > small:first-of-type { padding-right: 24px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* ---------- Icônes dessinées ---------- */
+.icl { display: grid; place-items: center; border-radius: 10px; flex: none; }
+.wg-ic { top: 9px; right: 10px; opacity: 1; font-size: 0; }
+.wg[data-c] .wg-ic .icl, .wg-reste .wg-ic .icl { background: rgba(255,255,255,.55) !important; }
+.wg-reste .wg-ic .icl { background: rgba(255,255,255,.16) !important; color: #fff !important; }
+.ici { display: grid; place-items: center; font-style: normal; }
+.sub-bub button[aria-pressed="true"] .sb-ic .ici, .bp-bub button.on span .ici { color: #fff !important; }
+.pmx-sq .icl { width: 32px; height: 32px; }
+/* ---------- Widgets ronds : grille en 6 colonnes (rond = 2, demi = 3, large = 6) ---------- */
+.wg-grid { grid-template-columns: repeat(6, 1fr) !important; }
+.wg-grid > .wg { grid-column: span 3; }
+.wg-grid > .wg.full, .wg-grid > .wg-add, .wg-grid > .wg-empty { grid-column: 1 / -1; }
+.wg-grid > .wg.rd { grid-column: span 2; background: none !important; box-shadow: none !important; border: 0 !important; padding: 0; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.wg.rd .c { position: relative; width: min(96px, 26vw); aspect-ratio: 1; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; background: var(--wg-bg, var(--surface)); color: var(--wg-ink, var(--ink)); box-shadow: 0 4px 14px rgba(18,61,44,.12); }
+.wg.rd .c b { font-family: var(--display); line-height: 1.1; max-width: 88%; text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wg.rd .c .icl { border-radius: 50%; }
+.wg.rd[data-c] .c .icl { background: rgba(255,255,255,.5) !important; }
+.wg.rd .rd-ring { position: absolute; inset: 0; width: 100%; height: 100%; }
+.wg.rd > small { font-size: .76rem; font-weight: 600; color: var(--ink) !important; max-width: 100%; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 !important; }
+.wg-grid.edit .wg.rd .c .wg-x { top: -4px; left: -4px; } .wg-grid.edit .wg.rd .c .wg-sz { top: -4px; right: -4px; } .wg-grid.edit .wg.rd .c .wg-col { bottom: -4px; right: -4px; }

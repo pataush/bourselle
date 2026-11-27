@@ -402,7 +402,7 @@ function offBigCardHTML(o) {
 }
 // Codes promo en ligne : valables partout (pas de ville), pour les achats et commandes sur internet
 const offOnline = o => o.kind !== "group" && (!!o.online || (!!o.code && !!o.url && !o.city && !(o.slots && o.slots.length)));
-const OFF_CAT_IC = { "Resto & bars": ["🍽️", "Resto"], "Coiffure & beauté": ["💇", "Beauté"], "Sport & bien-être": ["🏋️", "Sport"], "Loisirs & sorties": ["🎬", "Sorties"], "Shopping": ["🛍️", "Shopping"], "Mode": ["👗", "Mode"], "Maison": ["🏠", "Maison"], "High-tech": ["📱", "High-tech"], "Courses": ["🛒", "Courses"], "Voyage": ["✈️", "Voyage"], "Autre": ["✨", "Autre"] };
+const OFF_CAT_IC = { "Resto & bars": [icI("utensils"), "Resto"], "Coiffure & beauté": [icI("scissors"), "Beauté"], "Sport & bien-être": [icI("dumbbell"), "Sport"], "Loisirs & sorties": [icI("film"), "Sorties"], "Shopping": [icI("bag"), "Shopping"], "Mode": [icI("shirt"), "Mode"], "Maison": [icI("home"), "Maison"], "High-tech": [icI("phone"), "High-tech"], "Courses": [icI("cart"), "Courses"], "Voyage": [icI("plane"), "Voyage"], "Autre": [icI("sparkles"), "Autre"] };
 const offPctTxt = o => { const p = offPctOf(o) || (o.tiers && o.tiers.length ? Math.max(...o.tiers.map(t => t.pct)) : 0); return p ? `-${String(p).replace(".", ",")} %` : "🎁 Offert"; };
 function renderBons() {
   document.getElementById("periodLabel").textContent = "Bons plans";
@@ -424,7 +424,7 @@ function renderBons() {
   const online = vis.filter(offOnline), local = offSort(vis.filter(o => !offOnline(o)));
   const inCat = l => cat ? l.filter(o => o.cat === cat) : l;
   const al = settings.offAlert;
-  const bubbles = l => { const cs = OFF_CATS.filter(c => l.some(o => o.cat === c)); return cs.length ? `<div class="ep-cap"><span>Catégories</span></div><div class="bp-bub"><button type="button" data-bcat="" class="${!cat ? "on" : ""}"><span>✨</span>Tout</button>${cs.map(c => `<button type="button" data-bcat="${esc(c)}" class="${cat === c ? "on" : ""}"><span>${(OFF_CAT_IC[c] || ["🎁"])[0]}</span>${esc((OFF_CAT_IC[c] || [, c])[1])}</button>`).join("")}</div>` : ""; };
+  const bubbles = l => { const cs = OFF_CATS.filter(c => l.some(o => o.cat === c)); return cs.length ? `<div class="ep-cap"><span>Catégories</span></div><div class="bp-bub"><button type="button" data-bcat="" class="${!cat ? "on" : ""}"><span>${icI("sparkles")}</span>Tout</button>${cs.map(c => `<button type="button" data-bcat="${esc(c)}" class="${cat === c ? "on" : ""}"><span>${(OFF_CAT_IC[c] || [icI("gift")])[0]}</span>${esc((OFF_CAT_IC[c] || [, c])[1])}</button>`).join("")}</div>` : ""; };
   const row = o => `<button type="button" class="bp-row" data-odet="${esc(o.id)}"><span class="bp-em">${esc(o.emoji || "🎁")}</span><span class="bp-t"><b>${esc(o.partner)}</b><small>${esc(o.title)}${o.kind === "group" ? " · offre de groupe" : ""}${o.city ? " · 📍 " + esc(o.city) : offOnline(o) ? " · en ligne" : ""}</small></span><span class="bp-pct${offPctOf(o) || o.kind === "group" ? "" : " gift"}">${esc(offPctTxt(o))}</span></button>`;
   let html = banner + `<div class="ep-sum bp-sum">
       <div class="ep-card"><small>Économisé grâce à Bourselle</small><b class="num good">${esc(eur(savedTotal(), true))}</b><button type="button" class="ep-btn good" id="bpHist">📜 Mon historique</button></div>

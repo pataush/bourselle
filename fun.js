@@ -27,11 +27,11 @@ function funStreak() {
 // Météo du budget : ce qui est dépensé comparé à la part du mois écoulée
 function funMeteo() {
   const r = wgReste(), n = new Date(), D = funDays(n.getFullYear(), n.getMonth() + 1);
-  if (!r.budget) return { ic: "🌤️", t: "Fixe ton budget", s: "pour avoir ta météo" };
+  if (!r.budget) return { ic: "🌤️", k: "cloud", t: "Fixe ton budget", s: "pour avoir ta météo" };
   const spentPct = (r.budget - r.left) / r.budget, timePct = n.getDate() / D, k = timePct ? spentPct / timePct : 0;
-  if (r.left < 0) return { ic: "🌧️", t: "Budget dépassé", s: `de ${eur(-r.left, true)}`, lvl: 2 };
-  if (k > 1.15) return { ic: "⛅", t: "Attention", s: "tu dépenses un peu vite", lvl: 1 };
-  return { ic: "☀️", t: "Beau fixe", s: "ton budget tient bien", lvl: 0 };
+  if (r.left < 0) return { ic: "🌧️", k: "rain", t: "Budget dépassé", s: `de ${eur(-r.left, true)}`, lvl: 2 };
+  if (k > 1.15) return { ic: "⛅", k: "cloud", t: "Attention", s: "tu dépenses un peu vite", lvl: 1 };
+  return { ic: "☀️", k: "sun", t: "Beau fixe", s: "ton budget tient bien", lvl: 0 };
 }
 const funToday = () => allItems().filter(x => x.date === todayISO() && x.type === "depense" && !x.ndf).reduce((a, x) => a + (Number(x.amount) || 0), 0);
 function funNextBday() {
@@ -67,17 +67,22 @@ function funTip() {
 }
 
 // ---------- Nouveaux widgets ----------
+Object.assign(WG_RD, {
+  meteo: () => { const m = funMeteo(); return [m.t, "Météo", undefined, m.k]; }, jour: () => [wgShort(funToday()), "Aujourd'hui"],
+  serie: () => { const n = funStreak(); return [n + " j", "Série"]; }, anniv: () => { const b = funNextBday(); return b ? [b.in + " j", b.name] : ["—", "Anniversaires"]; },
+  bilan: () => { const p = new Date(); p.setDate(1); p.setMonth(p.getMonth() - 1); const M = ["Janv.", "Févr.", "Mars", "Avr.", "Mai", "Juin", "Juil.", "Août", "Sept.", "Oct.", "Nov.", "Déc."]; return [M[p.getMonth()], "Bilan"]; },
+});
 Object.assign(WG, {
-  meteo: { s: "budget", ic: "🌤️", t: "Météo du budget", d: "Beau fixe, attention ou dépassé", w: 1, go: () => switchTab("mois"), html: () => { const m = funMeteo();
-    return `<small>Météo du budget</small><b class="wg-big-ic">${m.ic}</b><b style="font-size:1rem">${esc(m.t)}</b><i>${esc(m.s)}</i>`; } },
-  jour: { s: "budget", ic: "📅", t: "Dépense du jour", d: "Aujourd'hui, en un geste", w: 1, html: () => { const t = funToday(), lim = funVarBudgetDay();
+  meteo: { s: "budget", ic: "sun", t: "Météo du budget", d: "Beau fixe, attention ou dépassé", w: 1, go: () => switchTab("mois"), html: () => { const m = funMeteo();
+    return `<small>Météo du budget</small><b style="font-size:1rem;margin-top:4px">${esc(m.t)}</b><i>${esc(m.s)}</i>`; } },
+  jour: { s: "budget", ic: "cal", t: "Dépense du jour", d: "Aujourd'hui, en un geste", w: 1, html: () => { const t = funToday(), lim = funVarBudgetDay();
     return `<small>Aujourd'hui</small><b class="num">${esc(eur(t, true))}</b><i>${lim > 0 ? `sur ${esc(eur(lim, true))} prévus par jour` : "dépensés"}</i><div class="wg-acts"><button type="button" data-wa="tx">＋ Ajouter</button></div>`; } },
-  serie: { s: "budget", ic: "🔥", t: "Série d'économies", d: "Jours d'affilée sous le budget", w: 1, go: () => switchTab("mois"), html: () => { const n = funStreak();
+  serie: { s: "budget", ic: "flame", t: "Série d'économies", d: "Jours d'affilée sous le budget", w: 1, go: () => switchTab("mois"), html: () => { const n = funStreak();
     return `<small>Série d'économies</small><b class="num">${n ? "🔥 " + n : "0"}</b><i>${n ? `jour${n > 1 ? "s" : ""} sous ton budget` : "commence aujourd'hui !"}${settings.bestStreak > n ? ` · record ${settings.bestStreak}` : ""}</i>`; } },
-  anniv: { s: "proches", ic: "🎂", t: "Prochain anniversaire", d: "Ne rate plus aucun anniversaire", w: 1, go: () => funBdays(), html: () => { const b = funNextBday();
+  anniv: { s: "proches", ic: "cake", t: "Prochain anniversaire", d: "Ne rate plus aucun anniversaire", w: 1, go: () => funBdays(), html: () => { const b = funNextBday();
     return b ? `<small>Prochain anniversaire</small><b style="font-size:1.02rem">🎂 ${esc(b.name)}</b><i class="${b.in <= 7 ? "warn" : ""}">${b.in === 0 ? "aujourd'hui !" : b.in === 1 ? "demain" : `dans ${b.in} jours`}</i>`
       : `<small>Anniversaires</small><i>Ajoute ceux de tes proches ›</i>`; } },
-  bilan: { s: "budget", ic: "📖", t: "Mon bilan du mois", d: "Ton mois dernier en 4 écrans", w: 1, go: () => funStory(), html: () => { const p = new Date(); p.setDate(1); p.setMonth(p.getMonth() - 1);
+  bilan: { s: "budget", ic: "book", t: "Mon bilan du mois", d: "Ton mois dernier en 4 écrans", w: 1, go: () => funStory(), html: () => { const p = new Date(); p.setDate(1); p.setMonth(p.getMonth() - 1);
     return `<small>Mon bilan</small><b style="font-size:1.02rem">📖 ${esc(MOIS[p.getMonth()])}</b><i>à revoir en 4 écrans ›</i>`; } },
 });
 
