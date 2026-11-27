@@ -20,6 +20,7 @@ const HUB_ICONS = {
   cagnotte: '<path d="M19 9c0-2-2-4-6-4H9C6 5 4 7 4 10c0 2 1 3.5 2.5 4.3V18h3v-2h4v2h3v-3c1-.6 1.8-1.5 2.2-2.6H21V10h-1.5c-.1-.4-.3-.7-.5-1z"/><path d="M12 3v3"/>',
   pay: '<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>',
   bill: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+  note: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 11h6"/><circle cx="12" cy="7.8" r=".9" fill="currentColor"/><circle cx="12" cy="14.2" r=".9" fill="currentColor"/>',
 };
 const hubIcon = k => `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${HUB_ICONS[k]}</svg>`;
 function hubBalances() {

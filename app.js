@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "108";
+const APP_VERSION = "109";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -2415,6 +2415,7 @@ function renderPartage() {
     <div class="hub-acts">
     <button type="button" data-hub="proj">${hubIcon("bill")}<span>Payer</span></button>
     <button type="button" data-hub="pay">${hubIcon("pay")}<span>Me faire payer</span></button>
+    <button type="button" data-hub="note">${hubIcon("note")}<span>Partager une note</span></button>
     <button type="button" data-hub="cagnotte">${hubIcon("cagnotte")}<span>Cagnotte</span></button></div>`;   // achat groupé masqué pour l'instant
   if (typeof favRowHTML === "function") html += favRowHTML();
   if (typeof offTeaserHTML === "function") html += offTeaserHTML();
@@ -2453,7 +2454,7 @@ function renderPartage() {
   view.innerHTML = html;
   { const r = document.getElementById("epRemind"); if (r) r.onclick = () => epWho("in"); const g = document.getElementById("epSettle"); if (g) g.onclick = () => epWho("out"); }
   view.querySelectorAll("[data-ep]").forEach(b => b.onclick = () => { epSub = b.dataset.ep; try { localStorage.setItem("bourselle-ep", epSub); } catch (e) {} render(); });
-  view.querySelectorAll("[data-hub]").forEach(b => b.onclick = () => ({ proj: () => editProject(), achat: () => editDeal(null, "achat"), cagnotte: () => editDeal(null, "cagnotte"), pay: () => editPay() })[b.dataset.hub]());
+  view.querySelectorAll("[data-hub]").forEach(b => b.onclick = () => ({ proj: () => editProject(), achat: () => editDeal(null, "achat"), cagnotte: () => editDeal(null, "cagnotte"), pay: () => editPay(), note: () => noteShare() })[b.dataset.hub]());
   view.querySelectorAll("[data-deal]").forEach(b => b.onclick = () => showDeal(b.dataset.deal));
   view.querySelectorAll("[data-open]").forEach(b => b.onclick = e => { if (e.target.closest("[data-grem],[data-gexp],[data-gpay2]")) return; openGroup = b.dataset.open; render(); window.scrollTo(0, 0); });
   view.querySelectorAll("[data-gexp]").forEach(b => b.onclick = e => { e.stopPropagation(); editGroupExpense(b.dataset.gexp, null); });
@@ -2465,6 +2466,33 @@ function renderPartage() {
   if (typeof favBind === "function") { favBind(view); feedBind(view); chalBind(view); if (typeof ensBind === "function") ensBind(view); }
   if (typeof offHubBind === "function") offHubBind(view);
   view.querySelectorAll("[data-grem]").forEach(b => b.onclick = e => { e.stopPropagation(); const g = groups[b.dataset.grem]; groupRemind(b.dataset.grem, settle(groupBalances(g)).filter(x => x.to === g.me)); });
+}
+// « Partager une note » : l'addition du resto, les courses, le plein… On indique le montant (ou on scanne le ticket),
+// puis on choisit avec qui partager : la part de chacun leur est envoyée.
+function noteShare() {
+  const f = openForm(`<div class="f2"><h3>🧾 Partager une note</h3>
+    <p class="hint" style="margin:0 0 8px">L'addition du resto, les courses, le plein… Tu choisis ensuite avec qui partager, et chacun reçoit sa part.</p>
+    ${fld("nsLabel", "Quoi ?", `maxlength="60" placeholder="ex. Resto vendredi, courses, plein d'essence"`)}
+    <div class="two"><div>${fld("nsAmount", `Montant (${esc(curSym())})`, `inputmode="decimal" placeholder="ex. 84,50"`)}</div><div>${fld("nsDate", "Date", `type="date" value="${todayISO()}"`)}</div></div>
+    <label class="btn" style="display:inline-flex;align-items:center;gap:6px;margin-top:10px;cursor:pointer">📷 Scanner le ticket<input type="file" accept="image/*" capture="environment" id="nsScan" hidden></label>
+    <span class="hint" id="nsScanHint" style="margin-left:8px"></span></div>`, () => {
+    const amount = parseAmount(val("nsAmount")), label = val("nsLabel") || "Note", date = val("nsDate") || todayISO();
+    if (!(amount > 0)) { toast("Indique le montant de la note"); return false; }
+    setTimeout(() => shareExpenseWith({ label: label.slice(0, 60), amount, date }), 250);
+  });
+  f.querySelector("button[type=submit]").textContent = "Choisir avec qui";
+  f.querySelector("#nsScan").onchange = async e => {
+    const file = e.target.files && e.target.files[0]; if (!file) return;
+    const h = f.querySelector("#nsScanHint"); h.textContent = "Lecture du ticket…";
+    try {
+      const r = await scanReceipt(file);
+      if (r && r.amount) f.querySelector("#nsAmount").value = String(r.amount).replace(".", ",");
+      if (r && r.shop && !f.querySelector("#nsLabel").value) f.querySelector("#nsLabel").value = r.shop;
+      if (r && r.date) f.querySelector("#nsDate").value = r.date;
+      h.textContent = r && r.amount ? "Ticket lu ✓ vérifie le montant" : "Montant non trouvé : saisis-le";
+    } catch (err) { h.textContent = err.message || "Lecture impossible"; }
+  };
+  setTimeout(() => f.querySelector("#nsLabel").focus(), 80);
 }
 // Le fil des proches et les défis d'épargne, dans une feuille à part
 const epFeedInner = () => `<h3>📰 Le fil et les défis</h3>${typeof chalHTML === "function" ? chalHTML() : ""}${typeof feedHTML === "function" ? feedHTML() : ""}`;
