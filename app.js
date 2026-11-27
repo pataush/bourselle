@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "144";
+const APP_VERSION = "145";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -561,6 +561,8 @@ async function mergeRemoteIfChanged() {
   let v = null; try { v = await store.remoteVersion(); } catch (e) { return false; }
   if (!v || !version || v === version) return false;
   const r = await store.load(), loc = snapshot(), base = syncBase || {};
+  // Fichier du cloud vide ou illisible : on ne fusionne pas (on n'efface jamais les données de cet appareil sur la foi d'un fichier vide)
+  if (!r || !r.data || typeof r.data !== "object" || !r.data.months) return false;
   const m = {};
   for (const k of new Set([...Object.keys(loc), ...Object.keys(r.data || {})])) { if (k === "savedAt") continue; const x = merge3(base[k], loc[k], (r.data || {})[k]); if (x !== undefined) m[k] = x; }
   const same = jsonEq(m, Object.fromEntries(Object.entries(loc).filter(([k]) => k !== "savedAt")));
@@ -1146,7 +1148,7 @@ function featUsed(k) {
     if (k === "economies") return !!(settings.eco && Object.keys(settings.eco).length);
     if (k === "garanties") return garItems().length > 0;
     if (k === "frais") return allItems().some(t => t.ndf) || Object.keys(trips || {}).length > 0;
-    if (k === "patrimoine") return (typeof accHasBalance === "function" && accHasBalance()) || (typeof assetList === "function" && assetList().length > 0) || Object.keys(accounts || {}).length > 1;
+    if (k === "patrimoine") return Object.values(accounts || {}).some(a => a && a.anchor) || Object.keys(accounts || {}).length > 1 || Object.keys((patri && patri.items) || {}).length > 0;   // sans créer de compte par défaut
     if (k === "defis") return typeof CHALS !== "undefined" && CHALS.length > 0;
   } catch (e) {}
   return false;
@@ -1447,7 +1449,7 @@ function changeCurrency(to) {
   const from = baseCurrency(), sel = document.getElementById("setCur");
   if (to === from) return;
   const hasData = Object.values(months).some(d => Object.keys(d.items || {}).length) || Object.keys(subs).length || Object.keys(debts).length || Object.keys(goals).length || Object.keys(recs).length
-    || Object.values(groups).some(g => Object.keys(liveExp(g)).length) || Object.keys(tontines || {}).length || Object.keys(accounts || {}).length;
+    || Object.values(groups).some(g => Object.keys(liveExp(g)).length) || Object.keys(tontines || {}).length || Object.values(accounts || {}).some(a => a && a.anchor);
   if (!hasData) { settings.currency = to; applyCurrency(); saveSettings(); render(); toast(`Devise : ${to}`); return; }
   let mode = "convert";
   const f = openForm(`<div class="f2"><h3>Passer de ${esc(from)} à ${esc(to)}</h3>
@@ -2540,7 +2542,11 @@ function renderPartage() {
   html += `<div class="ep-tabs" role="tablist">${SUBT.map(([k, l]) => `<button type="button" role="tab" data-ep="${k}" aria-selected="${epSub === k}">${l}${k === "discussions" && unread ? ` <i class="ep-badge">${unread}</i>` : ""}</button>`).join("")}</div>`;
   // Une invitation à une cagnotte ne doit pas rester cachée dans « Projets » : on la montre en premier, où qu'on soit
   { const invD = (typeof DEALS !== "undefined" ? DEALS : []).filter(d => d.kind !== "achat" && d.status === "open" && d.you && d.you.pid && (d.parts[d.you.pid] || {}).inv);
-    if (invD.length && epSub === "discussions") html += `<div class="ep-cap"><span>Invitations</span><small>${invD.length} à accepter</small></div><div class="hub-deals">${invD.map(d => DEALUI.card(d, dealCtxBase())).join("")}</div>`; }
+    // Défis d'épargne auxquels on m'invite : visibles ici même si la fonction « défis » n'est pas activée
+    const invC = (typeof CHALS !== "undefined" ? CHALS : []).filter(c => c.invited);
+    if ((invD.length || invC.length) && epSub === "discussions") html += `<div class="ep-cap"><span>Invitations</span><small>${invD.length + invC.length} à accepter</small></div>`
+      + (invD.length ? `<div class="hub-deals">${invD.map(d => DEALUI.card(d, dealCtxBase())).join("")}</div>` : "")
+      + invC.map(c => `<button type="button" class="card chal-invc" data-chal="${esc(c.id)}"><span>🏁</span><span><b>${esc(c.title)}</b><small>@${esc(c.ownerTag)} te lance le défi</small></span><i>›</i></button>`).join(""); }
   if (epSub === "discussions") html += typeof ensThreadsHTML === "function" ? ensThreadsHTML() : "";
   else if (epSub === "projets") {
     html += typeof ensActsHTML === "function" ? ensActsHTML() : "";
@@ -2580,6 +2586,7 @@ function renderPartage() {
   view.querySelectorAll("[data-gpay2]").forEach(b => b.onclick = e => { e.stopPropagation(); openGroup = b.dataset.gpay2; render(); window.scrollTo(0, 0); });
   view.querySelectorAll("[data-gtpl]").forEach(b => b.onclick = () => { const t = [["🏠", "Coloc"], ["💑", "Couple"], ["🧳", "Voyage"], ["👨‍👩‍👧", "Famille"]][+b.dataset.gtpl]; editGroup(null, { emoji: t[0], name: t[1] === "Voyage" ? "" : t[1], trip: t[1] === "Voyage" }); });
   { const fd = document.getElementById("epFeed"); if (fd) fd.onclick = () => epFeedOpen(); }
+  view.querySelectorAll(".chal-invc[data-chal]").forEach(b => b.onclick = () => chalOpen(b.dataset.chal));
   { const n = document.getElementById("grNew"); if (n) n.onclick = () => editGroup(null); }
   actBind(view); if (typeof projBindHub === "function") projBindHub();
   if (typeof favBind === "function") { favBind(view); feedBind(view); chalBind(view); if (typeof ensBind === "function") ensBind(view); }

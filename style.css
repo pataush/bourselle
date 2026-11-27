@@ -1749,3 +1749,8 @@ nav.tabs button[hidden] { display: none !important; }
 .bp-rwp { display: flex; flex-direction: column; gap: 6px; width: 100%; text-align: left; background: var(--bg); border: 0; border-radius: 14px; padding: 10px 12px; font: inherit; color: inherit; margin-top: 6px; cursor: pointer; }
 .bp-rwp span:first-child { font-weight: 600; }
 .bp-rwp small { color: var(--muted); }
+.chal-invc { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; border: 0; font: inherit; color: inherit; cursor: pointer; margin-bottom: 8px; }
+.chal-invc > span:first-child { font-size: 1.5rem; }
+.chal-invc > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; }
+.chal-invc small { color: var(--muted); }
+.chal-invc i { font-style: normal; color: var(--muted); }
