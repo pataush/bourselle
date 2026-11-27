@@ -1599,6 +1599,7 @@
     "Essayer sans compte": "Try without an account", "🔒 Tes données restent dans": "🔒 Your data stays in", "Google Drive ou OneDrive.": "Google Drive or OneDrive.", "ton": "your", "Conditions": "Terms",
     "Awa · Les copains": "Awa · The gang", "On se fait un resto samedi ? 🍕": "Dinner out on Saturday? 🍕", "Projet entre amis": "Project with friends", "✈️ Week-end à Lisbonne": "✈️ Weekend in Lisbon", "340 € sur 600 €": "€340 of €600",
     "✅ Karim t'a remboursé 25 €": "✅ Karim paid you back €25", "à 300 m": "300 m away"});
+  EXACT["✏️ Poser une autre question"] = "✏️ Ask another question";
   EXACT["Rechercher ou demander"] = "Search or ask"; EXACT["Rechercher ou demander à Bourselle"] = "Search or ask Bourselle";
   const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
   const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];

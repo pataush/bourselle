@@ -248,7 +248,14 @@ if (typeof drawResults === "function") {
         const shown = (r.items || []).slice(0, 100), tot = smSum(shown.filter(x => x.type === "depense"));
         document.getElementById("resCap").textContent = "Réponse calculée sur ton téléphone";
         const big = document.getElementById("resBig"); big.textContent = eur(tot); big.className = "big num"; document.getElementById("resPill").innerHTML = "";
-        document.getElementById("qRes").innerHTML = `<div class="card sm-ans"><h2>💡 Réponse</h2>${r.html}</div>` + (shown.length ? `<div class="card"><h2>Opérations<small>${shown.length}${r.items.length > 100 ? " sur " + r.items.length : ""}</small></h2>${txListHTML(shown, true)}</div>` : "");
+        const more = SM_EXAMPLES.filter(x => smN(x) !== smN(t)).slice(0, 5);
+        document.getElementById("qRes").innerHTML = `<div class="card sm-ans"><h2>💡 Réponse</h2>${r.html}
+          <div class="sm-next"><button type="button" class="btn" data-smnew>✏️ Poser une autre question</button>
+          <div class="chips">${more.map(x => `<button type="button" class="chip" data-smq2="${esc(x)}">${esc(x)}</button>`).join("")}</div></div></div>` + (shown.length ? `<div class="card"><h2>Opérations<small>${shown.length}${r.items.length > 100 ? " sur " + r.items.length : ""}</small></h2>${txListHTML(shown, true)}</div>` : "");
+        // Enchaîner : une autre question (le champ se vide et reprend la main) ou un exemple
+        const qt = document.getElementById("qText");
+        document.querySelectorAll("#qRes [data-smnew]").forEach(b => b.onclick = () => { Q.text = ""; if (qt) qt.value = ""; renderRecherche(); const q2 = document.getElementById("qText"); if (q2) { q2.focus(); q2.scrollIntoView({ block: "center", behavior: "smooth" }); } });
+        document.querySelectorAll("#qRes [data-smq2]").forEach(b => b.onclick = () => { Q.text = b.dataset.smq2; if (qt) qt.value = Q.text; drawResults(); if (qt) qt.scrollIntoView({ block: "start", behavior: "smooth" }); });
         document.querySelectorAll("#qRes .tx").forEach(b => b.onclick = () => { const x = shown.find(i => i.id === b.dataset.id); if (x) { const { key, ...tx } = x; openSheet(tx); } });
         return;
       }
@@ -267,5 +274,7 @@ if (typeof renderRecherche === "function") {
     const h = document.getElementById("periodLabel"); if (h) h.textContent = "Rechercher ou demander";
     if (!Q.text) t.closest(".card").insertAdjacentHTML("beforeend", `<div class="sm-ex"><small>Essaie une question :</small><div class="chips">${SM_EXAMPLES.slice(0, 8).map(s => `<button type="button" class="chip" data-smq="${esc(s)}">${esc(s)}</button>`).join("")}</div></div>`);
     view.querySelectorAll("[data-smq]").forEach(b => b.onclick = () => { Q.text = b.dataset.smq; t.value = Q.text; drawResults(); const ex = view.querySelector(".sm-ex"); if (ex) ex.remove(); });
+    // Valider (touche Entrée / Rechercher du clavier) : le clavier se ferme et la réponse vient à l'écran
+    t.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); t.blur(); const r = document.getElementById("qRes"); if (r && r.firstChild) r.scrollIntoView({ block: "start", behavior: "smooth" }); } });
   };
 }

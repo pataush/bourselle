@@ -1737,3 +1737,7 @@ nav.tabs button[hidden] { display: none !important; }
 .nl-stage .nl-paid { left: 4px; top: 164px; z-index: 3; }
 .nl-stage .nl-promo { z-index: 3; }
 .login-in.nl-body { flex: none; width: 100%; }
+.sm-next { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
+.sm-next .btn { align-self: flex-start; }
+.sm-next .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.fun-cele { pointer-events: none; }
