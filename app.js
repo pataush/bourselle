@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "125";
+const APP_VERSION = "126";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -300,7 +300,7 @@ function showProfileMenu() {
     <div class="pmx-sec">
       ${sw("pmDark", "moon", "#3b4a6b", "Mode sombre", dark)}
       ${typeof FUN_THEMES !== "undefined" ? go("pmTheme", "pal", "var(--green)", "Thème de l'appli", FUN_THEMES[settings.pal || "vert"][0]) : ""}
-      ${typeof FUN_BG !== "undefined" ? go("pmBg", "img", "#b5838d", "Fond d'écran", FUN_BG[settings.homeBg || ""] + (settings.homeBg && settings.homeBgAll ? " · partout" : "")) : ""}
+      ${typeof FUN_BG !== "undefined" ? go("pmBg", "img", "#b5838d", "Fond d'écran", (FUN_BG[settings.homeBg || "auto"] || "Aucun") + (settings.homeBgAll ? " · partout" : "")) : ""}
       ${soc ? sw("pmPush", "bell", "#e67e22", "Notifications", push) : ""}
       ${sw("pmFull", "leaf", "#2e8a5b", "Version complète", !isSimple(), "Patrimoine, notes de frais…")}
     </div>
@@ -1158,7 +1158,9 @@ function render() {
   }
   if (typeof epFeedRefresh === "function") epFeedRefresh();
   document.body.classList.toggle("tab-home", tab === "home");
-  if (settings.homeBg && (tab === "home" || settings.homeBgAll)) document.body.dataset.hbg = settings.homeBg; else delete document.body.dataset.hbg;
+  { const hb = settings.homeBg || "auto", on = tab === "home" || settings.homeBgAll;
+    if (on && hb !== "auto" && hb !== "none" && hb) document.body.dataset.hbg = hb; else delete document.body.dataset.hbg;
+    if (on && hb === "auto" && typeof dynSkyNow === "function" && dynSkyNow()) document.body.dataset.sky = dynSkyNow(); else delete document.body.dataset.sky; }
   if (typeof funApplyTheme === "function") funApplyTheme();
   if (typeof funCheck === "function" && store && !document.getElementById("app").hidden) { try { funCheck(); } catch (e) { console.error(e); } if (!funStoryAuto.done) { funStoryAuto.done = 1; try { funStoryAuto(); } catch (e) {} } }
 }
