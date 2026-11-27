@@ -1765,3 +1765,6 @@ nav.tabs button[hidden] { display: none !important; }
 .sm-mic.on { background: #fde2df; animation: smPulse 1s ease-in-out infinite; }
 @keyframes smPulse { 50% { box-shadow: 0 0 0 8px rgba(196,60,51,.15); } }
 .sm-go { flex: none; padding-left: 14px !important; padding-right: 14px !important; }
+
+.pmx-acc{display:flex;flex-direction:column;align-items:center;gap:2px;width:100%;margin:4px 0 6px;padding:12px 14px}
+.pmx-acc small{font-weight:500;opacity:.85;font-size:.76rem}

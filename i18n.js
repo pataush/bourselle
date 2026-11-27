@@ -736,7 +736,7 @@
     "Autorise l'accès au dossier « Bourselle » de ton Drive pour continuer.": "Allow access to the “Bourselle” folder in your Drive to continue.",
     "Session expirée": "Session expired", "Non connecté": "Not signed in", "Accès refusé par le Drive": "Access denied by the Drive", "Introuvable": "Not found",
     "Espace de stockage plein": "Storage full", "Service momentanément indisponible": "Service temporarily unavailable", "Stockage du navigateur plein": "Browser storage full",
-    "Mon compte": "My account", "Mode démo": "Demo mode", "Cet appareil (démo)": "This device (demo)", "Ouvrir mon dossier": "Open my folder", "Se déconnecter": "Sign out",
+    "Mon compte": "My account", "Mode démo": "Demo mode", "Créer mon compte": "Create my account", "Google ou Microsoft : tes données d'essai sont gardées": "Google or Microsoft: your trial data is kept", "Cet appareil (démo)": "This device (demo)", "Ouvrir mon dossier": "Open my folder", "Se déconnecter": "Sign out",
     "Confirmer la déconnexion": "Confirm sign-out", "Quitter le mode essai": "Leave trial mode", "Confirmer (tes données restent sur cet appareil)": "Confirm (your data stays on this device)",
     "Associe un compte": "Link an account", "pour retrouver Bourselle sur tous tes appareils : tes données d'essai seront transférées dans ton cloud.": "to use Bourselle on all your devices: your trial data will be moved to your cloud.",
     "Se connecter avec Google": "Sign in with Google", "Se connecter avec Microsoft": "Sign in with Microsoft", "Se reconnecter": "Sign in again",

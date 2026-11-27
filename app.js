@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "155";
+const APP_VERSION = "156";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -301,8 +301,13 @@ function homeMoreOpen(v) {
   try { localStorage.setItem("bourselle-home-more", v ? "1" : "0"); } catch (e) {} return v;
 }
 // Menu du profil (touche la pastille en haut à gauche) : infos, tag, raccourcis
+// Toucher la photo ouvre toujours quelque chose : si le menu plante (réglage ancien, donnée inattendue), on ouvre les Paramètres.
 function showProfileMenu() {
-  if (!store) return;
+  try { showProfileMenu0(); }
+  catch (e) { console.warn(e); try { closeForm(); } catch (e2) {} switchTab("reglages"); }
+}
+function showProfileMenu0() {
+  if (!store) { switchTab("reglages"); return; }
   const u = store.user ? store.user() : {}, local = store.id === "local", soc = typeof socOn === "function" && socOn();
   const theme0 = applyTheme.cur || "auto", dark = (theme0 === "auto" ? (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : theme0) === "dark";
   const push = typeof pushOn === "function" && pushOn();
@@ -327,10 +332,11 @@ function showProfileMenu() {
       <b>${esc(u.name || "Mon compte")}</b><small>${esc(u.email || (local ? "Données gardées sur cet appareil" : ""))}${!local && store.label ? " · " + esc(store.label) : ""}${typeof isPlus === "function" && isPlus() ? " · Bourselle Plus" : ""}</small>
       ${soc && SOC.tag ? `<div class="pmx-tag"><button type="button" id="pmCopy" title="Toucher pour copier"><span class="num">@${esc(SOC.tag)}</span><small>${IC.copy} <span class="pm-copyhint">Copier</span></small></button><button type="button" id="pmQr" aria-label="Mon QR code">${IC.qr} QR code</button></div>` : ""}</div>
     ${typeof funTierView === "function" ? (() => { const V = funTierView(), on = V.list.filter(b => b.on); return `<button type="button" class="pmx-bdg" id="pmBdg"><span>${on.length ? on.map(b => b.ic).join("") : "🏅"}</span><small>Palier ${V.cur + 1} · ${V.on} / ${V.list.length} badges${V.done ? " · 🎁" : ""} ›</small></button>`; })() : ""}
+    ${local ? `<button type="button" class="btn primary pmx-acc" id="pmAccount">Créer mon compte<small>Google ou Microsoft : tes données d'essai sont gardées</small></button>` : ""}
     <div class="pmx-cap">Préférences</div>
     <div class="pmx-sec">
       ${sw("pmDark", "moon", "#3b4a6b", "Mode sombre", dark)}
-      ${typeof FUN_THEMES !== "undefined" ? go("pmTheme", "pal", "var(--green)", "Thème de l'appli", FUN_THEMES[settings.pal || "vert"][0]) : ""}
+      ${typeof FUN_THEMES !== "undefined" ? go("pmTheme", "pal", "var(--green)", "Thème de l'appli", (FUN_THEMES[settings.pal] || FUN_THEMES.vert)[0]) : ""}
       ${typeof FUN_BG !== "undefined" ? go("pmBg", "img", "#b5838d", "Fond d'écran", (FUN_BG[settings.homeBg || "auto"] || "Aucun") + (settings.homeBgAll ? " · partout" : "")) : ""}
       ${soc ? sw("pmPush", "bell", "#e67e22", "Notifications", push) : ""}
       ${soc ? go("pmNotif", "bell", "#e67e22", "Vérifier mes notifications", "") : ""}
@@ -362,6 +368,7 @@ function showProfileMenu() {
   on("pmLang", () => { closeForm(); if (typeof setLang === "function") setLang(window.LANG === "en" ? "fr" : "en"); });
   on("pmFolder", () => { window.open(store.folderUrl(), "_blank", "noopener"); });
   on("pmSettings", () => { closeForm(); switchTab("reglages"); });
+  on("pmAccount", () => { closeForm(); switchTab("reglages"); setTimeout(() => document.getElementById("linkGoogle")?.closest(".card")?.scrollIntoView({ block: "start", behavior: "smooth" }), 120); });
   on("pmFb", () => { closeForm(); setTimeout(() => fbOpen(), 250); });
   { const pa = f.querySelector("#pmAv"); if (pa && typeof avPaint === "function") { const cam = pa.querySelector(".pmx-cam"); avPaint(pa); if (cam && !pa.contains(cam)) pa.appendChild(cam); } }
   on("pmAv", () => { closeForm(); setTimeout(() => avPick(), 250); });
