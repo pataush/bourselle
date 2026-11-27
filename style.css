@@ -1182,3 +1182,19 @@ body.ep-nohero .hero { display: none; }
 .dm-back { border: 0; background: none; font: inherit; font-size: 2rem; line-height: 1; color: var(--green, #1f6b4b); padding: 0 6px 4px 0; cursor: pointer; }
 .sheet:has(.dm-sheet) #dmLeave { margin-top: 6px !important; font-size: .8rem; align-self: center; }
 @media (prefers-reduced-motion: no-preference) { .sheet:has(.dm-sheet) { animation: dmIn .26s cubic-bezier(.2,.9,.25,1); } @keyframes dmIn { from { transform: translateX(30%); opacity: .3; } } }
+
+/* Glisser une discussion : Archiver / Supprimer */
+.ep-sw { position: relative; overflow: hidden; } .ep-sw + .ep-sw { border-top: 1px solid var(--line); }
+.ep-sw .ep-th { position: relative; z-index: 1; background: var(--surface); touch-action: pan-y; user-select: none; -webkit-user-select: none; }
+.ep-sw .ep-th + .ep-th { border-top: 0; }
+.ep-acts { position: absolute; top: 0; right: 0; bottom: 0; display: flex; width: 156px; }
+.ep-acts button { flex: 1; border: 0; color: #fff; font: inherit; font-size: 1.1rem; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer; }
+.ep-acts button span { font-size: .72rem; font-weight: 700; }
+.ep-a-arch { background: #8a6d1f; } .ep-a-del { background: var(--bad); } .ep-a-del.sure { background: #8f2219; }
+.ep-archbtn { display: flex; align-items: center; gap: 8px; width: 100%; margin: 12px 0 8px; padding: 11px 14px; border-radius: 14px; border: 1px dashed var(--line); background: none; font: inherit; font-weight: 600; color: var(--muted); cursor: pointer; }
+.ep-archbtn > i:last-child { margin-left: auto; font-style: normal; }
+.ep-cap small { font-size: .72rem; }
+
+.ep-warn { padding: 12px 14px; border-radius: 14px; background: color-mix(in srgb, #e67e22 12%, var(--surface)); border: 1px solid color-mix(in srgb, #e67e22 40%, transparent); }
+.ep-warn b { display: block; margin-bottom: 4px; } .ep-warn ul { margin: 4px 0; padding-left: 18px; } .ep-warn li { margin: 3px 0; font-size: .9rem; } .ep-warn p { margin: 6px 0 0; font-size: .85rem; color: var(--muted); }
+.ep-delbtns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }

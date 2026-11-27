@@ -43,23 +43,83 @@ async function ensRefresh() {
 
 // ---------- Entre proches : onglets « Discussions » et « Projets » ----------
 const ensSnip = t => `${t.last.from === "sys" ? "" : t.last.mine ? "Toi : " : t.gid ? favFirst(t.last.name || t.last.from) + " : " : ""}${t.last.kind === "idea" ? "💡 " + t.last.idea.title : t.last.kind === "act" ? "📅 " + (t.last.text || "Projet") : t.last.kind === "place" ? "📍 " + t.last.place.name : t.last.kind === "dates" ? "📅 Dates proposées · vote !" : t.last.del ? "Message supprimé" : t.last.text || ""}`;
+// Discussions archivées ou supprimées (pour moi seulement, gardé dans mes réglages, donc sur tous mes appareils)
+// Supprimée : disparaît de la liste jusqu'au prochain message. Archivée : rangée dans « Archivées ».
+const chatHid = () => (settings.chatHid = settings.chatHid && typeof settings.chatHid === "object" ? settings.chatHid : {});
+let ensShowArch = false;
 function ensThreadsHTML() {
   if (!(typeof socOn === "function" && socOn())) return `<div class="card"><p class="hint" style="margin:0">Connecte-toi avec Google ou Microsoft pour écrire à tes proches et décider ensemble de ce que vous financez.</p></div>`;
-  const threads = DMS.slice().sort((a, b) => b.at - a.at);
-  const row = t => {
+  const H = chatHid();
+  const all = DMS.slice().sort((a, b) => b.at - a.at).filter(t => { const h = H[chatKey(t)]; return !(h && h.del && t.at <= h.at); });
+  const arch = all.filter(t => (H[chatKey(t)] || {}).arch), threads = all.filter(t => !(H[chatKey(t)] || {}).arch);
+  const row = (t, isArch) => {
     const act = t.act && typeof ACTS !== "undefined" ? ACTS.find(a => a.id === t.act) : null;
     const av = t.gid ? `<span class="ep-av g" style="background:${act ? "#c9a24a" : "#1f6b4b"}">${esc(act ? act.emoji || "📅" : "👥")}</span>`
       : `<span class="ep-av" style="background:${favColor("@" + t.tag)}">${esc(favFirst(chatTitle(t)).charAt(0).toUpperCase())}</span>`;
     const other = t.unread && !t.last.mine && t.last.from !== "sys";
     const q = other ? `<span class="ep-q">${t.last.kind === "dates" ? `<i data-open="1">📅 Voter</i>` : t.last.kind === "place" ? `<i class="p" data-qr="👍 Ça me va !">👍 Ça me va</i><i data-open="1">Répondre</i>` : `<i class="p" data-qr="👍 Partant !">👍 Partant</i><i data-open="1">Répondre</i>`}</span>` : "";
-    return `<div class="ep-th${t.unread ? " unread" : ""}" role="button" tabindex="0" ${t.gid ? `data-gc="${esc(t.gid)}"` : `data-dm="${esc(t.tag)}"`}>${av}
+    const k = esc(chatKey(t));
+    return `<div class="ep-sw"><div class="ep-acts"><button type="button" class="ep-a-arch" data-carch="${k}">${isArch ? "📤<span>Sortir</span>" : "📦<span>Archiver</span>"}</button><button type="button" class="ep-a-del" data-cdel="${k}">🗑<span>Supprimer</span></button></div>
+      <div class="ep-th${t.unread ? " unread" : ""}" role="button" tabindex="0" ${t.gid ? `data-gc="${esc(t.gid)}"` : `data-dm="${esc(t.tag)}"`}>${av}
       <span class="ep-tx"><b><span>${esc(chatTitle(t))}</span>${act ? `<em class="ep-tag">projet</em>` : ""}<small>${esc(agoText(t.at))}</small></b><small>${esc(ensSnip(t))}</small>${q}</span>
-      ${t.unread ? `<i class="ep-badge">${t.unread}</i>` : ""}</div>`;
+      ${t.unread ? `<i class="ep-badge">${t.unread}</i>` : ""}</div></div>`;
   };
+  const nArchUnread = arch.reduce((a, t) => a + (t.unread || 0), 0);
   return `<button type="button" class="ep-write" id="dmNew"><span>✏️ Écrire à un proche, proposer une sortie…</span><b aria-hidden="true">➤</b></button>
     <div class="ep-starters"><button type="button" data-start="place">📍 Un lieu</button><button type="button" data-start="dates">📅 Une date</button><button type="button" data-start="group">👥 Un groupe</button><button type="button" data-start="invite">🔗 Inviter</button></div>`
-    + (threads.length ? `<div class="ep-cap"><span>Récentes</span></div><div class="ep-list">${threads.map(row).join("")}</div>`
-      : `<div class="card"><p class="hint" style="margin:0">Écris à un proche, propose un lieu ou une date : vous décidez ensemble, et vous financez à plusieurs si besoin.</p></div>`);
+    + (threads.length ? `<div class="ep-cap"><span>Récentes</span><small>← glisse pour archiver ou supprimer</small></div><div class="ep-list">${threads.map(t => row(t, false)).join("")}</div>`
+      : `<div class="card" style="margin-top:12px"><p class="hint" style="margin:0">Écris à un proche, propose un lieu ou une date : vous décidez ensemble, et vous financez à plusieurs si besoin.</p></div>`)
+    + (arch.length ? `<button type="button" class="ep-archbtn" id="epArch">📦 Archivées (${arch.length})${nArchUnread ? ` <i class="ep-badge">${nArchUnread}</i>` : ""}<i>${ensShowArch ? "▴" : "▾"}</i></button>${ensShowArch ? `<div class="ep-list">${arch.map(t => row(t, true)).join("")}</div>` : ""}` : "");
+}
+// Supprimer une discussion : on confirme, et s'il y a un engagement en cours (sortie prévue, lieu choisi,
+// projet, argent entre vous…), on prévient et on propose plutôt d'archiver.
+async function ensDelAsk(k) {
+  const t = DMS.find(x => chatKey(x) === k); if (!t) return;
+  const ref = t.gid ? { gid: t.gid } : { tag: t.tag }, name = chatTitle(t), warn = [];
+  let msgs = []; try { const j = await socApi(chatPath(ref)); msgs = (t.gid ? j.gc.msgs : j.msgs) || []; if (t.gid && j.gc.offer) warn.push("🎁 Un bon plan est organisé dans cette discussion"); if (t.gid && (j.gc.rsvp || {})[SOC.tag] === "yes") warn.push("✋ Tu as dit « J'y vais »"); } catch (e) {}
+  const today = todayISO();
+  for (const m of msgs) {
+    if (m.kind === "dates" && m.chosen >= 0 && m.dates && String(m.dates.opts[m.chosen]).slice(0, 10) >= today) warn.push(`📅 Une sortie est prévue : ${m.dates.title || "date choisie"}, ${ddFmt(m.dates.opts[m.chosen])}`);
+    if (m.kind === "place" && m.place && Object.keys(m.votes || {}).length && Date.now() - (m.at || 0) < 30 * 864e5) warn.push(`📍 Un lieu est choisi : ${m.place.name}`);
+    if (m.kind === "idea" && m.act) warn.push("💡 Un projet à financer est lancé depuis cette discussion");
+  }
+  const act = t.act && typeof ACTS !== "undefined" ? ACTS.find(x => x.id === t.act && x.status === "open") : null;
+  if (act) warn.push(`${act.emoji || "📅"} Le projet « ${act.title} » est en cours`);
+  if (!t.gid && typeof prochesList === "function") { const p = prochesList().find(x => x.tag === t.tag), net = p ? Math.round((p.owe - p.due) * 100) / 100 : 0; if (Math.abs(net) > 0.004) warn.push(net > 0 ? `💶 ${favFirst(name)} te doit encore ${eur(net)}` : `💶 Tu dois encore ${eur(-net)} à ${favFirst(name)}`); }
+  const uniq = [...new Set(warn)].slice(0, 5);
+  const f = openForm(`<div class="f2"><h3>Supprimer la discussion avec ${esc(name)} ?</h3>
+    ${uniq.length ? `<div class="ep-warn"><b>⚠️ Il y a un engagement en cours</b><ul>${uniq.map(w => `<li>${esc(w)}</li>`).join("")}</ul><p>En l'archivant, tu la gardes de côté sans rien perdre.</p></div>` : ""}
+    <p class="hint" style="margin:${uniq.length ? "10px" : "0"} 0 0">Elle disparaît de ta liste seulement : ${t.gid ? "les autres membres la gardent" : `${esc(favFirst(name))} garde la sienne`}. Elle reviendra si quelqu'un écrit de nouveau.</p>
+    <div class="ep-delbtns"><button type="button" class="btn ${uniq.length ? "primary" : ""}" id="edArch">📦 ${uniq.length ? "Archiver plutôt" : "Archiver"}</button><button type="button" class="btn danger" id="edDel">🗑 Supprimer</button></div></div>`, () => true);
+  f.querySelector("button[type=submit]").hidden = true;
+  f.querySelector("#edArch").onclick = () => { chatHid()[k] = { arch: true, at: Date.now() }; saveSettings(); closeForm(); toast("Discussion archivée 📦"); render(); };
+  f.querySelector("#edDel").onclick = () => { chatHid()[k] = { del: true, at: t.at }; saveSettings(); closeForm(); toast("Discussion supprimée de ta liste"); render(); };
+}
+// Glisser une discussion vers la gauche : Archiver / Supprimer
+function ensSwipe(root) {
+  root.querySelectorAll(".ep-sw").forEach(sw => {
+    const th = sw.querySelector(".ep-th"); let x0 = null, y0 = 0, dx = 0, open = false, drag = false;
+    const W = 156, set = (v, anim) => { th.style.transition = anim ? "transform .2s ease" : "none"; th.style.transform = v ? `translateX(${v}px)` : ""; };
+    const close = () => { open = false; set(0, true); sw.classList.remove("open"); };
+    sw.ensClose = close;
+    th.addEventListener("pointerdown", e => { if (e.pointerType === "mouse" && e.button !== 0) return; x0 = e.clientX; y0 = e.clientY; dx = 0; drag = false; });
+    th.addEventListener("pointermove", e => {
+      if (x0 == null) return; const mx = e.clientX - x0, my = e.clientY - y0;
+      if (!drag) { if (Math.abs(mx) > 8 && Math.abs(mx) > Math.abs(my)) { drag = true; try { th.setPointerCapture(e.pointerId); } catch (er) {} root.querySelectorAll(".ep-sw.open").forEach(o => o !== sw && o.ensClose && o.ensClose()); } else if (Math.abs(my) > 8) { x0 = null; return; } else return; }
+      dx = Math.max(-W - 30, Math.min(0, mx + (open ? -W : 0))); set(dx, false);
+    });
+    const end = () => { if (x0 == null) return; x0 = null; if (!drag) return; th.dataset.swiped = "1"; setTimeout(() => { delete th.dataset.swiped; }, 50);
+      if (dx < -W / 2.4) { open = true; set(-W, true); sw.classList.add("open"); } else close(); };
+    th.addEventListener("pointerup", end); th.addEventListener("pointercancel", end);
+    th.addEventListener("click", e => { if (th.dataset.swiped || open) { e.stopImmediatePropagation(); e.preventDefault(); if (open && !th.dataset.swiped) close(); } }, true);
+  });
+  root.querySelectorAll("[data-carch]").forEach(b => b.onclick = () => {
+    const H = chatHid(), k = b.dataset.carch, was = (H[k] || {}).arch;
+    if (was) delete H[k]; else H[k] = { arch: true, at: Date.now() };
+    saveSettings(); toast(was ? "Discussion sortie des archives" : "Discussion archivée 📦"); render();
+  });
+  root.querySelectorAll("[data-cdel]").forEach(b => b.onclick = () => ensDelAsk(b.dataset.cdel));
+  const ab = root.querySelector("#epArch"); if (ab) ab.onclick = () => { ensShowArch = !ensShowArch; render(); };
 }
 // Une carte de projet : montant, progression, qui a payé, ta part, et le dernier message de sa discussion
 function ensActCard(a) {
@@ -98,6 +158,7 @@ function ensBind(root) {
   root.querySelectorAll("[data-tpl]").forEach(b => b.onclick = () => { const t = ACT_TPL[+b.dataset.tpl]; if (!t[2]) return editDeal(null, "cagnotte"); actNew({ ...t[2] }); });
   const dn = root.querySelector("#dmNew"); if (dn) dn.onclick = () => chatNew();
   root.querySelectorAll("[data-start]").forEach(b => b.onclick = () => ensStart(b.dataset.start));
+  ensSwipe(root);
 }
 // Réponse en un toucher depuis la liste (« 👍 Partant ! »)
 async function ensQuick(ref, text, e) {
