@@ -156,7 +156,7 @@ async function chatOpen(ref) {
   const group = !!ref.gid, others = group ? d.members.filter(m => !m.me) : [];
   const name = group ? (d.title || others.map(m => favFirst(m.name || m.tag)).join(", ")) : d.peer.name || ref.nameHint || "@" + ref.tag;
   const av = group ? `<span class="fav-av grp">👥</span>` : `<span class="fav-av" style="background:${favColor("@" + ref.tag)}">${esc(favFirst(name).charAt(0))}</span>`;
-  const f = openForm(`<div class="f2 dm-sheet" data-chat="${esc(chatKey(ref))}"><div class="dm-head">${av}<div class="dm-hd"><h3 style="margin:0">${esc(name)}</h3><small class="hint">${group ? `${d.members.length} personnes` : "@" + esc(ref.tag)}</small></div>
+  const f = openForm(`<div class="f2 dm-sheet" data-chat="${esc(chatKey(ref))}"><div class="dm-head"><button type="button" class="dm-back" id="dmBack" aria-label="Retour">‹</button>${av}<div class="dm-hd"><h3 style="margin:0">${esc(name)}</h3><small class="hint">${group ? `${d.members.length} personnes` : "@" + esc(ref.tag)}</small></div>
       <button type="button" class="btn dm-add" id="dmAdd" title="Ajouter des personnes">👥 +</button></div>
     <div class="dm-bar"><button type="button" class="btn" id="dmInvite">🔗 Inviter (WhatsApp, SMS)</button>${group ? `<button type="button" class="btn${(d.rsvp || {})[SOC.tag] === "yes" ? " primary" : ""}" id="dmGo">${(d.rsvp || {})[SOC.tag] === "yes" ? "✓ J'y vais" : "J'y vais ?"}<small>${Object.values(d.rsvp || {}).filter(v => v === "yes").length || ""}</small></button>` : ""}</div>
     ${group && d.guests && d.guests.length ? `<p class="hint dm-guests">Sans l'appli : ${d.guests.map(x => esc(x.name)).join(", ")}</p>` : ""}
@@ -192,6 +192,7 @@ async function chatOpen(ref) {
   f.querySelector("#dmPlace").onclick = () => placeSearch(pl => post({ place: pl }).catch(e => toast(e.message)));
   f.querySelector("#dmDates").onclick = () => datesForm(f, post);
   f.querySelector("#dmInvite").onclick = () => chatInvite(ctx);
+  f.querySelector("#dmBack").onclick = () => closeForm();
   if (chatOpen.intent) { const it = chatOpen.intent; chatOpen.intent = null; setTimeout(() => { const b = f.querySelector({ place: "#dmPlace", dates: "#dmDates", invite: "#dmInvite" }[it]); if (b) b.click(); }, 350); }
   { const g = f.querySelector("#dmGo"); if (g) g.onclick = async () => { const yes = (ctx.d.rsvp || {})[SOC.tag] === "yes"; try { await post({ action: "rsvp", v: yes ? "no" : "yes" }); closeForm(); setTimeout(() => gcOpen(ref.gid), 200); } catch (e) { toast(e.message); } }; }
   f.querySelector("#dmAdd").onclick = () => chatAddPeople(f, ctx);

@@ -1171,3 +1171,14 @@ body.ep-nohero .hero { display: none; }
 .ep-done { opacity: .7; }
 .ep-feedlink { display: flex; align-items: center; justify-content: space-between; width: 100%; margin-top: 14px; padding: 13px 16px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); font: inherit; font-weight: 600; color: var(--ink); cursor: pointer; } .ep-feedlink i { font-style: normal; color: var(--muted); }
 .ep-tabs { margin-top: 14px; }
+
+/* Discussion ouverte : en plein écran */
+.open .sheet:has(.dm-sheet) { display: flex; }
+.sheet:has(.dm-sheet) { top: 0; bottom: 0; height: 100vh; height: 100dvh; max-height: none; border-radius: 0; flex-direction: column; padding: calc(env(safe-area-inset-top) + 6px) 14px calc(env(safe-area-inset-bottom) + 8px); overflow: hidden; }
+.sheet:has(.dm-sheet) > .grab, .sheet:has(.dm-sheet) > .actions { display: none; }
+.sheet:has(.dm-sheet) .dm-sheet { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.sheet:has(.dm-sheet) .dm-head { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.sheet:has(.dm-sheet) .dm-box { flex: 1; max-height: none; min-height: 0; }
+.dm-back { border: 0; background: none; font: inherit; font-size: 2rem; line-height: 1; color: var(--green, #1f6b4b); padding: 0 6px 4px 0; cursor: pointer; }
+.sheet:has(.dm-sheet) #dmLeave { margin-top: 6px !important; font-size: .8rem; align-self: center; }
+@media (prefers-reduced-motion: no-preference) { .sheet:has(.dm-sheet) { animation: dmIn .26s cubic-bezier(.2,.9,.25,1); } @keyframes dmIn { from { transform: translateX(30%); opacity: .3; } } }
