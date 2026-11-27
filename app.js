@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "119";
+const APP_VERSION = "120";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -298,6 +298,7 @@ function showProfileMenu() {
     <div class="pmx-sec">
       ${sw("pmDark", "moon", "#3b4a6b", "Mode sombre", dark)}
       ${typeof FUN_THEMES !== "undefined" ? go("pmTheme", "leaf", "var(--green)", "Thème de l'appli", FUN_THEMES[settings.pal || "vert"][0]) : ""}
+      ${typeof FUN_BG !== "undefined" ? go("pmBg", "leaf", "#b5838d", "Fond d'écran", FUN_BG[settings.homeBg || ""] + (settings.homeBg && settings.homeBgAll ? " · partout" : "")) : ""}
       ${soc ? sw("pmPush", "bell", "#e67e22", "Notifications", push) : ""}
       ${sw("pmFull", "leaf", "#2e8a5b", "Version complète", !isSimple(), "Patrimoine, notes de frais…")}
     </div>
@@ -331,6 +332,7 @@ function showProfileMenu() {
   on("pmAv", () => { closeForm(); setTimeout(() => avPick(), 250); });
   on("pmBdg", () => { closeForm(); setTimeout(() => funBadgesOpen(), 250); });
   on("pmTheme", () => { closeForm(); setTimeout(() => funThemeOpen(), 250); });
+  on("pmBg", () => { closeForm(); setTimeout(() => funBgOpen(), 250); });
 }
 // Alertes regroupées derrière la cloche.
 // Chaque alerte a une clé stable (k) : « Gérer » emmène à l'endroit concerné ; ✕ la masque (choix gardé dans les réglages,
@@ -1154,7 +1156,7 @@ function render() {
   }
   if (typeof epFeedRefresh === "function") epFeedRefresh();
   document.body.classList.toggle("tab-home", tab === "home");
-  if (settings.homeBg && tab === "home") document.body.dataset.hbg = settings.homeBg; else delete document.body.dataset.hbg;
+  if (settings.homeBg && (tab === "home" || settings.homeBgAll)) document.body.dataset.hbg = settings.homeBg; else delete document.body.dataset.hbg;
   if (typeof funApplyTheme === "function") funApplyTheme();
   if (typeof funCheck === "function" && store && !document.getElementById("app").hidden) { try { funCheck(); } catch (e) { console.error(e); } if (!funStoryAuto.done) { funStoryAuto.done = 1; try { funStoryAuto(); } catch (e) {} } }
 }

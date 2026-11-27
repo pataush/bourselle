@@ -214,7 +214,9 @@ function funThemeOpen() {
 const FUN_BG = { "": "Aucun", menthe: "Menthe", peche: "Pêche", lavande: "Lavande", ciel: "Ciel", or: "Or", aurore: "Aurore" };
 function funBgOpen() {
   const cur = settings.homeBg || "";
-  const f = openForm(`<div class="f2"><h3>🖼 Fond de l'accueil</h3><div class="th-grid">${Object.entries(FUN_BG).map(([k, l]) => `<button type="button" data-hbg="${k}" aria-pressed="${k === cur}"><span class="th-sw hbg-sw" data-bgk="${k}"></span>${esc(l)}</button>`).join("")}</div></div>`, () => true);
+  const f = openForm(`<div class="f2"><h3>🖼 Fond d'écran</h3><div class="th-grid">${Object.entries(FUN_BG).map(([k, l]) => `<button type="button" data-hbg="${k}" aria-pressed="${k === cur}"><span class="th-sw hbg-sw" data-bgk="${k}"></span>${esc(l)}</button>`).join("")}</div>
+    <div class="pmx-sec" style="margin-top:14px"><button type="button" class="pmx-r" id="hbgAll" role="switch" aria-checked="${!!settings.homeBgAll}"><b>Appliquer à tous les onglets<small>sinon seulement sur l'accueil</small></b><span class="pmx-sw" aria-hidden="true"></span></button></div></div>`, () => true);
+  f.querySelector("#hbgAll").onclick = e => { settings.homeBgAll = !settings.homeBgAll; if (!settings.homeBgAll) delete settings.homeBgAll; e.currentTarget.setAttribute("aria-checked", String(!!settings.homeBgAll)); saveSettings(); render(); };
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Terminé";
   f.querySelectorAll("[data-hbg]").forEach(b => b.onclick = () => { settings.homeBg = b.dataset.hbg; if (!settings.homeBg) delete settings.homeBg; saveSettings(); f.querySelectorAll("[data-hbg]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); render(); });
 }
