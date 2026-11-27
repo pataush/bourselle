@@ -12,32 +12,41 @@
   h2 { font-size: 1.15rem; color: #16324a; margin-top: 1.8em; }
   a { color: #1b6b5a; }
   .muted { color: #5b6b78; font-size: .9rem; }
-  .back { display: inline-block; margin-bottom: 20px; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .langs { display: flex; gap: 4px; background: #e9e3d6; border-radius: 99px; padding: 3px; }
+  .langs button { border: 0; background: none; font: inherit; font-size: .9rem; padding: 4px 12px; border-radius: 99px; cursor: pointer; color: #1c2b39; }
+  .langs button[aria-pressed="true"] { background: #fff; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  [hidden] { display: none !important; }
 </style>
 </head>
 <body>
 <main>
-<a class="back" href="./">← Retour à Bourselle</a>
+<div class="top"><a class="back" href="./" data-fr="← Retour à Bourselle" data-en="← Back to Bourselle">← Retour à Bourselle</a>
+<div class="langs" role="group" aria-label="Langue / Language"><button type="button" data-set="fr">Français</button><button type="button" data-set="en">English</button></div></div>
+<div data-l="fr" lang="fr">
 <h1>Conditions d'utilisation</h1>
-<p class="muted">Dernière mise à jour : 16 novembre 2026</p>
+<p class="muted">Dernière mise à jour : 27 novembre 2026</p>
 
 <h2>Le service</h2>
-<p>Bourselle est une application gratuite d'aide au suivi de budget personnel. Elle est fournie « en l'état », sans garantie de disponibilité ni d'absence d'erreur.</p>
+<p>Bourselle est une application gratuite pour suivre son budget et gérer l'argent partagé entre proches. Elle est fournie « en l'état », sans garantie de disponibilité ni d'absence d'erreur.</p>
 
 <h2>Ton compte et tes données</h2>
 <p>Tu te connectes avec ton compte Google ou Microsoft. Tes données sont enregistrées dans ton propre espace de stockage (Google Drive ou OneDrive) et restent sous ta responsabilité. Pense à garder ton compte sécurisé. Voir la <a href="privacy.html">politique de confidentialité</a>.</p>
 
-<h2>Version gratuite et Bourselle Plus</h2>
-<p>Le suivi du budget au quotidien est gratuit. Certaines fonctions avancées (scan de tickets et import de relevés au-delà des limites gratuites, tontines et groupes supplémentaires, rappels avancés, exports comptables) sont réservées à l'offre payante <strong>Bourselle Plus</strong>, proposée au mois, à l'année, en forfait famille (jusqu'à 5 comptes) ou en paiement unique « à vie ». Les prix sont affichés dans l'application avant tout achat.</p>
-<p>Après le paiement, tu reçois par e-mail un code d'activation personnel, lié à l'adresse de ton compte Google ou Microsoft. Il ne doit pas être partagé en dehors des comptes prévus par ton offre.</p>
-<p>Les abonnements sont sans engagement : tu peux arrêter à tout moment, l'accès reste actif jusqu'à la fin de la période payée. Tu disposes d'un délai de rétractation de 14 jours à compter de l'achat ; si tu commences à utiliser Bourselle Plus pendant ce délai, tu acceptes que le service débute immédiatement. Pour toute demande de remboursement, contacte-nous.</p>
-<p>« À vie » signifie pour toute la durée d'exploitation de Bourselle.</p>
+<h2>L'argent entre proches</h2>
+<p>Bourselle aide à suivre qui doit quoi à qui, mais l'argent ne passe jamais par elle : chacun paie directement, de banque à banque (virement, Revolut, Wero, PayPal, Mobile Money…). Bourselle n'est ni une banque ni un service de paiement, et ne peut pas être tenue responsable d'un paiement entre utilisateurs. Les règles d'une cagnotte ou d'une tontine sont fixées par ses membres.</p>
+
+<h2>Bons plans</h2>
+<p>Les bons plans sont proposés par des partenaires, qui sont seuls responsables de leurs offres, de leurs prix et de leurs prestations. Bourselle peut toucher une commission quand tu profites d'une offre ; cela ne change pas le prix pour toi.</p>
+
+<h2>Bourselle Plus</h2>
+<p>Certaines fonctions avancées peuvent être proposées dans une offre payante, <strong>Bourselle Plus</strong>. Si elle est proposée, ses prix et son contenu sont affichés dans l'application avant tout achat. Après le paiement, tu reçois par e-mail un code d'activation personnel, lié à l'adresse de ton compte, qui ne doit pas être partagé en dehors des comptes prévus par ton offre. Les abonnements sont sans engagement : l'accès reste actif jusqu'à la fin de la période payée. Tu disposes d'un délai de rétractation de 14 jours à compter de l'achat ; si tu commences à utiliser Bourselle Plus pendant ce délai, tu acceptes que le service débute immédiatement. « À vie » signifie pour toute la durée d'exploitation de Bourselle.</p>
 
 <h2>Pas un conseil financier</h2>
-<p>Les calculs, prévisions et alertes de Bourselle sont indicatifs. Ils ne remplacent ni les relevés de ta banque, ni l'avis d'un conseiller financier, comptable ou juridique.</p>
+<p>Les calculs, budgets proposés, prévisions, alertes et réponses de la loupe sont indicatifs. Ils ne remplacent ni les relevés de ta banque, ni l'avis d'un conseiller financier, comptable ou juridique.</p>
 
 <h2>Utilisation acceptable</h2>
-<p>N'utilise pas Bourselle pour des activités illégales ni pour tenter de perturber le service ou d'accéder aux données d'autres personnes.</p>
+<p>N'utilise pas Bourselle pour des activités illégales, pour harceler d'autres personnes, ni pour tenter de perturber le service ou d'accéder aux données d'autres personnes.</p>
 
 <h2>Responsabilité</h2>
 <p>Dans la limite permise par la loi, l'éditeur de Bourselle ne pourra être tenu responsable d'une perte de données ou d'un préjudice lié à l'utilisation de l'application. Conserve des sauvegardes de tes informations importantes.</p>
@@ -46,7 +55,61 @@
 <p>Ces conditions et l'application peuvent évoluer. La date de mise à jour en haut de page indique la dernière version.</p>
 
 <h2>Contact</h2>
-<p>Pour toute question : <a href="https://github.com/pataush/bourselle/issues" target="_blank" rel="noopener">page du projet</a>.</p>
+<p>Pour toute question, écris-nous depuis l'app (Paramètres › « Une suggestion, un problème ? ») ou sur la <a href="https://github.com/pataush/bourselle/issues" target="_blank" rel="noopener">page du projet</a>.</p>
+</div>
+
+<div data-l="en" lang="en" hidden>
+<h1>Terms of use</h1>
+<p class="muted">Last updated: 27 November 2026</p>
+
+<h2>The service</h2>
+<p>Bourselle is a free app to track your budget and manage the money you share with your people. It is provided “as is”, with no guarantee of availability or of being error-free.</p>
+
+<h2>Your account and your data</h2>
+<p>You sign in with your Google or Microsoft account. Your data is saved in your own storage (Google Drive or OneDrive) and remains your responsibility. Keep your account secure. See the <a href="privacy.html?lang=en">privacy policy</a>.</p>
+
+<h2>Money between people</h2>
+<p>Bourselle helps you track who owes what to whom, but the money never goes through it: everyone pays directly, bank to bank (transfer, Revolut, Wero, PayPal, Mobile Money…). Bourselle is neither a bank nor a payment service, and cannot be held responsible for a payment between users. The rules of a money pot or a tontine are set by its members.</p>
+
+<h2>Deals</h2>
+<p>Deals are offered by partners, who are solely responsible for their offers, prices and services. Bourselle may earn a commission when you use an offer; this does not change the price for you.</p>
+
+<h2>Bourselle Plus</h2>
+<p>Some advanced features may be offered in a paid plan, <strong>Bourselle Plus</strong>. If it is offered, its prices and content are shown in the app before any purchase. After payment, you receive by email a personal activation code, linked to your account's address, which must not be shared beyond the accounts included in your plan. Subscriptions have no commitment: access stays active until the end of the paid period. You have a 14-day withdrawal period from the purchase; if you start using Bourselle Plus during that period, you agree that the service starts immediately. “Lifetime” means for as long as Bourselle is operated.</p>
+
+<h2>Not financial advice</h2>
+<p>The calculations, suggested budgets, forecasts, alerts and answers of the magnifying glass are for information only. They do not replace your bank statements or the advice of a financial, accounting or legal adviser.</p>
+
+<h2>Acceptable use</h2>
+<p>Do not use Bourselle for illegal activities, to harass other people, or to try to disrupt the service or access other people's data.</p>
+
+<h2>Liability</h2>
+<p>To the extent permitted by law, the publisher of Bourselle cannot be held liable for any data loss or damage related to the use of the app. Keep backups of your important information.</p>
+
+<h2>Changes</h2>
+<p>These terms and the app may change. The date at the top of the page shows the latest version.</p>
+
+<h2>Contact</h2>
+<p>For any question, write to us from the app (Settings › “A suggestion, a problem?”) or on the <a href="https://github.com/pataush/bourselle/issues" target="_blank" rel="noopener">project page</a>.</p>
+</div>
+
 </main>
+<script>
+// Langue : ?lang=en dans l'adresse, sinon celle choisie dans l'appli, sinon celle du téléphone
+(function () {
+  var q = new URLSearchParams(location.search).get("lang"), l = q;
+  if (l !== "fr" && l !== "en") { try { l = localStorage.getItem("bourselle-lang"); } catch (e) {} }
+  if (l !== "fr" && l !== "en") l = (navigator.language || "fr").toLowerCase().indexOf("fr") === 0 ? "fr" : "en";
+  function set(v) {
+    document.documentElement.lang = v;
+    document.querySelectorAll("[data-l]").forEach(function (e) { e.hidden = e.getAttribute("data-l") !== v; });
+    document.querySelectorAll("[data-set]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-set") === v)); });
+    document.querySelectorAll("[data-fr]").forEach(function (e) { e.textContent = e.getAttribute("data-" + v); });
+    document.title = document.querySelector('[data-l="' + v + '"] h1').textContent + " – Bourselle";
+  }
+  document.querySelectorAll("[data-set]").forEach(function (b) { b.onclick = function () { set(b.getAttribute("data-set")); }; });
+  set(l);
+})();
+</script>
 </body>
 </html>

@@ -1,6 +1,6 @@
 /* Bourselle — service worker : rend l'app installable et ouvre l'interface même hors ligne.
  * Les données ne sont jamais mises en cache ici : elles restent dans le Drive de l'utilisateur. */
-const CACHE = "bourselle-v130";
+const CACHE = "bourselle-v131";
 const SHELL = ["./", "index.html", "style.css", "icons.js", "app.js", "accounts.js", "patrimoine.js", "tontine.js", "economies.js", "ndf.js", "plus.js", "qr.js", "pay.js", "deal-ui.js", "deals.js", "projects.js", "assistant.js", "social.js", "session.js", "lock.js", "payme.js", "proches.js", "ensemble.js", "bankpdf.js", "feedback.js", "reset.js", "widgets.js", "avatar.js", "fun.js", "bonsplans.js", "profile.js", "smart.js", "dyn.js", "onboarding.js", "stats.js", "storage.js", "i18n.js", "config.js", "manifest.webmanifest", "icons/icon-192.png", "icons/favicon-32.png", "icons/og-invite.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL.map(u => new Request(u, { cache: "reload" })))).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => {

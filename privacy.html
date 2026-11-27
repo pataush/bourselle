@@ -12,31 +12,38 @@
   h2 { font-size: 1.15rem; color: #16324a; margin-top: 1.8em; }
   a { color: #1b6b5a; }
   .muted { color: #5b6b78; font-size: .9rem; }
-  .back { display: inline-block; margin-bottom: 20px; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 20px; flex-wrap: wrap; }
+  .langs { display: flex; gap: 4px; background: #e9e3d6; border-radius: 99px; padding: 3px; }
+  .langs button { border: 0; background: none; font: inherit; font-size: .9rem; padding: 4px 12px; border-radius: 99px; cursor: pointer; color: #1c2b39; }
+  .langs button[aria-pressed="true"] { background: #fff; font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  [hidden] { display: none !important; }
 </style>
 </head>
 <body>
 <main>
-<a class="back" href="./">← Retour à Bourselle</a>
+<div class="top"><a class="back" href="./" data-fr="← Retour à Bourselle" data-en="← Back to Bourselle">← Retour à Bourselle</a>
+<div class="langs" role="group" aria-label="Langue / Language"><button type="button" data-set="fr">Français</button><button type="button" data-set="en">English</button></div></div>
+<div data-l="fr" lang="fr">
 <h1>Politique de confidentialité</h1>
-<p class="muted">Dernière mise à jour : 25 novembre 2026</p>
+<p class="muted">Dernière mise à jour : 27 novembre 2026</p>
 
-<p>Bourselle est une application web de suivi de budget (dépenses, revenus, factures, garanties, abonnements, dettes, objectifs, plan d'économies, notes de frais et déplacements). Cette page explique quelles données elle utilise et où elles sont conservées.</p>
+<p>Bourselle est une application web de budget et d'argent partagé entre proches : dépenses, revenus, budgets, abonnements, dettes, objectifs, partage de frais, cagnottes et tontines, bons plans, et, si tu les actives, notes de frais, garanties, patrimoine et défis d'épargne. Cette page explique quelles données elle utilise et où elles sont conservées.</p>
 
 <h2>En bref</h2>
 <ul>
-  <li>Bourselle n'a <strong>pas de serveur</strong> qui stocke tes données. Tout est enregistré dans <strong>ton propre</strong> Google Drive ou OneDrive.</li>
-  <li>Personne d'autre que toi (et les personnes avec qui tu partages tes fichiers) ne peut lire tes données.</li>
+  <li>Ton budget personnel n'est stocké sur <strong>aucun serveur de Bourselle</strong> : il est enregistré dans <strong>ton propre</strong> Google Drive ou OneDrive.</li>
+  <li>Notre petit serveur ne garde que ce que tu partages avec d'autres (groupes, demandes de paiement, cagnottes, discussions…), ton tag et ton avatar.</li>
   <li>Aucune donnée n'est vendue, partagée avec des tiers ou utilisée pour de la publicité.</li>
 </ul>
 
 <h2>Données utilisées</h2>
 <ul>
   <li><strong>Identité de base</strong> : ton nom, ton adresse e-mail et ta photo de profil, fournis par Google ou Microsoft lors de la connexion. Ils servent uniquement à afficher ton compte dans l'app.</li>
-  <li><strong>Ton code Bourselle Plus</strong> (si tu en as un) : enregistré avec tes réglages dans ton propre Drive ou OneDrive. Il contient ton adresse e-mail et la date de fin de ton offre.</li>
+  <li><strong>Ce que tu indiques au premier lancement</strong> : ton prénom, ta devise, et, si tu les donnes, tes revenus et tes grosses charges du mois, qui servent à calculer tes budgets. Ils sont enregistrés avec tes réglages dans ton propre Drive ou OneDrive.</li>
   <li><strong>Tes données de budget</strong> : opérations, catégories, réglages, justificatifs (photos de tickets, factures) que tu saisis ou importes.</li>
-  <li><strong>Tes notes de frais</strong> : les dépenses marquées « note de frais » (type, motif, client, TVA), tes déplacements (date, motif, plage horaire, trajet, kilomètres) et les informations que tu choisis d'indiquer en en-tête (nom, fonction, entreprise, adresse, numéro de note). Rien n'est rempli à ta place.</li>
+  <li><strong>Tes notes de frais</strong> (si tu les utilises) : les dépenses marquées « note de frais » (type, motif, client, TVA), tes déplacements (date, motif, plage horaire, trajet, kilomètres) et les informations que tu choisis d'indiquer en en-tête (nom, fonction, entreprise, adresse, numéro de note). Rien n'est rempli à ta place.</li>
   <li><strong>Ta carte grise</strong> (si tu l'ajoutes) : la photo ou le fichier que tu choisis, ainsi que la puissance fiscale et le type de véhicule, utilisés pour calculer les indemnités kilométriques. Ce document contient des informations personnelles (nom, adresse, immatriculation) : il n'est enregistré que dans ton propre Drive ou OneDrive et n'est jamais envoyé ailleurs.</li>
+  <li><strong>Ta ville</strong> (si tu la choisis pour les bons plans) : elle reste dans tes réglages ; le tri des offres près de chez toi se fait sur ton appareil.</li>
 </ul>
 
 <h2>Où sont stockées les données</h2>
@@ -52,10 +59,10 @@
   <li>un dossier « Véhicule » avec ta carte grise.</li>
 </ul>
 <p>Ces fichiers restent dans ton Drive ou OneDrive, avec la même autorisation limitée que le reste de l'app. Supprimer une dépense dans l'app met son ticket à la corbeille ; remplacer la carte grise supprime l'ancienne.</p>
-<p>Une copie de travail est gardée dans le navigateur de ton appareil pour que l'app fonctionne hors connexion. Elle est effacée lorsque tu te déconnectes ou vides les données du site.</p>
+<p>Une copie de travail est gardée dans le navigateur de ton appareil pour que l'app fonctionne hors connexion. Elle est effacée lorsque tu te déconnectes ou vides les données du site. Si tu utilises Bourselle sur plusieurs appareils, chacun lit et enregistre le même fichier de ton Drive ou OneDrive.</p>
 
 <h2>Traitements sur l'appareil</h2>
-<p>La lecture des tickets de caisse (reconnaissance de texte) et l'import des relevés bancaires (CSV, OFX) sont faits <strong>directement sur ton appareil</strong>. Les fichiers ne sont envoyés à aucun service d'analyse.</p>
+<p>La lecture des tickets de caisse (reconnaissance de texte), l'import des relevés bancaires (CSV, OFX, PDF) et les réponses de la loupe (« Puis-je dépenser 200 € ce mois-ci ? ») sont faits <strong>directement sur ton appareil</strong>. Rien n'est envoyé à un service d'analyse.</p>
 
 <h2>Utilisation des données Google</h2>
 <p>L'utilisation et le transfert par Bourselle des informations reçues des API Google respectent la <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">politique relative aux données utilisateur des services API Google</a>, y compris les exigences d'utilisation limitée. Les données Google ne servent qu'à afficher et enregistrer ton budget à ta demande ; elles ne sont ni transférées à des tiers, ni utilisées pour de la publicité, ni lues par des humains.</p>
@@ -67,38 +74,158 @@
   <li>Google Fonts, pour l'affichage des polices.</li>
   <li>ExchangeRate-API (et Frankfurter en secours), pour les taux de change du jour : seul le code de la devise de ton budget est envoyé (par exemple « EUR »), aucune donnée personnelle.</li>
   <li>Frankfurter (taux de la Banque centrale européenne), pour convertir une note de frais au taux de la date du ticket : seuls les deux codes de devise et la date sont envoyés (par exemple « EUR, USD, 2026-10-12 »), jamais le montant ni le ticket.</li>
-  <li>Pour Bourselle Plus : le prestataire de paiement (par exemple Stripe) traite le paiement. Nous recevons seulement ton adresse e-mail, l'offre choisie et la référence du paiement, pour t'envoyer ton code d'activation et tenir notre comptabilité. Nous ne voyons jamais tes données bancaires. Le code est fabriqué et envoyé automatiquement par notre petit serveur (hébergé chez Cloudflare) via le service d'e-mail Resend ; ce serveur garde ton adresse e-mail et ton code, uniquement pour pouvoir te le renvoyer si tu le demandes (« Je n'ai pas reçu mon code »). Tu peux demander leur suppression à tout moment.</li>
+  <li>Cloudflare, qui héberge notre petit serveur (voir ci-dessous).</li>
+  <li>Pour Bourselle Plus, si elle est proposée : le prestataire de paiement (par exemple Stripe) traite le paiement. Nous recevons seulement ton adresse e-mail, l'offre choisie et la référence du paiement, pour t'envoyer ton code d'activation par e-mail (service Resend) et tenir notre comptabilité. Nous ne voyons jamais tes données bancaires. Le serveur garde ton adresse e-mail et ton code, uniquement pour pouvoir te le renvoyer si tu le demandes. Tu peux demander leur suppression à tout moment.</li>
+  <li>Bons plans : quand tu profites d'une offre sur le site d'un partenaire, tu es sur son site et sa propre politique de confidentialité s'applique. Bourselle peut toucher une commission ; elle ne transmet pas tes données au partenaire.</li>
 </ul>
 
-<h2>Tag, groupes partagés et réclamations de dettes</h2>
-<p>Si tu utilises ton tag Bourselle (par exemple « @marie-7k2q ») pour réclamer une dette ou en recevoir une, notre petit serveur (hébergé chez Cloudflare) garde :</p>
+<h2>Ce que garde notre serveur</h2>
+<p>Pour les fonctions entre proches, notre petit serveur (hébergé chez Cloudflare) garde :</p>
 <ul>
-  <li>ton tag, relié à ton adresse e-mail, pour que les réclamations t'arrivent ;</li>
-  <li>chaque réclamation : les deux tags, ton prénom, le montant, la devise, le libellé, la note, les dates, l'état (en attente, acceptée, refusée…) et les remboursements notés de part et d'autre ;</li>
-  <li>les groupes de partage que tu partages (avec des membres Bourselle ou par lien d'invitation) : le nom du groupe, le prénom des membres, les dépenses et remboursements, les commentaires et les photos de tickets que vous y ajoutez. Ils sont visibles par les membres du groupe et, si tu crées un lien d'invitation, par toute personne qui a ce lien, jusqu'à ce que tu le désactives ;</li>
-  <li>les achats groupés, cagnottes et paiements à plusieurs personnes que tu crées ou auxquels tu participes : le titre, la description, les prénoms, les montants, les dates, les états de paiement, les commentaires et les photos ou factures jointes. Chaque personne payée ne voit que ce qui la concerne ;</li>
-  <li>si tu les indiques dans « Me faire payer » : le nom du titulaire du compte, ton IBAN, ton nom PayPal.me ou ton lien de paiement. Ils sont montrés uniquement aux membres de tes groupes et aux personnes à qui tu envoies ton lien de paiement, pour qu'elles te paient directement. Aucun paiement ne passe par Bourselle. Tu peux les retirer à tout moment en vidant les champs.</li>
-  <li>si tu actives les notifications en direct : l'adresse technique d'abonnement de ton appareil (fournie par ton navigateur, par exemple Google, Apple ou Mozilla) et ta langue. Le serveur s'en sert seulement pour te prévenir des changements dans tes groupes et de tes réclamations de dettes ; le texte de la notification est chiffré de bout en bout jusqu'à ton appareil. Tu peux les désactiver à tout moment.</li>
+  <li>ton tag (par exemple « @marie-7k2q »), relié à ton adresse e-mail, pour que ce qu'on t'envoie t'arrive, et la liste de tes proches ajoutés ;</li>
+  <li>ton avatar (personnage, initiales ou petite photo), pour que tes proches le voient chez eux ;</li>
+  <li>les réclamations de dettes : les deux tags, ton prénom, le montant, la devise, le libellé, la note, les dates, l'état et les remboursements notés de part et d'autre ;</li>
+  <li>les groupes de partage que tu partages (avec des membres Bourselle ou par lien d'invitation) : le nom du groupe, le prénom des membres, les dépenses et remboursements, les commentaires et les photos de tickets. Ils sont visibles par les membres du groupe et, si tu crées un lien d'invitation, par toute personne qui a ce lien, jusqu'à ce que tu le désactives ;</li>
+  <li>les discussions avec tes proches et les projets, cagnottes, tontines et paiements à plusieurs que tu crées ou rejoins : les messages, lieux et dates proposés, le titre, les prénoms, les montants, les dates, les états de paiement, les commentaires et les photos ou factures jointes. Seuls les participants les voient ; chaque personne payée ne voit que ce qui la concerne ;</li>
+  <li>si tu les indiques dans « Me faire payer » : le nom du titulaire du compte, ton IBAN, ton identifiant PayPal, Revolut, Wero ou Mobile Money, ou ton lien de paiement. Ils sont montrés uniquement aux personnes qui ont à te payer. Aucun paiement ne passe par Bourselle. Tu peux les retirer à tout moment ;</li>
+  <li>les réservations et offres de groupe que tu rejoins dans les bons plans, pour que le partenaire puisse les honorer ;</li>
+  <li>les messages que tu envoies à l'équipe (« Une suggestion, un problème ? ») : ton texte, ton prénom, ton adresse e-mail pour te répondre, et la version de l'app ;</li>
+  <li>si tu actives les notifications : l'adresse technique d'abonnement de ton appareil (fournie par ton navigateur, par exemple Google, Apple ou Mozilla) et ta langue. Le serveur s'en sert seulement pour te prévenir de ce qui te concerne ; le texte de la notification est chiffré de bout en bout jusqu'à ton appareil. Tu peux les désactiver à tout moment ;</li>
+  <li>des <strong>compteurs anonymes</strong> : un total par jour (personnes actives, nouveaux comptes, invitations, partages, bons plans utilisés, cagnottes créées), sans nom, sans montant et sans contenu. Pour qu'une même personne ne compte qu'une fois par jour, une empreinte du jour est gardée deux jours puis effacée.</li>
 </ul>
-<p>Pour vérifier ton identité, l'app envoie au serveur ton jeton de connexion Google ou Microsoft ; le serveur demande seulement à Google ou Microsoft ton adresse et ton prénom, sans accès à ton Drive. Ton adresse e-mail n'est jamais montrée aux autres utilisateurs : ils ne voient que ton tag et ton prénom. Ton budget personnel (opérations, comptes, patrimoine…) ne passe jamais par ce serveur. Tu peux demander la suppression de ton tag et de tes réclamations à tout moment.</p>
+<p>Pour vérifier ton identité, l'app envoie au serveur ton jeton de connexion Google ou Microsoft ; le serveur demande seulement à Google ou Microsoft ton adresse et ton prénom, sans accès à ton Drive. Ton adresse e-mail n'est jamais montrée aux autres utilisateurs : ils ne voient que ton tag, ton prénom et ton avatar. Ton budget personnel (opérations, comptes, patrimoine…) ne passe jamais par ce serveur. Tu peux demander la suppression de ces données à tout moment.</p>
+
 <h2>Tes droits</h2>
 <p>Tes données t'appartiennent. Tu peux à tout moment :</p>
 <ul>
   <li>les exporter depuis l'app, ou télécharger les fichiers depuis ton Drive / OneDrive ;</li>
-  <li>les supprimer en effaçant le dossier « Bourselle » de ton Drive ou OneDrive (y compris les notes de frais, le classeur Excel et la carte grise) ;</li>
+  <li>les supprimer en effaçant le dossier « Bourselle » de ton Drive ou OneDrive (y compris les notes de frais, le classeur Excel et la carte grise), ou avec « Recommencer à zéro » dans l'app ;</li>
+  <li>demander la suppression de ce que garde notre serveur ;</li>
   <li>retirer l'accès de Bourselle : sur <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">myaccount.google.com/permissions</a> (Google) ou <a href="https://account.live.com/consent/Manage" target="_blank" rel="noopener">account.live.com/consent/Manage</a> (Microsoft).</li>
 </ul>
 
 <h2>Sécurité</h2>
-<p>Les échanges se font en HTTPS. Les jetons de connexion restent dans ton navigateur et expirent automatiquement. Bourselle ne voit jamais ton mot de passe.</p>
+<p>Les échanges se font en HTTPS. Les jetons de connexion restent dans ton navigateur et expirent automatiquement. Bourselle ne voit jamais ton mot de passe ni tes identifiants bancaires. Tu peux verrouiller l'app par Face ID, empreinte ou code.</p>
 
 <h2>Enfants</h2>
 <p>Bourselle ne s'adresse pas aux enfants de moins de 15 ans.</p>
 
 <h2>Contact</h2>
-<p>Pour toute question, ouvre une demande sur la <a href="https://github.com/pataush/bourselle/issues" target="_blank" rel="noopener">page du projet</a>.</p>
+<p>Pour toute question, écris-nous depuis l'app (Paramètres › « Une suggestion, un problème ? ») ou ouvre une demande sur la <a href="https://github.com/pataush/bourselle/issues" target="_blank" rel="noopener">page du projet</a>.</p>
 
 <p class="muted"><a href="conditions.html">Conditions d'utilisation</a></p>
+</div>
+
+<div data-l="en" lang="en" hidden>
+<h1>Privacy policy</h1>
+<p class="muted">Last updated: 27 November 2026</p>
+
+<p>Bourselle is a web app for your budget and the money you share with your people: spending, income, budgets, subscriptions, debts, goals, shared costs, money pots and tontines, deals, and, if you turn them on, expense reports, warranties, assets and savings challenges. This page explains what data it uses and where it is kept.</p>
+
+<h2>In short</h2>
+<ul>
+  <li>Your personal budget is stored on <strong>no Bourselle server</strong>: it is saved in <strong>your own</strong> Google Drive or OneDrive.</li>
+  <li>Our small server only keeps what you share with others (groups, payment requests, money pots, conversations…), your tag and your avatar.</li>
+  <li>No data is sold, shared with third parties or used for advertising.</li>
+</ul>
+
+<h2>Data used</h2>
+<ul>
+  <li><strong>Basic identity</strong>: your name, email address and profile picture, provided by Google or Microsoft when you sign in. They are only used to show your account in the app.</li>
+  <li><strong>What you enter on first launch</strong>: your first name, your currency and, if you give them, your monthly income and main fixed costs, which are used to work out your budgets. They are saved with your settings in your own Drive or OneDrive.</li>
+  <li><strong>Your budget data</strong>: transactions, categories, settings and receipts (photos of receipts, invoices) that you enter or import.</li>
+  <li><strong>Your expense reports</strong> (if you use them): expenses marked as “expense report” (type, purpose, client, VAT), your trips (date, purpose, time slot, route, kilometres) and the details you choose to put in the header (name, job title, company, address, report number). Nothing is filled in for you.</li>
+  <li><strong>Your vehicle registration document</strong> (if you add it): the photo or file you choose, plus the fiscal horsepower and vehicle type, used to calculate mileage allowances. This document contains personal information (name, address, registration number): it is only saved in your own Drive or OneDrive and is never sent anywhere else.</li>
+  <li><strong>Your city</strong> (if you choose one for deals): it stays in your settings; deals near you are sorted on your device.</li>
+</ul>
+
+<h2>Where data is stored</h2>
+<ul>
+  <li><strong>With Google</strong>: in a “Bourselle” folder in your Google Drive. The app only asks for the <code>drive.file</code> permission, which lets it see and change <em>only the files it created</em>, never the rest of your Drive.</li>
+  <li><strong>With Microsoft</strong>: in the “Apps/Bourselle” folder of your OneDrive, through the <code>Files.ReadWrite.AppFolder</code> permission, limited to that folder.</li>
+  <li><strong>Without an account</strong> (trial mode): only in your device's browser.</li>
+</ul>
+<p><strong>“Expense reports” folder.</strong> If you use expense reports, the app creates a “Bourselle › Expense reports” folder in the same place, containing:</p>
+<ul>
+  <li>your receipts, sorted by month (“Expense reports › 2026 › 2026-11”) and named “date – label – amount”;</li>
+  <li>one Excel workbook per year (“Expense reports 2026.xlsx”), with one tab per month and a summary, updated when your reports change;</li>
+  <li>a “Vehicle” folder with your registration document.</li>
+</ul>
+<p>These files stay in your Drive or OneDrive, with the same limited permission as the rest of the app. Deleting an expense in the app moves its receipt to the bin; replacing the registration document deletes the old one.</p>
+<p>A working copy is kept in your device's browser so the app works offline. It is erased when you sign out or clear the site's data. If you use Bourselle on several devices, each one reads and saves the same file in your Drive or OneDrive.</p>
+
+<h2>Processing on your device</h2>
+<p>Reading receipts (text recognition), importing bank statements (CSV, OFX, PDF) and the answers of the magnifying glass (“Can I spend €200 this month?”) all happen <strong>directly on your device</strong>. Nothing is sent to an analysis service.</p>
+
+<h2>Use of Google data</h2>
+<p>Bourselle's use and transfer of information received from Google APIs adheres to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API Services User Data Policy</a>, including the Limited Use requirements. Google data is only used to display and save your budget at your request; it is not transferred to third parties, not used for advertising and not read by humans.</p>
+
+<h2>Third-party services</h2>
+<ul>
+  <li>Google (sign-in and Google Drive) and Microsoft (sign-in and OneDrive), depending on the account you choose.</li>
+  <li>GitHub Pages, which hosts the app's files (no budget data goes through it).</li>
+  <li>Google Fonts, to display fonts.</li>
+  <li>ExchangeRate-API (with Frankfurter as a fallback), for today's exchange rates: only your budget's currency code is sent (for example “EUR”), no personal data.</li>
+  <li>Frankfurter (European Central Bank rates), to convert an expense report at the rate of the receipt's date: only the two currency codes and the date are sent (for example “EUR, USD, 2026-10-12”), never the amount or the receipt.</li>
+  <li>Cloudflare, which hosts our small server (see below).</li>
+  <li>For Bourselle Plus, if it is offered: the payment provider (for example Stripe) handles the payment. We only receive your email address, the plan chosen and the payment reference, to email you your activation code (through the Resend service) and keep our accounts. We never see your bank details. The server keeps your email address and code only so it can send the code again if you ask. You can ask for them to be deleted at any time.</li>
+  <li>Deals: when you use an offer on a partner's website, you are on their site and their own privacy policy applies. Bourselle may earn a commission; it does not pass your data to the partner.</li>
+</ul>
+
+<h2>What our server keeps</h2>
+<p>For the features you use with others, our small server (hosted by Cloudflare) keeps:</p>
+<ul>
+  <li>your tag (for example “@marie-7k2q”), linked to your email address so that what is sent to you reaches you, and the list of people you have added;</li>
+  <li>your avatar (character, initials or small photo), so your people can see it on their side;</li>
+  <li>debt claims: both tags, your first name, the amount, currency, label, note, dates, status and the repayments recorded on either side;</li>
+  <li>the shared-cost groups you share (with Bourselle members or through an invitation link): the group name, members' first names, expenses and repayments, comments and receipt photos. They are visible to the group's members and, if you create an invitation link, to anyone who has that link until you turn it off;</li>
+  <li>conversations with your people and the projects, money pots, tontines and multi-person payments you create or join: messages, suggested places and dates, title, first names, amounts, dates, payment statuses, comments and attached photos or invoices. Only participants can see them; each person being paid only sees what concerns them;</li>
+  <li>if you enter them in “Get paid”: the account holder's name, your IBAN, your PayPal, Revolut, Wero or Mobile Money details, or your payment link. They are only shown to people who need to pay you. No payment goes through Bourselle. You can remove them at any time;</li>
+  <li>the bookings and group offers you join in deals, so the partner can honour them;</li>
+  <li>the messages you send to the team (“A suggestion, a problem?”): your text, your first name, your email address so we can reply, and the app version;</li>
+  <li>if you turn on notifications: your device's technical subscription address (provided by your browser, for example Google, Apple or Mozilla) and your language. The server only uses it to tell you about things that concern you; the notification text is end-to-end encrypted to your device. You can turn them off at any time;</li>
+  <li><strong>anonymous counters</strong>: one total per day (active people, new accounts, invitations, shares, deals used, money pots created), with no name, no amount and no content. So that the same person only counts once a day, a daily fingerprint is kept for two days and then erased.</li>
+</ul>
+<p>To check your identity, the app sends your Google or Microsoft sign-in token to the server; the server only asks Google or Microsoft for your email address and first name, with no access to your Drive. Your email address is never shown to other users: they only see your tag, first name and avatar. Your personal budget (transactions, accounts, assets…) never goes through this server. You can ask for this data to be deleted at any time.</p>
+
+<h2>Your rights</h2>
+<p>Your data belongs to you. At any time you can:</p>
+<ul>
+  <li>export it from the app, or download the files from your Drive / OneDrive;</li>
+  <li>delete it by erasing the “Bourselle” folder in your Drive or OneDrive (including expense reports, the Excel workbook and the registration document), or with “Start over” in the app;</li>
+  <li>ask for what our server keeps to be deleted;</li>
+  <li>remove Bourselle's access: at <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">myaccount.google.com/permissions</a> (Google) or <a href="https://account.live.com/consent/Manage" target="_blank" rel="noopener">account.live.com/consent/Manage</a> (Microsoft).</li>
+</ul>
+
+<h2>Security</h2>
+<p>All exchanges use HTTPS. Sign-in tokens stay in your browser and expire automatically. Bourselle never sees your password or your banking login. You can lock the app with Face ID, fingerprint or a code.</p>
+
+<h2>Children</h2>
+<p>Bourselle is not intended for children under 15.</p>
+
+<h2>Contact</h2>
+<p>For any question, write to us from the app (Settings › “A suggestion, a problem?”) or open a request on the <a href="https://github.com/pataush/bourselle/issues" target="_blank" rel="noopener">project page</a>.</p>
+
+<p class="muted"><a href="conditions.html?lang=en">Terms of use</a></p>
+</div>
+
 </main>
+<script>
+// Langue : ?lang=en dans l'adresse, sinon celle choisie dans l'appli, sinon celle du téléphone
+(function () {
+  var q = new URLSearchParams(location.search).get("lang"), l = q;
+  if (l !== "fr" && l !== "en") { try { l = localStorage.getItem("bourselle-lang"); } catch (e) {} }
+  if (l !== "fr" && l !== "en") l = (navigator.language || "fr").toLowerCase().indexOf("fr") === 0 ? "fr" : "en";
+  function set(v) {
+    document.documentElement.lang = v;
+    document.querySelectorAll("[data-l]").forEach(function (e) { e.hidden = e.getAttribute("data-l") !== v; });
+    document.querySelectorAll("[data-set]").forEach(function (b) { b.setAttribute("aria-pressed", String(b.getAttribute("data-set") === v)); });
+    document.querySelectorAll("[data-fr]").forEach(function (e) { e.textContent = e.getAttribute("data-" + v); });
+    document.title = document.querySelector('[data-l="' + v + '"] h1').textContent + " – Bourselle";
+  }
+  document.querySelectorAll("[data-set]").forEach(function (b) { b.onclick = function () { set(b.getAttribute("data-set")); }; });
+  set(l);
+})();
+</script>
 </body>
 </html>

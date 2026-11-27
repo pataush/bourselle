@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "130";
+const APP_VERSION = "131";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -946,43 +946,26 @@ function renderReglages() {
     <div class="card"><h2>Installer sur ton téléphone</h2><p class="hint" style="margin:0">iPhone : dans Safari, bouton Partager puis « Sur l'écran d'accueil ». Android : dans Chrome, menu ⋮ puis « Ajouter à l'écran d'accueil ».</p>
 </div>
   <div class="card about"><h2>À propos</h2>
-    <p style="margin:0 0 10px"><b>Bourselle</b> : ton budget et tes partages, simplement.</p>
-    <details class="about-ndf"><summary><h3>⭐ Notes de frais, sans prise de tête</h3><small>Photo du ticket, rangement dans ton Drive, classeur Excel prêt à envoyer.</small><span class="about-more">Lire la suite</span></summary>
+    <p class="about-lead">Bourselle, c'est ton budget et l'argent que tu partages avec tes proches, au même endroit.</p>
+    <ul class="about-ess">
+      <li><span>💰</span><span>Fais des économies grâce aux bons plans : des réductions près de chez toi et des codes promo en ligne.</span></li>
+      <li><span>📊</span><span>Tu suis tes dépenses et tes budgets du mois.</span></li>
+      <li><span>🤝</span><span>Tu partages des frais, tu lances une cagnotte, une tontine ou un projet entre amis, et chacun paie de banque à banque : l'argent ne passe jamais par Bourselle.</span></li>
+      <li><span>🔍</span><span>La loupe répond à tes questions, comme « Puis-je dépenser 200 € ce mois-ci ? ».</span></li>
+      <li><span>⚙️</span><span>Et si tu en as besoin, active d'autres fonctions dans Paramètres : notes de frais, garanties, patrimoine ou défis d'épargne entre amis.</span></li>
+      <li><span>🔒</span><span>Tes données restent dans ton propre Drive ou OneDrive.</span></li>
+    </ul>
+    <details class="about-more-d"><summary>En savoir plus</summary>
       <ul>
-        <li><b>Photographie ton ticket</b> : le montant et la TVA sont lus automatiquement, même dans une autre devise (au taux du jour du ticket).</li>
-        <li><b>Tout est rangé pour toi</b> dans ton Drive : Notes de frais › année › mois, chaque ticket nommé « date - libellé - montant ».</li>
-        <li><b>Un classeur Excel prêt à envoyer</b>, mis à jour tout seul : un onglet par mois, HT, TVA récupérable, TTC et totaux.</li>
-        <li><b>Tes déplacements</b> avec le barème kilométrique (+20 % pour un véhicule électrique).</li>
-        <li><b>Le suivi du remboursement</b> : à rembourser ou remboursé, avec une alerte tant que ce n'est pas réglé.</li>
-      </ul>
-      <p class="hint" style="margin:8px 0 0">${typeof plusFree === "function" && plusFree("ndf") ? "Gratuit et illimité." : `Gratuit : illimité le premier mois, puis ${FREE.ndf} tickets par mois ; illimité avec Bourselle Plus.`}</p>${!isSimple() ? `<button type="button" class="btn primary" id="aboutNdf" style="margin-top:10px">Ouvrir mes notes de frais</button>` : `<button type="button" class="btn" id="aboutNdf" style="margin-top:10px">Activer la version complète pour les notes de frais</button>`}</details>
-    <h3>Ce que tu peux faire</h3>
-    <ul>
-      <li><b>Ton budget</b> : dépenses, rentrées, épargne, budget par catégorie, prévision de fin de mois, et l'année d'un coup d'œil.</li>
-      <li><b>Partager entre proches</b> : groupes (coloc, couple, voyage, famille), qui doit quoi à qui, tickets en photo et commentaires.</li>
-      <li><b>Payer et te faire payer</b> : demander un paiement par QR code ou lien, payer plusieurs personnes, suivre chaque règlement (rouge, jaune, vert).</li>
-      <li><b>Cagnottes et achats groupés</b> : tontine avec ses tours et ses clauses, achats à plusieurs, même avec des amis sans l'appli.</li>
-      <li><b>Notes de frais</b> : tickets en photo, rangés dans ton Drive et regroupés dans un classeur Excel (voir plus haut).</li>
-      <li><b>Tes suivis</b> : dettes et crédits, abonnements, objectifs, plan d'économies, patrimoine, garanties.</li>
-    </ul>
-    <h3>Notre philosophie</h3>
-    <ul>
-      <li><b>Pas de connexion à ta banque.</b> Tu n'as jamais à donner tes identifiants bancaires.</li>
-      <li><b>L'argent ne passe jamais par Bourselle.</b> Chacun paie de banque à banque (virement, Revolut, Wero, PayPal, Mobile Money…) ; Bourselle suit seulement qui a payé.</li>
-      <li><b>Tes données restent dans ton propre cloud</b> (Google Drive ou OneDrive), dans un dossier « Bourselle » à ton nom. Bourselle n'a accès qu'à ce dossier.</li>
-      <li><b>Le strict nécessaire sur notre serveur</b> : ce que tu partages avec d'autres (groupes partagés, demandes de paiement, cagnottes, rappels) et ton tag, pour que l'autre le reçoive. Jamais ton budget.</li>
-      <li><b>Pas de publicité, pas de revente de données.</b></li>
-    </ul>
-    <h3>Ta sécurité</h3>
-    <ul>
-      <li>Connexion avec Google ou Microsoft, compatible avec les clés d'accès (Face ID, empreinte).</li>
-      <li>Verrouillage de l'appli par Face ID, empreinte ou code, et un seul appareil connecté à la fois.</li>
-    </ul>
-    ${typeof PLUS_HIDDEN !== "undefined" && PLUS_HIDDEN && !isPlus() ? `<h3>Gratuit</h3>
-    <p style="margin:0">Bourselle est gratuite. Quelques services ont une limite par mois : ${FREE.import} imports de relevés, ${FREE.compta} exports comptables et 3 demandes de paiement vers un utilisateur Bourselle (le QR code et le lien de paiement restent illimités).</p>` : `<h3>Gratuit, et Bourselle Plus</h3>
-    <p style="margin:0">Le budget au quotidien est gratuit. Bourselle Plus débloque l'illimité (scan de tickets, imports, groupes, notes de frais, demandes de paiement), les exports comptables et le forfait famille.${typeof showPlus === "function" ? ` <button type="button" class="linkbtn" id="aboutPlus">Découvrir Plus</button>` : ""}</p>`}
+        <li>Pas de connexion à ta banque : tu n'as jamais à donner tes identifiants bancaires.</li>
+        <li>Bourselle n'a accès qu'au dossier « Bourselle » de ton Drive ou OneDrive.</li>
+        <li>Notre serveur ne garde que ce que tu partages avec d'autres (groupes, demandes de paiement, cagnottes) et ton tag. Jamais ton budget.</li>
+        <li>Pas de publicité, pas de revente de données.</li>
+        <li>Connexion avec Google ou Microsoft, verrouillage par Face ID, empreinte ou code, et plusieurs appareils en même temps.</li>
+        <li>Bourselle est gratuite. Elle peut toucher une commission quand tu profites d'un bon plan.</li>
+      </ul></details>
     <div class="ver-row"><span class="hint">Version ${APP_VERSION}</span><button class="btn" id="forceUpdate">Charger la dernière version</button></div>
-    <p class="hint" style="margin:10px 0 0"><a href="privacy.html" target="_blank" rel="noopener">Confidentialité</a> · <a href="conditions.html" target="_blank" rel="noopener">Conditions d'utilisation</a></p></div>
+    <p class="hint" style="margin:10px 0 0"><a href="privacy.html?lang=${window.LANG === "en" ? "en" : "fr"}" target="_blank" rel="noopener">Confidentialité</a> · <a href="conditions.html?lang=${window.LANG === "en" ? "en" : "fr"}" target="_blank" rel="noopener">Conditions d'utilisation</a></p></div>
     ${typeof resetCardHTML === "function" ? resetCardHTML() : ""}`;
   view.innerHTML = html;
   if (typeof socBindTagCard === "function") socBindTagCard();

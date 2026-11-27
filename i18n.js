@@ -1573,6 +1573,19 @@
     "📄 Importer plusieurs opérations depuis un relevé bancaire": "📄 Import several transactions from a bank statement", "Afrique": "Africa"});
   PATTERNS.push(["Argent en cours · {n}", "Money in progress · {n}"], ["Terminés ({n})", "Finished ({n})"], ["Projets et cagnottes terminés ({n}) ›", "Finished projects and money pots ({n}) ›"], ["Pas encore de bon plan à {x}", "No deals in {x} yet"], ["Bientôt à {x}", "Coming soon to {x}"],
     ["Ta part : {x}", "Your share: {x}"], ["Il manque {x}", "{x} still needed"], ["Verser {x}", "Pay {x}"], ["{x} réunis 🎉", "{x} collected 🎉"], ["{m} sur {m} · {n} personnes", "{m} of {m} · {n} people"], ["{n} sur {n} ont payé", "{n} of {n} have paid"], ["Cotisation : {x}", "Contribution: {x}"], ["{x} réglés", "{x} settled"]);
+  Object.assign(EXACT, {"Bourselle, c'est ton budget et l'argent que tu partages avec tes proches, au même endroit.": "Bourselle is your budget and the money you share with your people, in one place.",
+    "Fais des économies grâce aux bons plans : des réductions près de chez toi et des codes promo en ligne.": "Save money with deals: discounts near you and online promo codes.",
+    "Tu suis tes dépenses et tes budgets du mois.": "Track your spending and your monthly budgets.",
+    "Tu partages des frais, tu lances une cagnotte, une tontine ou un projet entre amis, et chacun paie de banque à banque : l'argent ne passe jamais par Bourselle.": "Share costs, start a money pot, a tontine or a project with friends, and everyone pays bank to bank: the money never goes through Bourselle.",
+    "La loupe répond à tes questions, comme « Puis-je dépenser 200 € ce mois-ci ? ».": "The magnifying glass answers your questions, like “Can I spend €200 this month?”.",
+    "Et si tu en as besoin, active d'autres fonctions dans Paramètres : notes de frais, garanties, patrimoine ou défis d'épargne entre amis.": "And if you need them, turn on more features in Settings: expense reports, warranties, assets or savings challenges with friends.",
+    "Tes données restent dans ton propre Drive ou OneDrive.": "Your data stays in your own Drive or OneDrive.", "En savoir plus": "Learn more",
+    "Pas de connexion à ta banque : tu n'as jamais à donner tes identifiants bancaires.": "No connection to your bank: you never have to give your banking login.",
+    "Bourselle n'a accès qu'au dossier « Bourselle » de ton Drive ou OneDrive.": "Bourselle can only access the “Bourselle” folder in your Drive or OneDrive.",
+    "Notre serveur ne garde que ce que tu partages avec d'autres (groupes, demandes de paiement, cagnottes) et ton tag. Jamais ton budget.": "Our server only keeps what you share with others (groups, payment requests, money pots) and your tag. Never your budget.",
+    "Pas de publicité, pas de revente de données.": "No ads, no selling of data.",
+    "Connexion avec Google ou Microsoft, verrouillage par Face ID, empreinte ou code, et plusieurs appareils en même temps.": "Sign in with Google or Microsoft, lock with Face ID, fingerprint or a code, and use several devices at once.",
+    "Bourselle est gratuite. Elle peut toucher une commission quand tu profites d'un bon plan.": "Bourselle is free. It may earn a commission when you use a deal."});
   EXACT["Rechercher ou demander"] = "Search or ask"; EXACT["Rechercher ou demander à Bourselle"] = "Search or ask Bourselle";
   const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
   const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
