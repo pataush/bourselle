@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "151";
+const APP_VERSION = "152";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -15,6 +15,30 @@ async function forceUpdate() {
   try { for (const k of await caches.keys()) await caches.delete(k); } catch (e) {}
   setTimeout(() => location.reload(), 400);
 }
+// Mise à jour automatique : au retour sur l'appli (et au démarrage), on regarde si une version plus récente est en ligne.
+// Si oui, et que rien n'est en cours (saisie, fenêtre ouverte, enregistrement), on recharge tout de suite ; sinon au prochain retour.
+let autoUpdAt = 0, hiddenAt = 0;
+async function autoUpdate(force) {
+  if (!force && Date.now() - autoUpdAt < 60000) return; autoUpdAt = Date.now();
+  if (navigator.webdriver && !localStorage.getItem("bourselle-test-upd")) return;
+  let v = 0; try { const t = await (await fetch("sw.js?v=" + Date.now(), { cache: "no-store" })).text(); v = Number((/bourselle-v(\d+)/.exec(t) || [])[1]) || 0; } catch (e) { return; }
+  if (!v || v <= Number(APP_VERSION)) return;
+  const busy = (typeof dirty !== "undefined" && dirty) || (typeof saving !== "undefined" && saving) || document.querySelector("#sheetRoot.open, #sheet2Root.open, .ob:not([hidden])")
+    || (document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName));
+  if (busy) { autoUpdAt = 0; return; }   // on réessaiera au prochain retour
+  try { const r = await navigator.serviceWorker?.getRegistration(); if (r) await r.update(); } catch (e) {}
+  try { if (typeof lockMark === "function") lockMark(true); } catch (e) {}
+  try { sessionStorage.setItem("bourselle-updated", String(v)); } catch (e) {}
+  location.reload();
+}
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") { hiddenAt = Date.now(); return; }
+  if (hiddenAt && Date.now() - hiddenAt > 5000) autoUpdate(true);
+});
+window.addEventListener("pageshow", e => { if (e.persisted) autoUpdate(true); });
+setTimeout(() => autoUpdate(true), 8000);
+{ let u = ""; try { u = sessionStorage.getItem("bourselle-updated") || ""; sessionStorage.removeItem("bourselle-updated"); } catch (e) {}
+  if (u) setTimeout(() => typeof toast === "function" && toast("Bourselle est à jour ✨ (version " + u + ")"), 1500); }
 // Catégories proposées : aucun montant par défaut (budget 0). « w » n'est pas un budget : c'est le poids d'un foyer type,
 // qui sert seulement à répartir un budget quand la personne le demande (premier lancement, « Estimer mes budgets »).
 const DEFAULT_SETTINGS = {
