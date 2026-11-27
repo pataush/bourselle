@@ -30,7 +30,7 @@ const SM_STOP = new Set(("a au aux avec ce ces cet cette chez combien comment da
   "depense depenses depenser depensee depensees achete achat achats paye payer paie paiement paiements operation operations transaction transactions total totale montant argent euros euro eur sous fois nombre " +
   "mois semaine semaines jour jours an ans annee annees dernier derniere derniers dernieres precedent precedente passe passee ci cette ce aujourd hui hier depuis debut entre plus moins grosse grosses gros petite petites cher chere chers top liste montre affiche donne dis " +
   "quand moyenne moyen compare comparer comparaison rapport vs evolution chaque repartition categorie categories est-ce estce ai-je aije combien-de as tu t il y a fait faites the how much many what when my in on of for last this month week year spent spend " +
-  "magasin magasins marchand marchands commerce commerces enseigne enseignes site sites boutique boutiques endroit endroits trimestre weekend week-end toujours tout tous toutes gagne recu touche revenu revenus rentree rentrees salaire epargne epargnes economise investi plus-de moins-de superieur inferieur dessus dessous budget budgets").split(" "));
+  "puis peux pourrais permettre acheter magasin magasins marchand marchands commerce commerces enseigne enseignes site sites boutique boutiques endroit endroits trimestre weekend week-end toujours tout tous toutes gagne recu touche revenu revenus rentree rentrees salaire epargne epargnes economise investi plus-de moins-de superieur inferieur dessus dessous budget budgets").split(" "));
 function smPeriod(n) {
   const T = todayISO(), td = smD(T), y = td.getFullYear(), m = td.getMonth();
   const P = (from, to, label) => ({ from, to, label });
@@ -85,7 +85,7 @@ function smCats(n, tokens) {
   return { cats: [...out], used };
 }
 function smParse(q) {
-  const n = smN(q), tokens = n.split(/[^a-z0-9-]+/).filter(Boolean);
+  const n = smN(q), tokens = n.split(/[^a-z0-9]+/).filter(Boolean);
   const p = { q, n, period: smPeriod(n), intent: "sum", type: "", min: null, max: null, topN: null };
   // Type d'opération
   if (/(gagne|recu|touche|encaiss|rentree|revenu|salaire|income|earned|paye moi|vir(e|ement) recu)/.test(n)) p.type = "rentree";
@@ -218,7 +218,7 @@ function smartAnswer(q) {
   return { html: h, items: sorted };
 }
 // Une recherche qui ressemble à une question
-const smIsQuestion = t => { const n = smN(t); return n.length > 3 && (/\?/.test(t) || /^(combien|quand|quel|quelle|quels|quelles|ou |qui|liste|montre|affiche|donne|top|moyenne|compar|mes |mon |ma |j ai|ai je|est ce|how|what|when|show|list|total)/.test(n) || !!smPeriod(n) && n.split(" ").length >= 3); };
+const smIsQuestion = t => { const n = smN(t); return n.length > 3 && (/\?/.test(t) || /^(combien|quand|quel|quelle|quels|quelles|ou |qui|liste|montre|affiche|donne|top|moyenne|compar|mes |mon |ma |j ai|ai je|est ce|puis|je peux|peux|how|what|when|show|list|total|can i|who|where)/.test(n) || !!smPeriod(n) && n.split(" ").length >= 3); };
 
 // ---------- Branchements ----------
 // 1) « Demande à Bourselle » : les questions précises passent par la recherche intelligente
@@ -226,8 +226,12 @@ if (typeof askAnswer === "function") {
   const _askAnswer = askAnswer;
   askAnswer = function (q) {
     const p = smParse(q), n = p.n;
+    // Questions « Demande à Bourselle » (reste, puis-je dépenser, factures à venir…) : l'assistant d'abord, s'il comprend
+    if (/(puis[- ]?je|je peux|me permettre|qui me doi|on me doit|je dois|prochain|a venir|reste|restera|fin du mois|ou part|ou va|epargn|economis|can i|afford|left|next bill|upcoming|owe|where does|saved|save)/.test(n) && !p.cats.length) {
+      const r0 = _askAnswer(q); if (r0 && !/Je sais répondre/.test(r0)) return r0;
+    }
     const generic = /(puis[- ]?je|je peux|me permettre|qui me doi|on me doit|je dois|prochain|a venir|reste|restera|fin du mois)/.test(n) && !p.cats.length && !p.words.length;
-    if (!generic) { try { const r = smartAnswer(q); if (r && (p.cats.length || p.words.length || p.period || p.intent !== "sum" || p.min != null || p.max != null || /abonnement|garantie/.test(n))) return r.html; } catch (e) { console.error(e); } }
+    if (!generic) { try { const r = smartAnswer(q); if (r && (r.items && !r.items.length && !p.cats.length && /aucune op/.test(r.html) ? false : (p.cats.length || p.words.length || p.period || p.intent !== "sum" || p.min != null || p.max != null || /abonnement|garantie/.test(n)))) return r.html; } catch (e) { console.error(e); } }
     return _askAnswer(q);
   };
 }
@@ -237,7 +241,9 @@ if (typeof drawResults === "function") {
   drawResults = function () {
     const t = typeof Q !== "undefined" ? Q.text : "";
     if (t && smIsQuestion(t)) {
-      let r = null; try { r = smartAnswer(t); } catch (e) { console.error(e); }
+      let r = null; const gen = /(puis[- ]?je|je peux|me permettre|qui me doi|on me doit|je dois|prochain|a venir|reste|restera|fin du mois|ou part|ou va|ou passe)/.test(smN(t));
+      if (!gen) { try { r = smartAnswer(t); } catch (e) { console.error(e); } }
+      if (!r && typeof askAnswer === "function") { try { r = { html: askAnswer(t), items: [] }; } catch (e) {} }   // questions de « Demande à Bourselle » (reste, puis-je dépenser…)
       if (r) {
         const shown = (r.items || []).slice(0, 100), tot = smSum(shown.filter(x => x.type === "depense"));
         document.getElementById("resCap").textContent = "Réponse calculée sur ton téléphone";
@@ -251,14 +257,15 @@ if (typeof drawResults === "function") {
   };
 }
 // Exemples de questions, affichés sous le champ de recherche
-const SM_EXAMPLES = ["Combien en resto ce mois-ci ?", "Mes 5 plus grosses dépenses en octobre", "Combien de fois chez Carrefour cette année ?", "Compare mes courses avec le mois dernier", "Moyenne par mois en transport", "Où j'ai le plus dépensé la semaine dernière ?", "Dépenses de plus de 100 € cette année", "Quand ai-je payé Netflix pour la dernière fois ?"];
+const SM_EXAMPLES = ["Combien me reste-t-il après mes factures ?", "Puis-je dépenser 200 € ce mois-ci ?", "Qui me doit de l'argent ?", "Combien en resto ce mois-ci ?", "Mes 5 plus grosses dépenses en octobre", "Combien de fois chez Carrefour cette année ?", "Compare mes courses avec le mois dernier", "Moyenne par mois en transport", "Où j'ai le plus dépensé la semaine dernière ?", "Dépenses de plus de 100 € cette année", "Quand ai-je payé Netflix pour la dernière fois ?"];
 if (typeof renderRecherche === "function") {
   const _rr = renderRecherche;
   renderRecherche = function () {
     _rr.apply(this, arguments);
     const t = document.getElementById("qText"); if (!t) return;
     t.placeholder = "Carrefour, 42,50… ou une question : « combien en resto ce mois-ci ? »";
-    if (!Q.text) t.closest(".card").insertAdjacentHTML("beforeend", `<div class="sm-ex"><small>Essaie une question :</small><div class="chips">${SM_EXAMPLES.slice(0, 6).map(s => `<button type="button" class="chip" data-smq="${esc(s)}">${esc(s)}</button>`).join("")}</div></div>`);
+    const h = document.getElementById("periodLabel"); if (h) h.textContent = "Rechercher ou demander";
+    if (!Q.text) t.closest(".card").insertAdjacentHTML("beforeend", `<div class="sm-ex"><small>Essaie une question :</small><div class="chips">${SM_EXAMPLES.slice(0, 8).map(s => `<button type="button" class="chip" data-smq="${esc(s)}">${esc(s)}</button>`).join("")}</div></div>`);
     view.querySelectorAll("[data-smq]").forEach(b => b.onclick = () => { Q.text = b.dataset.smq; t.value = Q.text; drawResults(); const ex = view.querySelector(".sm-ex"); if (ex) ex.remove(); });
   };
 }

@@ -38,4 +38,5 @@ async function fbAdminLoad() {
     <p>${esc(x.text).replace(/\n/g, "<br>")}</p><small class="hint">${esc(x.tech || "")}</small>
     <div class="fb-a"><a class="btn" href="mailto:${esc(x.email)}?subject=${encodeURIComponent("Ton message à Bourselle")}">Répondre</a><button type="button" class="btn" data-fbdone="${esc(x.id)}">✓ Traité</button></div></div>`).join("") : `<p class="hint">Aucun message pour l'instant.</p>`);
   box.querySelectorAll("[data-fbdone]").forEach(b => b.onclick = async () => { try { await socApi("/me/feedback", { method: "POST", body: JSON.stringify({ done: b.dataset.fbdone }) }); fbAdminLoad(); } catch (e) { toast(e.message); } });
+  if (typeof statAdminLoad === "function") statAdminLoad();
 }

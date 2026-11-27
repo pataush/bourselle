@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "128";
+const APP_VERSION = "129";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -97,11 +97,6 @@ function applyCurrency() {
 function curSym() { try { return (fmt.formatToParts(1).find(p => p.type === "currency") || {}).value || "€"; } catch (e) { return "€"; } }
 applyCurrency();
 function baseCurrency() { return (typeof settings !== "undefined" && settings && settings.currency) || "EUR"; }
-function fmtCur(c, v) {
-  const z = NO_CENTS.includes(c);
-  try { return new Intl.NumberFormat(appLocale(), { style: "currency", currency: c, minimumFractionDigits: z ? 0 : 2, maximumFractionDigits: z ? 0 : 2 }).format(v || 0); }
-  catch (e) { return `${v} ${c}`; }
-}
 function curSymOf(c) { try { return (new Intl.NumberFormat(appLocale(), { style: "currency", currency: c }).formatToParts(1).find(p => p.type === "currency") || {}).value || c; } catch (e) { return c; } }
 
 // Devise proposée selon la région de l'appareil : fuseau horaire (où l'on est) puis région de la langue (ex. fr-SN).
@@ -497,7 +492,7 @@ function applyData(d) {
   // Premier lancement : version simple ; un compte qui a déjà des données garde la version complète qu'il connaissait
   if (!settings.mode) {
     let m = ""; try { m = localStorage.getItem("bourselle-mode") || ""; } catch (e) {}
-    settings.mode = m || (Object.keys(months || {}).length || Object.keys(groups || {}).length ? "complete" : "simple");
+    settings.mode = m || (Object.values(months || {}).some(x => Object.keys((x && x.items) || {}).length) || Object.keys(groups || {}).length ? "complete" : "simple");
   }
   try { if (!localStorage.getItem("bourselle-mode")) localStorage.setItem("bourselle-mode", settings.mode); } catch (e) {}
 }
@@ -529,6 +524,37 @@ function syncErrorText(e) {
   const det = [e.status, e.reason].filter(Boolean).join(" ");
   const m = e.message || "Erreur"; return (window.T ? T(m) : m) + (det ? ` (${det})` : "");
 }
+// ---------- Plusieurs appareils en même temps ----------
+// On garde l'état du Drive tel qu'on l'a vu en dernier (base). Avant d'enregistrer, si un autre appareil a modifié le Drive
+// entre-temps, on fusionne : ce qui a changé ici est gardé, ce qui a changé là-bas aussi ; si les deux ont changé la même
+// chose, la modification de cet appareil l'emporte. Les suppressions sont respectées des deux côtés.
+let syncBase = null;
+const jsonEq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const isObj = v => v && typeof v === "object" && !Array.isArray(v);
+function merge3(base, local, remote) {
+  if (jsonEq(local, base)) return remote === undefined ? undefined : clone(remote);
+  if (jsonEq(remote, base) || jsonEq(remote, local)) return local === undefined ? undefined : clone(local);
+  if (isObj(base) && isObj(local) && isObj(remote)) {
+    const out = {};
+    for (const k of new Set([...Object.keys(local), ...Object.keys(remote), ...Object.keys(base)])) { const v = merge3(base[k], local[k], remote[k]); if (v !== undefined) out[k] = v; }
+    return out;
+  }
+  if (isObj(local) && isObj(remote) && base === undefined) return merge3({}, local, remote);
+  return local === undefined ? (remote === undefined ? undefined : clone(remote)) : clone(local);
+}
+function setBase(d) { try { syncBase = d ? JSON.parse(JSON.stringify(d)) : null; } catch (e) { syncBase = null; } }
+async function mergeRemoteIfChanged() {
+  if (!store || store.id === "local" || !store.remoteVersion) return false;
+  let v = null; try { v = await store.remoteVersion(); } catch (e) { return false; }
+  if (!v || !version || v === version) return false;
+  const r = await store.load(), loc = snapshot(), base = syncBase || {};
+  const m = {};
+  for (const k of new Set([...Object.keys(loc), ...Object.keys(r.data || {})])) { if (k === "savedAt") continue; const x = merge3(base[k], loc[k], (r.data || {})[k]); if (x !== undefined) m[k] = x; }
+  const same = jsonEq(m, Object.fromEntries(Object.entries(loc).filter(([k]) => k !== "savedAt")));
+  version = r.version; setBase(r.data);
+  if (!same) { applyData(m); applyRecurring(); render(); }
+  return !same;
+}
 function saveNow() { clearTimeout(saveTimer); if (dirty) flush(); }   // suppressions : enregistrer sans attendre
 function scheduleSave() {
   dirty = true; setSync("", "Modifications en attente…"); keepPending();
@@ -538,9 +564,11 @@ async function flush() {
   if (!store || saving || !dirty) return;
   saving = true; dirty = false; setSync("", "Enregistrement…");
   try {
-    // Un autre appareil a pris la main ? On n'écrase pas ses données (session.js le déconnecte ici).
-    if (typeof sessCheck === "function" && !await sessCheck(3000)) return;
-    version = await store.save(snapshot());
+    // Un autre appareil a enregistré entre-temps ? On fusionne ses modifications avec les nôtres avant d'écrire.
+    const merged = await mergeRemoteIfChanged();
+    const snap = snapshot();
+    version = await store.save(snap); setBase(snap);
+    if (merged) toast("Synchronisé avec ton autre appareil");
     lastError = null; hideReconnect(); if (!dirty) dropPending();
     setSync("ok", "Enregistré · " + store.label);
     if (typeof ndfSyncSoon === "function") ndfSyncSoon();
@@ -569,10 +597,14 @@ document.addEventListener("visibilitychange", async () => {
     const v = await store.remoteVersion();
     if (v && version && v !== version) {
       const r = await store.load();
-      if (!dirty && !saving) { applyData(r.data); version = r.version; applyRecurring(); render(); toast("Données mises à jour depuis un autre appareil"); }
+      if (!dirty && !saving) { applyData(r.data); version = r.version; setBase(r.data); applyRecurring(); render(); toast("Données mises à jour depuis un autre appareil"); }
     }
   } catch (e) { if (e.code === "auth") showReconnect(); }
 });
+setInterval(async () => {
+  if (document.visibilityState !== "visible" || !store || store.id === "local" || dirty || saving || document.querySelector("#sheetRoot.open, #sheet2Root.open")) return;
+  try { const v = await store.remoteVersion(); if (v && version && v !== version && !dirty && !saving) { const r = await store.load(); if (!dirty && !saving) { applyData(r.data); version = r.version; setBase(r.data); applyRecurring(); render(); } } } catch (e) {}
+}, 45000);
 // Google : le jeton dure 1 h. On le renouvelle pendant un geste de l'utilisateur (sinon le navigateur bloque la fenêtre).
 document.addEventListener("click", () => {
   if (store && store.tokenExpiresSoon && store.tokenExpiresSoon()) store.refresh().then(() => { if (dirty) flush(); }).catch(() => {});
@@ -1125,7 +1157,7 @@ function render() {
   if (tab !== "bons") document.body.classList.remove("bp-nohero");
   { const sb = document.querySelector("header .nm .sub"); if (sb) sb.textContent = isSimple() ? "Version simple" : ""; }
   {
-    const u = store && store.user ? store.user() : {}, first = store && store.id === "local" ? "" : String((u && u.name) || "").trim().split(/[\s@]/)[0];
+    const u = store && store.user ? store.user() : {}, first = settings.firstName || (store && store.id === "local" ? "" : String((u && u.name) || "").trim().split(/[\s@]/)[0]);
     const nm = first ? first.charAt(0).toUpperCase() + first.slice(1) : "";
     document.getElementById("helloName").textContent = nm; { const av = document.getElementById("avatar"); av.dataset.init = (nm || "B").charAt(0).toUpperCase(); av.textContent = av.dataset.init; if (typeof avPaint === "function") avPaint(av); }
     { const h = document.querySelector("header .nm .hello"); if (h) h.textContent = typeof funHello === "function" ? (nm ? funHello() : funHello().replace(/,$/, " !")) : (nm ? "Bonjour," : "Bonjour !"); }
@@ -1899,7 +1931,8 @@ const DEBT_KINDS = [["credit", "Crédit / prêt"], ["dois", "Je dois à quelqu'u
 // au taux retenu à l'acceptation (xr = unités de la devise pour 1 unité de la devise du budget).
 const debtForeign = x => !!(x && x.cur && x.cur !== baseCurrency() && Number(x.xr) > 0);
 const debtBase = (x, v) => debtForeign(x) ? Math.round(v / Number(x.xr) * 100) / 100 : v;
-function fmtCur(v, cur) { if (!cur || cur === baseCurrency()) return eur(v); try { return new Intl.NumberFormat(appLocale(), { style: "currency", currency: cur }).format(v); } catch (e) { return v + " " + cur; } }
+// Accepte les deux ordres (montant, devise) ou (devise, montant) : deux anciennes versions de cette fonction cohabitaient
+function fmtCur(v, cur) { if (typeof v === "string" && /^[A-Z]{3}$/.test(v)) [v, cur] = [cur, v]; if (!cur || cur === baseCurrency()) return eur(v); const z = NO_CENTS.includes(cur); try { return new Intl.NumberFormat(appLocale(), { style: "currency", currency: cur, minimumFractionDigits: z ? 0 : 2, maximumFractionDigits: z ? 0 : 2 }).format(v); } catch (e) { return v + " " + cur; } }
 function debtFmt(x, v, short) {
   if (!debtForeign(x)) return eur(v, short);
   let f; try { f = new Intl.NumberFormat(appLocale(), { style: "currency", currency: x.cur }).format(v); } catch (e) { f = v + " " + x.cur; }
@@ -2486,6 +2519,9 @@ function renderPartage() {
   const SUBT = [["discussions", "Discussions"], ["projets", "Projets"], ["groupes", "Groupes"]];
   if (!SUBT.some(([k]) => k === epSub)) epSub = "discussions";
   html += `<div class="ep-tabs" role="tablist">${SUBT.map(([k, l]) => `<button type="button" role="tab" data-ep="${k}" aria-selected="${epSub === k}">${l}${k === "discussions" && unread ? ` <i class="ep-badge">${unread}</i>` : ""}</button>`).join("")}</div>`;
+  // Une invitation à une cagnotte ne doit pas rester cachée dans « Projets » : on la montre en premier, où qu'on soit
+  { const invD = (typeof DEALS !== "undefined" ? DEALS : []).filter(d => d.kind !== "achat" && d.status === "open" && d.you && d.you.pid && (d.parts[d.you.pid] || {}).inv);
+    if (invD.length && epSub !== "projets") html += `<div class="ep-cap"><span>Invitations</span><small>${invD.length} à accepter</small></div><div class="hub-deals">${invD.map(d => DEALUI.card(d, dealCtxBase())).join("")}</div>`; }
   if (epSub === "discussions") html += typeof ensThreadsHTML === "function" ? ensThreadsHTML() : "";
   else if (epSub === "projets") {
     html += typeof ensActsHTML === "function" ? ensActsHTML() : "";
@@ -3565,11 +3601,11 @@ async function connect(id, interactive, existing, claim) {
     store = st; assets = st.canFiles ? st : null;
     localStorage.setItem("mb-provider", id);
     // Un seul appareil à la fois : se connecter ici déconnecte les autres ; une reprise automatique vérifie qu'on est toujours l'appareil actif.
-    if (id !== "local" && typeof sessStart === "function" && !await sessStart(claim != null ? claim : interactive === true || interactive === "choose")) return;
+    // Plusieurs appareils peuvent être connectés en même temps : les enregistrements sont fusionnés (voir merge3).
     banner = id === "local" ? `<div class="banner">Mode démo : tes données restent dans ce navigateur. Connecte-toi avec Google ou Microsoft (Paramètres › Mon compte) pour les garder dans ton Drive : elles y seront transférées.</div>` : "";
     setSync("", "Chargement…");
     const r = await st.load();
-    version = r.version;
+    version = r.version; setBase(r.data);
     const demo = id !== "local" ? demoToMigrate() : null;
     applyData(r.data);
     const pend = readPending();
@@ -3584,6 +3620,8 @@ async function connect(id, interactive, existing, claim) {
       localStorage.removeItem(DEMO_KEY); localStorage.removeItem(MIGRATE_KEY);
     }
     hideLogin(); applyRecurring(); render();
+    if (typeof obMaybe === "function") setTimeout(obMaybe, 300);
+    if (typeof statHit === "function") setTimeout(() => statHit("actif"), 2000);
     if (id !== "local") setTimeout(() => driveFoldersInit(), 4000);
     if (moved >= 0) toast(moved ? `Tes données d'essai (${moved} élément${moved > 1 ? "s" : ""}) sont maintenant dans ton ${st.label}.` : `Connecté à ton ${st.label}.`);
     if (recovered) toast("Tes dernières saisies, pas encore enregistrées dans le Drive, ont été récupérées.");

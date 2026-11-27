@@ -450,7 +450,7 @@
     try { show(await api("/d/" + id)); } catch (e) { fail(e.status === 404 ? "Ce lien n'est plus valable." : "Connexion impossible. Réessaie dans un instant."); }
   }
   $("gpLoad").textContent = t("Chargement…");
-  if (hash.get("c") && !hash.get("p")) guestChatPage(); else if (hash.get("m")) merchantPage(); else if (hash.has("partenaire")) partnerPage(); else if (hash.get("u")) profilePage(); else if (hash.get("q")) reqPage(); else if (hash.get("j")) confirmPage(); else if (hash.get("p")) payPage(); else if (hash.get("d")) dealPage(hash.get("d")); else if (tok) load(); else fail("Ce lien n'est plus valable.");
+  if (hash.get("c") && !hash.get("p")) guestChatPage(); else if (hash.get("m") && !hash.get("d")) merchantPage(); else if (hash.has("partenaire")) partnerPage(); else if (hash.get("u")) profilePage(); else if (hash.get("q")) reqPage(); else if (hash.get("j")) confirmPage(); else if (hash.get("p")) payPage(); else if (hash.get("d")) dealPage(hash.get("d")); else if (tok) load(); else fail("Ce lien n'est plus valable.");
   window.addEventListener("hashchange", () => location.reload());
 })();
 </script>

@@ -214,6 +214,7 @@ function editDeal(id, kind) {
         else {
           const u = store && store.user ? store.user() : {};
           r = await socApi("/deals", { method: "POST", body: JSON.stringify({ kind, ...body, ownerName: String(u.name || "").trim().split(/[\s@]/)[0] }) });
+          if (typeof statHit === "function") statHit("cagnotte");
           if (file) { try { const data = await shrinkPhoto(file); r = await socApi("/d/" + r.deal.id + "/photo", { method: "POST", body: JSON.stringify({ data }) }); } catch (e) { toast(e.message); } }
         }
         dealPut(r.deal); openDeal = r.deal.id; dealState = { deal: r.deal, pay: r.pay || SOC.pay || null };

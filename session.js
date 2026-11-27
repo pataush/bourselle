@@ -29,6 +29,7 @@ async function sessClaim(ifFree) {
 }
 // Vrai si cet appareil est (encore) l'appareil actif. force : true = tout de suite, ou un délai en ms (20 s par défaut).
 async function sessCheck(force) {
+  return true;   // plusieurs appareils autorisés : plus de déconnexion (les enregistrements sont fusionnés)
   if (sessKicked) return false;
   if (!sessOn()) return true;
   if (force !== true && Date.now() - sessLast < (typeof force === "number" ? force : 20000)) return true;
