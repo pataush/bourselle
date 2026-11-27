@@ -24,9 +24,9 @@ const obNum = v => { const n = parseFloat(String(v || "").replace(/\s/g, "").rep
 function obBudget(inc, loyer, credits, factures) {
   const step = inc >= 100000 ? 500 : inc >= 10000 ? 50 : 5, r = v => Math.max(0, Math.round(v / step) * step);
   const fix = loyer + credits + factures, free = Math.max(0, inc - fix), epargne = r(free * 0.15), vivre = Math.max(0, free - epargne);
-  const vars = DEFAULT_SETTINGS.cats.filter(c => !c.fixe), W = vars.reduce((a, c) => a + c.budget, 0);
+  const vars = DEFAULT_SETTINGS.cats.filter(c => !c.fixe), W = vars.reduce((a, c) => a + (c.w || 0), 0);
   const out = { logement: r(loyer), credits: r(credits), energie: r(factures * 120 / 260), telecom: r(factures * 60 / 260), assurances: r(factures * 80 / 260), impots: 0 };
-  for (const c of vars) out[c.id] = inc ? r(vivre * c.budget / W) : 0;
+  for (const c of vars) out[c.id] = inc ? r(vivre * (c.w || 0) / W) : 0;
   return { cats: out, fix, free, epargne, vivre };
 }
 function obOpen() {

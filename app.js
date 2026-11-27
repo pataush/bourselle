@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "135";
+const APP_VERSION = "136";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -15,23 +15,25 @@ async function forceUpdate() {
   try { for (const k of await caches.keys()) await caches.delete(k); } catch (e) {}
   setTimeout(() => location.reload(), 400);
 }
+// Catégories proposées : aucun montant par défaut (budget 0). « w » n'est pas un budget : c'est le poids d'un foyer type,
+// qui sert seulement à répartir un budget quand la personne le demande (premier lancement, « Estimer mes budgets »).
 const DEFAULT_SETTINGS = {
   cats: [
-    { id: "logement", name: "Logement", budget: 900, color: "#1f6b4b", fixe: true },
-    { id: "energie", name: "Énergie & eau", budget: 120, color: "#3f8f68", fixe: true },
-    { id: "telecom", name: "Télécom & abonnements", budget: 60, color: "#86bfa0", fixe: true },
-    { id: "assurances", name: "Assurances", budget: 80, color: "#2c4a3e", fixe: true },
-    { id: "credits", name: "Crédits", budget: 0, color: "#8a6d3b", fixe: true },
-    { id: "courses", name: "Courses", budget: 450, color: "#c9a24a", fixe: false },
-    { id: "transport", name: "Transport & carburant", budget: 150, color: "#e2c374", fixe: false },
-    { id: "sante", name: "Santé", budget: 40, color: "#c8553d", fixe: false },
-    { id: "enfants", name: "Enfants & éducation", budget: 100, color: "#b5838d", fixe: false },
-    { id: "loisirs", name: "Loisirs & sorties", budget: 120, color: "#d98c5f", fixe: false },
-    { id: "shopping", name: "Shopping & habillement", budget: 80, color: "#5f7d70", fixe: false },
-    { id: "maison", name: "Maison & entretien", budget: 50, color: "#a5673f", fixe: false },
-    { id: "impots", name: "Impôts & taxes", budget: 150, color: "#3d4a44", fixe: true },
-    { id: "cadeaux", name: "Cadeaux & dons", budget: 30, color: "#e6b9a6", fixe: false },
-    { id: "divers", name: "Divers", budget: 50, color: "#cbc3b1", fixe: false },
+    { id: "logement", name: "Logement", budget: 0, w: 900, color: "#1f6b4b", fixe: true },
+    { id: "energie", name: "Énergie & eau", budget: 0, w: 120, color: "#3f8f68", fixe: true },
+    { id: "telecom", name: "Télécom & abonnements", budget: 0, w: 60, color: "#86bfa0", fixe: true },
+    { id: "assurances", name: "Assurances", budget: 0, w: 80, color: "#2c4a3e", fixe: true },
+    { id: "credits", name: "Crédits", budget: 0, w: 0, color: "#8a6d3b", fixe: true },
+    { id: "courses", name: "Courses", budget: 0, w: 450, color: "#c9a24a", fixe: false },
+    { id: "transport", name: "Transport & carburant", budget: 0, w: 150, color: "#e2c374", fixe: false },
+    { id: "sante", name: "Santé", budget: 0, w: 40, color: "#c8553d", fixe: false },
+    { id: "enfants", name: "Enfants & éducation", budget: 0, w: 100, color: "#b5838d", fixe: false },
+    { id: "loisirs", name: "Loisirs & sorties", budget: 0, w: 120, color: "#d98c5f", fixe: false },
+    { id: "shopping", name: "Shopping & habillement", budget: 0, w: 80, color: "#5f7d70", fixe: false },
+    { id: "maison", name: "Maison & entretien", budget: 0, w: 50, color: "#a5673f", fixe: false },
+    { id: "impots", name: "Impôts & taxes", budget: 0, w: 150, color: "#3d4a44", fixe: true },
+    { id: "cadeaux", name: "Cadeaux & dons", budget: 0, w: 30, color: "#e6b9a6", fixe: false },
+    { id: "divers", name: "Divers", budget: 0, w: 50, color: "#cbc3b1", fixe: false },
   ],
   rentree: ["Salaire", "Prime", "Allocations / aides", "Revenus locatifs", "Remboursement", "Vente", "Autre"],
   epargne: ["Livret A", "LDDS", "LEP", "PEL", "Autre"],
@@ -232,7 +234,7 @@ function budEstimateValues() {
   const n = new Date(), sums = {}; let months0 = 0;
   for (let i = 1; i <= 3; i++) { const d = new Date(n.getFullYear(), n.getMonth() - i, 1), L = itemsOf(d.getFullYear(), d.getMonth() + 1); if (!L.length) continue; months0++;
     for (const [k, v] of Object.entries(totals(L).byCat)) sums[k] = (sums[k] || 0) + v; }
-  return { months: months0, val: c => { if (months0 && sums[c.id]) return Math.max(5, Math.round(sums[c.id] / months0 / 5) * 5); const d = DEFAULT_SETTINGS.cats.find(x => x.id === c.id); return months0 ? 0 : (d ? d.budget : 0); } };
+  return { months: months0, val: c => { if (months0 && sums[c.id]) return Math.max(5, Math.round(sums[c.id] / months0 / 5) * 5); const d = DEFAULT_SETTINGS.cats.find(x => x.id === c.id); return months0 ? 0 : (d ? d.w || 0 : 0); } };
 }
 function budEstimate() {
   const E = budEstimateValues(), rows = settings.cats.map(c => ({ c, v: E.val(c) }));
