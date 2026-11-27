@@ -61,7 +61,7 @@ function renderHome() {
   document.getElementById("periodLabel").textContent = "Accueil";
   const L = wgList();
   let html = banner + `<div class="wg-top"><b>Mon accueil</b><button type="button" class="ep-btn ${wgEdit ? "on" : "good"}" id="wgEdit">${wgEdit ? "✓ Terminé" : "✏️ Personnaliser"}</button></div>`;
-  if (wgEdit) html += `<p class="wg-tip">✋ Fais glisser un widget pour le déplacer · ✕ pour le retirer · ⤢ pour changer sa taille</p>`;
+  if (wgEdit) html += `<p class="wg-tip">✋ Appuie longuement sur un widget puis fais-le glisser pour le déplacer · ✕ pour le retirer · ⤢ pour changer sa taille</p>`;
   html += `<div class="wg-grid${wgEdit ? " edit" : ""}" id="wgGrid">${L.map((x, i) => { const W = WG[x.k];
     return `<div class="wg wg-${x.k}${x.w === 2 ? " full" : ""}" data-wg="${x.k}" data-i="${i}" role="button" tabindex="0"><span class="wg-ic" aria-hidden="true">${W.ic}</span>${W.html()}
       ${wgEdit ? `<button type="button" class="wg-x" data-wx="${i}" aria-label="Retirer">✕</button><button type="button" class="wg-sz" data-wsz="${i}" aria-label="Changer la taille">${x.w === 2 ? "⤡" : "⤢"}</button>` : ""}</div>`; }).join("")}
@@ -81,34 +81,36 @@ function renderHome() {
     ["pointerup", "pointerleave", "pointercancel", "pointermove"].forEach(n => el.addEventListener(n, ev => { if (n === "pointermove" && t && Math.abs(ev.movementY) + Math.abs(ev.movementX) < 3) return; clearTimeout(t); t = null; })); });
   if (wgEdit) wgDrag(view.querySelector("#wgGrid"));
 }
-// Glisser-déposer des widgets (doigt ou souris)
+// Glisser-déposer des widgets : seulement après un appui long (≈ 0,4 s sans bouger).
+// Un geste rapide fait défiler la page normalement, rien ne bouge par erreur.
 function wgDrag(grid) {
   grid.querySelectorAll("[data-wg]").forEach(el => {
-    el.style.touchAction = "none";
+    let armed = false;
+    el.addEventListener("touchmove", e => { if (armed) e.preventDefault(); }, { passive: false });   // iPhone : pas de défilement pendant le déplacement
     el.addEventListener("pointerdown", e => {
-      if (e.target.closest("[data-wx],[data-wsz]")) return;
-      e.preventDefault();
-      const r0 = el.getBoundingClientRect(), x0 = e.clientX, y0 = e.clientY; let moved = false;
-      try { el.setPointerCapture(e.pointerId); } catch (er) {}
+      if (e.target.closest("[data-wx],[data-wsz]") || (e.pointerType === "mouse" && e.button !== 0)) return;
+      const x0 = e.clientX, y0 = e.clientY; let r0 = null, moved = false;
+      const hold = setTimeout(() => { armed = true; r0 = el.getBoundingClientRect(); el.classList.add("drag"); el.style.transform = "scale(1.04)"; try { navigator.vibrate && navigator.vibrate(12); } catch (er) {} }, 400);
       const move = ev => {
-        const dx = ev.clientX - x0, dy = ev.clientY - y0; if (!moved && Math.abs(dx) + Math.abs(dy) < 6) return;
-        if (!moved) { moved = true; el.classList.add("drag"); }
-        el.style.transform = `translate(${dx}px, ${dy}px) rotate(-1.5deg) scale(1.03)`;
+        const dx = ev.clientX - x0, dy = ev.clientY - y0;
+        if (!armed) { if (Math.abs(dx) + Math.abs(dy) > 8) end(); return; }   // bougé trop tôt : c'est un défilement
+        ev.preventDefault(); moved = true;
+        el.style.transform = `translate(${dx}px, ${dy}px) rotate(-1.5deg) scale(1.04)`;
         el.style.pointerEvents = "none"; const under = document.elementFromPoint(ev.clientX, ev.clientY); el.style.pointerEvents = "";
         const tgt = under && under.closest("[data-wg]"); if (!tgt || tgt === el || tgt.parentNode !== grid) return;
         const rr = tgt.getBoundingClientRect(), before = ev.clientY < rr.top + rr.height / 2 || (ev.clientY < rr.bottom && ev.clientX < rr.left + rr.width / 2);
         grid.insertBefore(el, before ? tgt : tgt.nextSibling);
-        el.style.transform = ""; const nw = el.getBoundingClientRect();   // garder le widget sous le doigt après le déplacement dans la grille
-        el.style.transform = `translate(${dx - (nw.left - r0.left)}px, ${dy - (nw.top - r0.top)}px) rotate(-1.5deg) scale(1.03)`;
+        el.style.transform = ""; const nw = el.getBoundingClientRect();   // garder le widget sous le doigt
+        el.style.transform = `translate(${dx - (nw.left - r0.left)}px, ${dy - (nw.top - r0.top)}px) rotate(-1.5deg) scale(1.04)`;
       };
-      const up = () => {
-        window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up);
-        el.classList.remove("drag"); el.style.transform = "";
-        if (!moved) return;
-        const order = [...grid.querySelectorAll("[data-wg]")].map(n => settings.widgets[+n.dataset.i]);
-        settings.widgets = order; saveSettings(); render();
+      const end = () => {
+        clearTimeout(hold);
+        window.removeEventListener("pointermove", move); window.removeEventListener("pointerup", end); window.removeEventListener("pointercancel", end);
+        const was = armed; armed = false; el.classList.remove("drag"); el.style.transform = "";
+        if (!was || !moved) return;
+        settings.widgets = [...grid.querySelectorAll("[data-wg]")].map(n => settings.widgets[+n.dataset.i]); saveSettings(); render();
       };
-      window.addEventListener("pointermove", move); window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
+      window.addEventListener("pointermove", move, { passive: false }); window.addEventListener("pointerup", end); window.addEventListener("pointercancel", end);
     });
   });
 }

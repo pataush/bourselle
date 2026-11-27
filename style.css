@@ -1276,7 +1276,7 @@ body.bp-nohero .hero { display: none; }
 .wg-deal small, .wg-deal i { color: #5a4710 !important; }
 .wg-deal b { display: block; font-size: 1.05rem; margin: 2px 0; }
 .wg-add { grid-column: 1 / -1; border: 2px dashed var(--line, #cfd8d3); background: transparent; border-radius: 18px; padding: 14px; font: inherit; font-weight: 600; color: var(--muted); }
-.wg-grid.edit .wg { animation: wgWiggle .5s ease-in-out infinite alternate; cursor: grab; }
+.wg-grid.edit .wg { animation: wgWiggle .5s ease-in-out infinite alternate; cursor: grab; touch-action: pan-y; }
 .wg-grid.edit .wg:nth-child(2n) { animation-delay: .25s; }
 @keyframes wgWiggle { from { transform: rotate(-.6deg); } to { transform: rotate(.6deg); } }
 .wg.drag { animation: none !important; z-index: 20; box-shadow: 0 14px 30px rgba(0,0,0,.25); opacity: .95; transition: none; }
