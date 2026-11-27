@@ -1535,3 +1535,7 @@ body.dyn-calm .wg-meteo .icl svg, body.dyn-calm .wg-serie .icl svg, body.dyn-cal
 .ton-m.sel { outline: 2px dashed var(--green); border-radius: 10px; }
 .ton-swap { font-size: 1.1rem; }
 .ton-m.mem { grid-template-columns: 1fr auto; } .ton-m.mem .ton-n > small:last-child { display: block; margin-left: 0; }
+.nc { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.nc-row { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border-radius: 14px; background: var(--bg); }
+.nc-row.ko { background: color-mix(in srgb, var(--bad) 8%, var(--bg)); }
+.nc-row b { display: block; } .nc-row small { display: block; color: var(--muted); font-size: .82rem; line-height: 1.4; margin-top: 2px; }

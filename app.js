@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "127";
+const APP_VERSION = "128";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -302,6 +302,7 @@ function showProfileMenu() {
       ${typeof FUN_THEMES !== "undefined" ? go("pmTheme", "pal", "var(--green)", "Thème de l'appli", FUN_THEMES[settings.pal || "vert"][0]) : ""}
       ${typeof FUN_BG !== "undefined" ? go("pmBg", "img", "#b5838d", "Fond d'écran", (FUN_BG[settings.homeBg || "auto"] || "Aucun") + (settings.homeBgAll ? " · partout" : "")) : ""}
       ${soc ? sw("pmPush", "bell", "#e67e22", "Notifications", push) : ""}
+      ${soc ? go("pmNotif", "bell", "#e67e22", "Vérifier mes notifications", "") : ""}
       ${sw("pmFull", "leaf", "#2e8a5b", "Version complète", !isSimple(), "Patrimoine, notes de frais…")}
     </div>
     <div class="pmx-cap">Mon compte</div>
@@ -334,6 +335,7 @@ function showProfileMenu() {
   on("pmAv", () => { closeForm(); setTimeout(() => avPick(), 250); });
   on("pmBdg", () => { closeForm(); setTimeout(() => funBadgesOpen(), 250); });
   on("pmTheme", () => { closeForm(); setTimeout(() => funThemeOpen(), 250); });
+  on("pmNotif", () => { closeForm(); setTimeout(() => notifCheck(), 250); });
   on("pmBg", () => { closeForm(); setTimeout(() => funBgOpen(), 250); });
 }
 // Alertes regroupées derrière la cloche.

@@ -555,6 +555,9 @@ async function disablePush() {
 // À chaque connexion : l'abonnement de cet appareil est rattaché au compte connecté (et à la langue choisie)
 // À l'ouverture : si les notifications sont coupées, on propose de les activer (au plus tous les 3 jours)
 function pushAsk() {
+  // iPhone dans Safari : les notifications ne peuvent pas marcher ; on explique une fois par semaine comment installer l'appli
+  if (socOn() && isIOS() && !isStandalone() && !pushAsk.done) { let l = 0; try { l = Number(localStorage.getItem("bourselle-ios-ask")) || 0; if (navigator.webdriver) return; } catch (e) {}
+    if (Date.now() - l > 7 * 864e5) { pushAsk.done = true; try { localStorage.setItem("bourselle-ios-ask", String(Date.now())); } catch (e) {} setTimeout(() => notifCheck(), 2500); } return; }
   if (pushOn() || !socOn() || !pushSupported() || Notification.permission === "denied" || (isIOS() && !isStandalone())) return;
   let last = 0; try { last = Number(localStorage.getItem("bourselle-push-ask")) || 0; } catch (e) {}
   if (Date.now() - last < 3 * 864e5 || pushAsk.done) return;
@@ -610,4 +613,28 @@ function socAdded(tag) {
   if (!socOn() || !tag) return;
   const u = store && store.user ? store.user() : {}, nm = String((u && u.name) || "").trim().split(/\s/)[0];
   socApi("/me/added", { method: "POST", body: JSON.stringify({ tag, name: nm }) }).catch(() => {});
+}
+
+// ---------- Vérifier mes notifications ----------
+// Un écran qui dit ce qui bloque (iPhone pas sur l'écran d'accueil, autorisation refusée…) et envoie une notification de test.
+async function notifCheck() {
+  const ios = isIOS(), sa = isStandalone(), sup = pushSupported(), perm = sup ? Notification.permission : "unsupported";
+  let sub = null; try { sub = sup ? await Promise.race([pushSub(false), new Promise(r => setTimeout(() => r(null), 1500))]) : null; } catch (e) {}
+  const rows = [], ok = (b, t, s, fix) => rows.push(`<div class="nc-row ${b ? "ok" : "ko"}"><span>${b ? "✅" : "❌"}</span><div><b>${esc(t)}</b>${s ? `<small>${s}</small>` : ""}${fix || ""}</div></div>`);
+  ok(socOn(), "Connecté à ton compte", socOn() ? "" : "Connecte-toi avec Google ou Microsoft.");
+  if (ios) ok(sa, "Bourselle ouverte depuis l'écran d'accueil", sa ? "" : "Sur iPhone, les notifications ne marchent que si Bourselle est installée : dans Safari, touche <b>Partager</b> › <b>Sur l'écran d'accueil</b>, puis ouvre Bourselle depuis cette icône (iOS 16.4 ou plus récent).");
+  ok(sup, "Téléphone compatible", sup ? "" : ios ? "Installe Bourselle sur l'écran d'accueil (voir ci-dessus) et mets ton iPhone à jour." : "Ce navigateur ne permet pas les notifications : essaie Chrome.");
+  if (sup) ok(perm === "granted", "Notifications autorisées", perm === "granted" ? "" : perm === "denied" ? (ios ? "Tu les as refusées : va dans <b>Réglages</b> › <b>Notifications</b> › <b>Bourselle</b> et active « Autoriser les notifications »." : "Tu les as refusées : autorise-les dans les réglages du navigateur (cadenas à côté de l'adresse).") : "Pas encore autorisées.",
+    perm === "default" ? `<button type="button" class="btn primary" id="ncAllow" style="margin-top:6px">Autoriser</button>` : "");
+  if (sup && perm === "granted") ok(!!sub && pushOn(), "Ce téléphone est inscrit", sub && pushOn() ? "" : "Il reste à inscrire ce téléphone.", !(sub && pushOn()) ? `<button type="button" class="btn primary" id="ncAllow" style="margin-top:6px">Activer sur ce téléphone</button>` : "");
+  const all = socOn() && sup && perm === "granted" && !!sub && pushOn() && (!ios || sa);
+  const f = openForm(`<div class="f2"><h3>🔔 Mes notifications</h3><div class="nc">${rows.join("")}</div>
+    ${all ? `<p class="hint">Tout est bon. Envoie-toi une notification de test : elle doit arriver dans quelques secondes, même appli fermée.</p><button type="button" class="btn primary" id="ncTest" style="width:100%">Envoyer une notification de test</button>` : `<p class="hint">Règle les points en ❌ pour recevoir les messages, les remboursements et les invitations de tes proches.</p>`}
+    <p class="hint" style="margin-top:12px">Même sans notification, tout ce qu'on t'envoie apparaît dans la cloche 🔔 en haut de l'appli.</p></div>`, () => true);
+  f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
+  const al = f.querySelector("#ncAllow"); if (al) al.onclick = async () => { closeForm(); await enablePush(); setTimeout(notifCheck, 600); };
+  const te = f.querySelector("#ncTest"); if (te) te.onclick = async () => {
+    try { const s2 = await pushSub(true); await socApi("/me/push", { method: "POST", body: JSON.stringify({ sub: s2.toJSON(), lang: window.LANG === "en" ? "en" : "fr", test: true }) }); te.textContent = "Envoyée ✓ — regarde ton écran"; te.disabled = true; }
+    catch (e) { toast(e.message || "Envoi impossible"); }
+  };
 }
