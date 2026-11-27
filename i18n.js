@@ -1593,6 +1593,11 @@
     "Ton compte Bourselle est supprimé. Tu peux aussi effacer le dossier « Bourselle » de ton Drive ou OneDrive.": "Your Bourselle account is deleted. You can also erase the “Bourselle” folder from your Drive or OneDrive."});
   PATTERNS.push(["tout ton budget : opérations, suivis, réglages (le fichier Bourselle de ton {x} est vidé) ;", "your whole budget: transactions, trackers, settings (the Bourselle file in your {x} is emptied);"], ["tout ton budget : opérations, suivis, réglages ;", "your whole budget: transactions, trackers, settings;"],
     ["ton tag @{x}, ton avatar, tes moyens de paiement, tes notifications et tes rappels ;", "your tag @{x}, your avatar, your payment details, your notifications and your reminders;"]);
+  Object.assign(EXACT, {"Ton argent,": "Your money,", "avec tes proches": "with your people",
+    "L'application qui t'accompagne pour gérer ton argent au quotidien, faire des économies grâce aux bons plans, échanger et partager les dépenses avec tes proches… et bien plus encore.": "The app that helps you manage your money day to day, save with deals, chat and share expenses with your people… and much more.",
+    "Essayer sans compte": "Try without an account", "🔒 Tes données restent dans": "🔒 Your data stays in", "Google Drive ou OneDrive.": "Google Drive or OneDrive.", "ton": "your", "Conditions": "Terms",
+    "Awa · Les copains": "Awa · The gang", "On se fait un resto samedi ? 🍕": "Dinner out on Saturday? 🍕", "Projet entre amis": "Project with friends", "✈️ Week-end à Lisbonne": "✈️ Weekend in Lisbon", "340 € sur 600 €": "€340 of €600",
+    "✅ Karim t'a remboursé 25 €": "✅ Karim paid you back €25", "à 300 m": "300 m away"});
   EXACT["Rechercher ou demander"] = "Search or ask"; EXACT["Rechercher ou demander à Bourselle"] = "Search or ask Bourselle";
   const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
   const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
