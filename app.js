@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "154";
+const APP_VERSION = "155";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -3423,6 +3423,8 @@ function parseBankFile(text) {
     col.label2 = h.findIndex((x, i) => i !== col.label && /detail|complement|comment|memo|reference/.test(x));
     col.debit = find(/debit/); col.credit = find(/credit/);
     col.amount = find(/montant|amount|somme/, /solde|balance/);
+    // Revolut (et autres néobanques) : état de l'opération, frais, produit (compte courant ou épargne)
+    col.state = find(/^(state|etat|statut|status)$/); col.fee = find(/^(fee|fees|frais)$/); col.product = find(/^(product|produit)$/);
   } else {
     // Pas d'en-tête : on devine les colonnes à partir des valeurs
     const sample = rows.filter(r => r.some(c => bankDate(c))).slice(0, 10); if (!sample.length) return { rows: [], format: "CSV" };
@@ -3441,6 +3443,11 @@ function parseBankFile(text) {
     }
     if (amount === null && col.amount >= 0) amount = bankNum(r[col.amount]);
     if (!amount) continue;
+    // Opérations annulées, refusées ou rétablies : rien n'a été payé
+    if (col.state >= 0 && /revert|declin|fail|cancel|annul|refus|retabli|rejet|echou/.test(nrm(r[col.state]))) continue;
+    // Mouvements à l'intérieur d'un coffre / compte d'épargne Revolut : déjà comptés par le virement depuis le compte courant
+    if (col.product >= 0 && /^(savings|epargne|deposit|depot|coffre)/.test(nrm(r[col.product]))) continue;
+    if (col.fee >= 0) { const fee = Math.abs(bankNum(r[col.fee]) || 0); if (fee) amount -= fee; }
     const label = [r[col.label], col.label2 >= 0 ? r[col.label2] : ""].filter(Boolean).join(" ").trim();
     out.push({ date, label, amount: Math.round(amount * 100) / 100 });
   }
