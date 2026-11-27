@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "152";
+const APP_VERSION = "153";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -3513,17 +3513,29 @@ function startImport() {
   };
   inp.click();
 }
-function reviewImport(rows, format, fname) {
+function reviewImport(rows, format, fname, savIn, livIn) {
   const seen = {};
-  const items = rows.map(r => { const k = `${r.date}|${r.amount}|${norm(r.label)}`; seen[k] = (seen[k] || 0) + 1; const id = bankId(r, seen[k]); const dup = isDuplicate(r, id); return { ...r, id, dup, on: !dup, pick: guessBank(r.label, r.amount), name: cleanBankLabel(r.label) }; })
+  // Relevé d'un compte d'épargne (Livret A, LDDS, LEP, PEL…) : les versements vont en épargne, les retraits sortent de l'épargne.
+  // Détecté d'après le nom du fichier et les libellés ; on peut changer en haut de la fenêtre.
+  const hay = norm(fname + " " + rows.slice(0, 40).map(r => r.label).join(" "));
+  const livGuess = /ldds|developpement durable/.test(hay) ? "LDDS" : /\blep\b|epargne populaire/.test(hay) ? "LEP" : /\bpel\b|epargne logement/.test(hay) ? "PEL" : "Livret A";
+  const sav = savIn !== undefined ? savIn : /livret|ldds|\blep\b|\bpel\b|epargne/.test(hay);
+  const liv = livIn || (settings.epargne.includes(livGuess) ? livGuess : settings.epargne[0] || "Livret A");
+  const savPick = r => /interet|interets/.test(norm(r.label)) && r.amount > 0 ? "rentree:" + (settings.rentree.find(x => /int[ée]r[êe]t/i.test(x)) || "Autre") : r.amount > 0 ? "epargne:" + liv : "rentree:" + liv;
+  const items = rows.map(r => { const k = `${r.date}|${r.amount}|${norm(r.label)}`; seen[k] = (seen[k] || 0) + 1; const id = bankId(r, seen[k]); const dup = isDuplicate(r, id); return { ...r, id, dup, on: !dup, pick: sav ? savPick(r) : guessBank(r.label, r.amount), name: cleanBankLabel(r.label) }; })
     .sort((a, b) => b.date.localeCompare(a.date));
   const opts = (sign) => {
     const g = (label, list) => `<optgroup label="${label}">${list.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("")}</optgroup>`;
-    return sign > 0 ? g("Rentrées", settings.rentree.map(s => ["rentree:" + s, s])) + g("Épargne (retrait)", settings.epargne.map(s => ["rentree:" + s, s]))
-      : g("Dépenses", settings.cats.map(c => ["depense:" + c.id, c.name])) + g("Épargne", settings.epargne.map(s => ["epargne:" + s, s])) + g("Investissement", settings.invest.map(s => ["invest:" + s, s]));
+    return sign > 0 ? (sav ? g("Épargne (versement)", settings.epargne.map(s => ["epargne:" + s, s])) : "") + g("Rentrées", settings.rentree.map(s => ["rentree:" + s, s])) + g("Épargne (retrait)", settings.epargne.map(s => ["rentree:" + s, s]))
+      : (sav ? g("Retrait d'épargne", settings.epargne.map(s => ["rentree:" + s, s])) : "") + g("Dépenses", settings.cats.map(c => ["depense:" + c.id, c.name])) + g("Épargne", settings.epargne.map(s => ["epargne:" + s, s])) + g("Investissement", settings.invest.map(s => ["invest:" + s, s]));
   };
   const nNew = items.filter(x => x.on).length, nDup = items.length - nNew;
+  const fixable = sav ? items.filter(x => { const e = months[x.date.slice(0, 7)]?.items?.[x.id]; return e && (e.type + ":" + e.cat) !== x.pick; }) : [];
   const f = openForm(`<div class="f2"><h3>Relevé bancaire · ${esc(fname)}</h3>
+    <div class="seg2 imp-kind" style="margin:4px 0 8px"><button type="button" data-ik="0" aria-pressed="${!sav}">Compte courant</button><button type="button" data-ik="1" aria-pressed="${sav}">Compte d'épargne</button></div>
+    ${sav ? `<div class="imp-liv"><label class="lbl" for="impLiv">Quel compte d'épargne ?</label><select class="field" id="impLiv">${settings.epargne.map(x => `<option${x === liv ? " selected" : ""}>${esc(x)}</option>`).join("")}</select>
+      <p class="hint" style="margin:6px 0 0">Les versements vont dans ton épargne, les retraits en sortent (ils reviennent sur ton compte courant).</p>
+      ${fixable.length ? `<label class="chk" style="margin-top:8px"><input type="checkbox" id="impFix" checked> Corriger aussi les ${fixable.length} opération${fixable.length > 1 ? "s" : ""} de ce relevé déjà importée${fixable.length > 1 ? "s" : ""} comme dépenses ou rentrées</label>` : ""}</div>` : ""}
     <p class="hint" style="margin:0">${items.length} opérations lues (${format}). ${nDup ? `${nDup} semblent déjà présentes : décochées.` : ""} Vérifie les catégories proposées, décoche ce que tu ne veux pas importer.</p>
     <div class="imp-list">${items.map((x, i) => `<div class="imp-row ${x.dup ? "dup" : ""}">
       <input type="checkbox" data-i="${i}" ${x.on ? "checked" : ""} aria-label="Importer ${esc(x.name)}">
@@ -3533,7 +3545,9 @@ function reviewImport(rows, format, fname) {
     <p class="hint" id="impSum" style="margin:8px 0 0"></p></div>`,
     () => {
       const chosen = items.filter(x => x.on);
-      if (!chosen.length) { toast("Aucune opération cochée"); return false; }
+      const fixIt = fixable.length && f.querySelector("#impFix") && f.querySelector("#impFix").checked;
+      if (fixIt) { const tk = new Set(); for (const x of fixable) { const k = x.date.slice(0, 7), e = months[k].items[x.id], [type, cat] = x.pick.split(/:(.*)/s); months[k].items[x.id] = { ...e, type, cat, fixe: false }; tk.add(k); } tk.forEach(k => saveMonth(k)); }
+      if (!chosen.length) { if (fixIt) { render(); toast(`${fixable.length} opération${fixable.length > 1 ? "s" : ""} corrigée${fixable.length > 1 ? "s" : ""} : rangée${fixable.length > 1 ? "s" : ""} en épargne ✓`); return true; } toast("Aucune opération cochée"); return false; }
       const learned = settings.importRules || {};
       const touched = new Set();
       for (const x of chosen) {
@@ -3541,18 +3555,21 @@ function reviewImport(rows, format, fname) {
         months[key] = months[key] || { items: {} };
         months[key].items[x.id] = { type, amount: Math.abs(x.amount), cat, date: x.date, note: x.name, fixe: type === "depense" && !!catById(cat).fixe, bank: true, created: Date.now() };
         touched.add(key);
-        if (x.changed) { const mk = merchantKey(x.label); if (mk) learned[mk] = x.pick; }
+        if (x.changed && !sav) { const mk = merchantKey(x.label); if (mk) learned[mk] = x.pick; }
       }
       settings.importRules = learned; saveSettings();
       touched.forEach(k => saveMonth(k));
-      render(); toast(`${chosen.length} opération${chosen.length > 1 ? "s" : ""} importée${chosen.length > 1 ? "s" : ""}`);
+      render(); toast(`${chosen.length} opération${chosen.length > 1 ? "s" : ""} importée${chosen.length > 1 ? "s" : ""}${fixIt ? ` · ${fixable.length} corrigée${fixable.length > 1 ? "s" : ""}` : ""}`);
     }, null);
   f.querySelector('button[type="submit"]').textContent = "Importer";
+  if (!items.some(x => x.on) && fixable.length) f.querySelector('button[type="submit"]').textContent = "Corriger";
+  f.querySelectorAll("[data-ik]").forEach(b => b.onclick = () => { closeForm(); setTimeout(() => reviewImport(rows, format, fname, b.dataset.ik === "1", liv), 120); });
+  { const lv = f.querySelector("#impLiv"); if (lv) lv.onchange = () => { closeForm(); setTimeout(() => reviewImport(rows, format, fname, true, lv.value), 120); }; }
   f.querySelectorAll("select[data-s]").forEach(s => { const x = items[Number(s.dataset.s)]; s.value = x.pick; if (s.value !== x.pick) { s.selectedIndex = 0; x.pick = s.value; } s.onchange = () => { x.pick = s.value; x.changed = true; sum(); }; });
   f.querySelectorAll("input[data-i]").forEach(c => c.onchange = () => { items[Number(c.dataset.i)].on = c.checked; sum(); });
   const sum = () => {
     const on = items.filter(x => x.on), dep = on.filter(x => x.amount < 0).reduce((a, x) => a - x.amount, 0), ren = on.filter(x => x.amount > 0).reduce((a, x) => a + x.amount, 0);
-    document.getElementById("impSum").textContent = `${on.length} à importer · dépenses ${eur(dep)} · rentrées ${eur(ren)}. Les catégories que tu corriges seront retenues pour les prochains imports.`;
+    document.getElementById("impSum").textContent = sav ? `${on.length} à importer · versements ${eur(ren)} · retraits ${eur(dep)}.` : `${on.length} à importer · dépenses ${eur(dep)} · rentrées ${eur(ren)}. Les catégories que tu corriges seront retenues pour les prochains imports.`;
   };
   sum();
 }

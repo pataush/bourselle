@@ -209,8 +209,8 @@ async function activateCode(code) {
   const _startImport = startImport;
   startImport = function () { if (!canUse("import")) return showPlus("import"); return _startImport(); };
   const _reviewImport = reviewImport;
-  reviewImport = function (rows, format, fname) {
-    const r = _reviewImport(rows, format, fname);
+  reviewImport = function (...args) {
+    const r = _reviewImport(...args);
     // Le relevé compte dans la limite gratuite seulement s'il est vraiment importé.
     const btn = document.querySelector("#sheet2 button[type=submit]");
     if (btn && !plusFree("import")) btn.addEventListener("click", () => { if (form2) countUse("import"); }, { once: true, capture: true });

@@ -1613,6 +1613,7 @@
   EXACT["🎁 Voir ma récompense dans Bons plans"] = "🎁 See my reward in Deals"; EXACT["🎁 Voir mes récompenses dans Bons plans"] = "🎁 See my rewards in Deals";
   EXACT["📄 Importer un relevé"] = "📄 Import a statement"; EXACT["CSV, OFX ou PDF de ta banque"] = "CSV, OFX or PDF from your bank"; EXACT["Importer un relevé"] = "Import a statement";
   Object.assign(EXACT, {"Pose ta question ou cherche (Carrefour, 42,50…)": "Ask a question or search (Tesco, 42.50…)", "Demander": "Ask", "Je t'écoute…": "Listening…", "Autorise le micro pour Bourselle dans les réglages du téléphone": "Allow the microphone for Bourselle in your phone settings"});
+  Object.assign(EXACT, {"Compte courant": "Current account", "Compte d'épargne": "Savings account", "Quel compte d'épargne ?": "Which savings account?", "Les versements vont dans ton épargne, les retraits en sortent (ils reviennent sur ton compte courant).": "Deposits go into your savings, withdrawals come out (back to your current account).", "Épargne (versement)": "Savings (deposit)", "Retrait d'épargne": "Savings withdrawal", "Corriger": "Fix"});
   EXACT["Rechercher ou demander"] = "Search or ask"; EXACT["Rechercher ou demander à Bourselle"] = "Search or ask Bourselle";
   const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
   const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
