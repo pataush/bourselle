@@ -139,7 +139,7 @@ function renderPatrimoine() {
 
 // Ligne « Patrimoine net » sur l'accueil (version complète, dès qu'il y a quelque chose à compter)
 function patriHomeHTML() {
-  if (isSimple() || !patriHasData()) return "";
+  if (!featOn("patrimoine") || !patriHasData()) return "";
   const p = patriCalc();
   return `<button class="card pa-home" id="paHome" style="text-align:left;width:100%;cursor:pointer"><span class="hint">Patrimoine net</span><b class="num">${esc(eur(p.net))}</b><span class="pm-chev" aria-hidden="true">›</span></button>`;
 }

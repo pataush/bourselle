@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "129";
+const APP_VERSION = "130";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -298,7 +298,7 @@ function showProfileMenu() {
       ${typeof FUN_BG !== "undefined" ? go("pmBg", "img", "#b5838d", "Fond d'écran", (FUN_BG[settings.homeBg || "auto"] || "Aucun") + (settings.homeBgAll ? " · partout" : "")) : ""}
       ${soc ? sw("pmPush", "bell", "#e67e22", "Notifications", push) : ""}
       ${soc ? go("pmNotif", "bell", "#e67e22", "Vérifier mes notifications", "") : ""}
-      ${sw("pmFull", "leaf", "#2e8a5b", "Version complète", !isSimple(), "Patrimoine, notes de frais…")}
+      ${sw("pmFull", "leaf", "#2e8a5b", "Toutes les fonctions", !isSimple(), "Notes de frais, patrimoine, garanties…")}
     </div>
     <div class="pmx-cap">Mon compte</div>
     <div class="pmx-sec">
@@ -816,7 +816,7 @@ function renderMois() {
   }
 
   const OPS_N = 6, showAll = window.__opsAll || list.length <= OPS_N + 2;
-  html += `<div class="card"><h2>${showAll ? "Opérations" : "Dernières opérations"}<button class="linkbtn" id="impBtn">Importer un relevé</button></h2>${list.length ? txListHTML(showAll ? list : list.slice(0, OPS_N)) : `<div class="empty">Rien d'enregistré pour ${MOIS[cur.m - 1]}.</div>`}
+  html += `<div class="card"><h2>${showAll ? "Opérations" : "Dernières opérations"}</h2>${list.length ? txListHTML(showAll ? list : list.slice(0, OPS_N)) : `<div class="empty">Rien d'enregistré pour ${MOIS[cur.m - 1]}.</div>`}
     ${list.length > OPS_N + 2 ? `<button class="ops-more" id="opsMore">${showAll ? "Voir moins" : `Voir tout (${list.length})`}</button>` : ""}</div>`;
   view.innerHTML = html; budSegBind(); if (typeof todayBind === "function") todayBind(view);
   const om = document.getElementById("opsMore"); if (om) om.onclick = () => { window.__opsAll = !window.__opsAll; render(); };
@@ -911,10 +911,9 @@ function renderReglages() {
     <div class="seg2" id="themeSeg" style="grid-template-columns:repeat(3,1fr)">${[["auto", "Automatique"], ["light", "Clair"], ["dark", "Sombre"]].map(([k, l]) => `<button type="button" data-th="${k}" aria-pressed="${applyTheme.cur === k}">${l}</button>`).join("")}</div>
     <p class="hint" style="margin:8px 0 0">Automatique suit le réglage de ton téléphone.</p></div>
   ${typeof fbCardHTML === "function" ? fbCardHTML() : ""}
-  <div class="card"><h2>Version de l'app</h2>
-    <div class="seg2" id="modeSeg"><button type="button" data-m="simple" aria-pressed="${isSimple()}">Simple</button><button type="button" data-m="complete" aria-pressed="${!isSimple()}">Complète</button></div>
-    <p class="hint" style="margin:8px 0 0">${isSimple() ? "Simple : le budget du mois, l'année, le partage des frais, je dois / on me doit, les abonnements, les garanties, le plan d'économies et les objectifs. Passe à la version complète pour le patrimoine et les notes de frais."
-      : "Complète : toutes les fonctions. La version simple garde l'essentiel (budget du mois, année, partage des frais, dettes, abonnements, garanties, économies, objectifs) pour un usage plus léger."} Tes données ne changent pas.</p></div>
+  <div class="card"><h2>Fonctions<small>montrer ou cacher</small></h2>
+    <p class="hint" style="margin:0 0 6px">Le budget, l'argent entre proches, les dettes, les abonnements et les objectifs sont toujours là. Le reste s'ajoute si tu en as besoin ; tes données ne changent pas.</p>
+    <div class="pmx-sec feat-list">${FEATS.map(([k, l, d]) => `<button type="button" class="pmx-r" data-feat="${k}" role="switch" aria-checked="${featOn(k)}"><b>${esc(l)}<small>${esc(d)}</small></b><span class="pmx-sw" aria-hidden="true"></span></button>`).join("")}</div></div>
   <div class="card"><h2>Langue et devise</h2>
     <div class="two"><div><label class="lbl" for="setLang">Langue</label><select class="field" id="setLang"><option value="fr"${window.LANG !== "en" ? " selected" : ""}>Français</option><option value="en"${window.LANG === "en" ? " selected" : ""}>English</option></select></div>
       <div><label class="lbl" for="setCur">Devise</label><select class="field" id="setCur">${APP_CURRENCIES.map(([c, l]) => `<option value="${c}"${c === (settings.currency || "EUR") ? " selected" : ""}>${esc(c)} · ${esc(l)}</option>`).join("")}</select></div></div>
@@ -993,13 +992,13 @@ function renderReglages() {
   if (typeof pushBind === "function") pushBind();
   { const b = document.getElementById("payEdit"); if (b) b.onclick = editPay; const sh = document.getElementById("payShare"); if (sh) sh.onclick = () => shareText("Pour me payer :", payLinkUrl(0, "")); }
   document.querySelectorAll("#themeSeg [data-th]").forEach(b => b.onclick = () => { try { localStorage.setItem("bourselle-theme", b.dataset.th); } catch (e) {} applyTheme.cur = applyTheme(b.dataset.th); render(); });
-  document.querySelectorAll("#modeSeg [data-m]").forEach(b => b.onclick = () => { if ((b.dataset.m === "simple") !== isSimple()) setMode(b.dataset.m); });
+  document.querySelectorAll("[data-feat]").forEach(b => b.onclick = () => { const on = !featOn(b.dataset.feat); featSet(b.dataset.feat, on); toast(on ? "Ajouté à Suivis" : "Caché (rien n'est effacé)"); });
   const fu = document.getElementById("forceUpdate");
   if (fu) fu.onclick = () => forceUpdate();
   if (typeof fbBind === "function") fbBind();
   if (typeof resetBind === "function") resetBind();
   { const ap = document.getElementById("aboutPlus"); if (ap) ap.onclick = () => showPlus(); }
-  { const an = document.getElementById("aboutNdf"); if (an) an.onclick = () => { if (isSimple()) setMode("complete"); switchTab("frais"); }; }
+  { const an = document.getElementById("aboutNdf"); if (an) an.onclick = () => { if (!featOn("frais")) featSet("frais", true); switchTab("frais"); }; }
   view.querySelectorAll("[data-f]").forEach(inp => inp.onchange = () => {
     const c = settings.cats[Number(inp.dataset.i)], f = inp.dataset.f;
     if (f === "budget") c.budget = parseAmount(inp.value) || 0;
@@ -1141,21 +1140,43 @@ function isSimple() {
   if (!m && typeof settings !== "undefined" && settings && settings.mode) m = settings.mode;
   return (m || "simple") === "simple";
 }
-const visibleSubs = () => isSimple() ? SIMPLE_SUBS.map(k => SUBS.find(([x]) => x === k)).filter(Boolean) : SUBS;
-const subAllowed = t => !isSimple() || !isSub(t) || SIMPLE_SUBS.includes(t);
+// Fonctions qu'on peut montrer ou cacher (Paramètres › Fonctions). Par défaut : visibles en version complète, cachées en
+// version simple ; une fonction déjà utilisée reste toujours visible tant qu'on ne la coupe pas soi-même.
+const FEATS = [["economies", "Plan d'économies", "des pistes pour dépenser moins, catégorie par catégorie"], ["garanties", "Garanties", "la date de fin de garantie de tes achats"],
+  ["frais", "Notes de frais", "tickets photographiés, classeur à envoyer"], ["patrimoine", "Patrimoine et comptes", "tes biens, tes comptes et leur solde"], ["defis", "Défis d'épargne entre amis", "épargner à plusieurs, chacun à son rythme"]];
+const FEAT_CORE = ["dettes", "objectifs", "abos"];
+function featUsed(k) {
+  try {
+    if (k === "economies") return !!(settings.eco && Object.keys(settings.eco).length);
+    if (k === "garanties") return garItems().length > 0;
+    if (k === "frais") return allItems().some(t => t.ndf) || Object.keys(trips || {}).length > 0;
+    if (k === "patrimoine") return (typeof accHasBalance === "function" && accHasBalance()) || (typeof assetList === "function" && assetList().length > 0) || Object.keys(accounts || {}).length > 1;
+    if (k === "defis") return typeof CHALS !== "undefined" && CHALS.length > 0;
+  } catch (e) {}
+  return false;
+}
+function featOn(k) {
+  if (FEAT_CORE.includes(k)) return true;
+  const f = settings && settings.feat; if (f && k in f) return !!f[k];
+  return !isSimple() || featUsed(k);
+}
+function featSet(k, on) { settings.feat = { ...(settings.feat || {}), [k]: !!on }; saveSettings(); render(); }
+const visibleSubs = () => SUBS.filter(([k]) => featOn(k));
+const subAllowed = t => !isSub(t) || featOn(t);
 function setMode(m) {
-  settings.mode = m; try { localStorage.setItem("bourselle-mode", m); } catch (e) {}
+  settings.mode = m; delete settings.feat; try { localStorage.setItem("bourselle-mode", m); } catch (e) {}
   if (!subAllowed(tab)) tab = "mois";
   if (!subAllowed(lastSub)) lastSub = SIMPLE_SUBS[0];
   saveSettings(); render(); toast(m === "simple" ? "Version simple activée" : "Version complète activée");
 }
 function render() {
+  if (typeof bonsNavSync === "function") bonsNavSync();
   if (!subAllowed(tab) || tab === "tontines") tab = "mois";
   document.body.classList.toggle("mode-simple", isSimple());
   document.body.classList.toggle("tab-reglages", tab === "reglages");
   document.body.classList.toggle("ep-nohero", ((tab === "partage" || tab === "accueil") && !openGroup) || tab === "home" || (typeof SV_HEAD !== "undefined" && SV_HEAD.includes(tab)));
   if (tab !== "bons") document.body.classList.remove("bp-nohero");
-  { const sb = document.querySelector("header .nm .sub"); if (sb) sb.textContent = isSimple() ? "Version simple" : ""; }
+  { const sb = document.querySelector("header .nm .sub"); if (sb) sb.textContent = ""; }
   {
     const u = store && store.user ? store.user() : {}, first = settings.firstName || (store && store.id === "local" ? "" : String((u && u.name) || "").trim().split(/[\s@]/)[0]);
     const nm = first ? first.charAt(0).toUpperCase() + first.slice(1) : "";
@@ -1284,6 +1305,7 @@ function parseNum(s) { const v = parseFloat(String(s).replace(/\s/g, "").replace
 function parseAmount(s) { const v = parseFloat(String(s).replace(/\s/g, "").replace(",", ".")); return isFinite(v) ? Math.round(v * 100) / 100 : NaN; }
 function openSheet(tx) {
   const editing = !!tx;
+  { const il = document.getElementById("impLink"); if (il) { il.hidden = editing || tab === "frais"; il.onclick = () => { closeSheet(); setTimeout(startImport, 250); }; } }
   const base = cur.y === now.getFullYear() && cur.m === now.getMonth() + 1 ? todayISO() : `${ym(cur.y, cur.m)}-01`;
   form = editing ? { ...clone(tx), oldKey: tx.date.slice(0, 7) }
     : { id: newId(), type: "depense", amount: "", cat: defCat("courses"), date: tab === "frais" ? todayISO() : base, note: "", fixe: false, ndf: tab === "frais", ndfStatus: "a_rembourser" };
@@ -2516,12 +2538,13 @@ function renderPartage() {
     <button type="button" data-hub="cagnotte">${hubIcon("cagnotte")}<span>Cagnotte</span></button></div>`;   // achat groupé masqué pour l'instant
   if (typeof favRowHTML === "function") html += favRowHTML();
   if (typeof offTeaserHTML === "function") html += offTeaserHTML();
-  const SUBT = [["discussions", "Discussions"], ["projets", "Projets"], ["groupes", "Groupes"]];
+  // Les projets et cagnottes vivent avec les discussions (rangée « Argent en cours ») : deux onglets seulement
+  const SUBT = [["discussions", "Discussions"], ["groupes", "Groupes"]];
   if (!SUBT.some(([k]) => k === epSub)) epSub = "discussions";
   html += `<div class="ep-tabs" role="tablist">${SUBT.map(([k, l]) => `<button type="button" role="tab" data-ep="${k}" aria-selected="${epSub === k}">${l}${k === "discussions" && unread ? ` <i class="ep-badge">${unread}</i>` : ""}</button>`).join("")}</div>`;
   // Une invitation à une cagnotte ne doit pas rester cachée dans « Projets » : on la montre en premier, où qu'on soit
   { const invD = (typeof DEALS !== "undefined" ? DEALS : []).filter(d => d.kind !== "achat" && d.status === "open" && d.you && d.you.pid && (d.parts[d.you.pid] || {}).inv);
-    if (invD.length && epSub !== "projets") html += `<div class="ep-cap"><span>Invitations</span><small>${invD.length} à accepter</small></div><div class="hub-deals">${invD.map(d => DEALUI.card(d, dealCtxBase())).join("")}</div>`; }
+    if (invD.length && epSub === "discussions") html += `<div class="ep-cap"><span>Invitations</span><small>${invD.length} à accepter</small></div><div class="hub-deals">${invD.map(d => DEALUI.card(d, dealCtxBase())).join("")}</div>`; }
   if (epSub === "discussions") html += typeof ensThreadsHTML === "function" ? ensThreadsHTML() : "";
   else if (epSub === "projets") {
     html += typeof ensActsHTML === "function" ? ensActsHTML() : "";
@@ -2549,7 +2572,7 @@ function renderPartage() {
         <div class="ep-foot"><span class="ep-avs">${g.members.slice(0, 6).map(m => `<span${m.tag ? ` data-avtag="${esc(m.tag)}"` : ""} style="background:${favColor(m.tag ? "@" + m.tag : "n:" + String(m.name || "").toLowerCase())}">${esc(String(m.name || "?").charAt(0).toUpperCase())}</span>`).join("")}</span>
           ${owers.length ? `<button type="button" class="btn ep-b" data-grem="${esc(g.id)}">🔔 Relancer</button>` : b < -0.004 ? `<button type="button" class="btn ep-b" data-gpay2="${esc(g.id)}">💸 Régler</button>` : ""}<button type="button" class="btn primary ep-b" data-gexp="${esc(g.id)}">＋ Dépense</button></div></div>`;
     }
-    html += `<button type="button" class="ep-feedlink" id="epFeed"><span>📰 Le fil et les défis d'épargne</span><i>›</i></button>`;
+    html += `<button type="button" class="ep-feedlink" id="epFeed"><span>📰 ${featOn("defis") ? "Le fil et les défis d'épargne" : "Le fil de tes proches"}</span><i>›</i></button>`;
   }
   view.innerHTML = html;
   { const r = document.getElementById("epRemind"); if (r) r.onclick = () => epWho("in"); const g = document.getElementById("epSettle"); if (g) g.onclick = () => epWho("out"); }
@@ -2595,7 +2618,7 @@ function noteShare() {
   setTimeout(() => f.querySelector("#nsLabel").focus(), 80);
 }
 // Le fil des proches et les défis d'épargne, dans une feuille à part
-const epFeedInner = () => `<h3>📰 Le fil et les défis</h3>${typeof chalHTML === "function" ? chalHTML() : ""}${typeof feedHTML === "function" ? feedHTML() : ""}`;
+const epFeedInner = () => `<h3>📰 ${featOn("defis") ? "Le fil et les défis" : "Le fil"}</h3>${typeof chalHTML === "function" && featOn("defis") ? chalHTML() : ""}${typeof feedHTML === "function" ? feedHTML() : ""}`;
 function epFeedBind(box) { if (typeof actBind === "function") actBind(box); if (typeof feedBind === "function") feedBind(box); if (typeof chalBind === "function") chalBind(box); }
 function epFeedOpen() {
   const f = openForm(`<div class="f2 ep-feedsheet">${epFeedInner()}</div>`, () => true);

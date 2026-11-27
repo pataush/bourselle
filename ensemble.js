@@ -61,12 +61,13 @@ function ensThreadsHTML() {
     const k = esc(chatKey(t));
     return `<div class="ep-sw"><div class="ep-acts"><button type="button" class="ep-a-arch" data-carch="${k}">${isArch ? "📤<span>Sortir</span>" : "📦<span>Archiver</span>"}</button><button type="button" class="ep-a-del" data-cdel="${k}">🗑<span>Supprimer</span></button></div>
       <div class="ep-th${t.unread ? " unread" : ""}" role="button" tabindex="0" ${t.gid ? `data-gc="${esc(t.gid)}"` : `data-dm="${esc(t.tag)}"`}>${av}
-      <span class="ep-tx"><b><span>${esc(chatTitle(t))}</span>${act ? `<em class="ep-tag">projet</em>` : ""}<small>${esc(agoText(t.at))}</small></b><small>${esc(ensSnip(t))}</small>${q}</span>
+      <span class="ep-tx"><b><span>${esc(chatTitle(t))}</span><small>${esc(agoText(t.at))}</small></b><small>${esc(ensSnip(t))}</small>${act && act.status === "open" ? ensMiniHTML(act) : q}</span>
       ${t.unread ? `<i class="ep-badge">${t.unread}</i>` : ""}</div></div>`;
   };
   const nArchUnread = arch.reduce((a, t) => a + (t.unread || 0), 0);
   return `<button type="button" class="ep-write" id="dmNew"><span>✏️ Écrire à un proche, proposer une sortie…</span><b aria-hidden="true">➤</b></button>
-    <div class="ep-starters"><button type="button" data-start="place">📍 Un lieu</button><button type="button" data-start="dates">📅 Une date</button><button type="button" data-start="group">👥 Un groupe</button><button type="button" data-start="invite">🔗 Inviter</button></div>`
+    <div class="ep-starters"><button type="button" data-start="place">📍 Un lieu</button><button type="button" data-start="dates">📅 Une date</button><button type="button" data-start="projet">🎁 Un projet</button><button type="button" data-start="cagnotte">🐷 Une cagnotte</button><button type="button" data-start="group">👥 Un groupe</button><button type="button" data-start="invite">🔗 Inviter</button></div>`
+    + ensMoneyRunHTML()
     + (threads.length ? `<div class="ep-cap"><span>Récentes</span><small>← glisse pour archiver ou supprimer</small></div><div class="ep-list">${threads.map(t => row(t, false)).join("")}</div>`
       : `<div class="card" style="margin-top:12px"><p class="hint" style="margin:0">Écris à un proche, propose un lieu ou une date : vous décidez ensemble, et vous financez à plusieurs si besoin.</p></div>`)
     + (arch.length ? `<button type="button" class="ep-archbtn" id="epArch">📦 Archivées (${arch.length})${nArchUnread ? ` <i class="ep-badge">${nArchUnread}</i>` : ""}<i>${ensShowArch ? "▴" : "▾"}</i></button>${ensShowArch ? `<div class="ep-list">${arch.map(t => row(t, true)).join("")}</div>` : ""}` : "");
@@ -139,6 +140,60 @@ function ensActCard(a) {
     <div class="ep-foot"><span class="ep-avs">${avs}</span>${right}</div>
     ${lastTxt ? `<div class="ep-last">💬 <span>${esc(lastTxt)}</span><i>›</i></div>` : ""}</div>`;
 }
+// ---------- L'argent en cours, au même endroit que les discussions ----------
+// Projets (on cotise pour une sortie, un cadeau…), cagnottes et tontines, paiements à plusieurs : une rangée de cartes à faire défiler.
+function ensMiniHTML(a) {
+  const me = a.members.find(m => m.id === a.me), pct = a.budget ? Math.min(100, Math.round(a.got / a.budget * 100)) : 0;
+  const pay = me && !a.owner && me.st !== "ok" && me.st !== "sent" ? `<span class="ep-mpay" data-actpay="${esc(a.id)}">Verser ${esc(ensMoney(me.share, a.cur))}</span>` : "";
+  return `<span class="ep-mini"><span class="ep-mbar"><i style="width:${pct}%"></i></span><em>${a.got >= a.budget ? esc(ensMoney(a.got, a.cur)) + " réunis 🎉" : pay ? pct + " %" : `${esc(ensMoney(a.got, a.cur))} / ${esc(ensMoney(a.budget, a.cur))}`}</em>${pay}</span>`;
+}
+function ensMoneyItems() {
+  const out = [], t = s => s;
+  for (const a of (typeof ACTS !== "undefined" ? ACTS : []).filter(a => a.status === "open")) {
+    const me = a.members.find(m => m.id === a.me), pct = a.budget ? Math.min(100, a.got / a.budget * 100) : 0;
+    const right = a.invited ? `<span class="mr-chip warn">Invitation</span>` : a.owner ? `<span class="mr-chip">${a.members.some(m => m.st === "sent") ? "À confirmer" : "Tu organises"}</span>`
+      : me && me.st === "ok" ? `<span class="mr-chip ok">Payé ✓</span>` : me && me.st === "sent" ? `<span class="mr-chip">Versé, à confirmer</span>` : me ? `<span class="btn primary mr-btn" data-actpay="${esc(a.id)}">Verser</span>` : "";
+    out.push({ at: a.when || "9", html: `<div class="mr-c" data-act="${esc(a.id)}" role="button" tabindex="0"><span class="mr-k">Projet${a.when ? " · " + esc(frDate(a.when).slice(0, 5)) : ""}</span>
+      <div class="mr-t"><span class="mr-e">${esc(a.emoji || "📅")}</span><span><b>${esc(a.title)}</b><small>${esc(ensMoney(a.got, a.cur))} sur ${esc(ensMoney(a.budget, a.cur))} · ${a.members.length} personnes</small></span></div>
+      <div class="ep-mbar"><i style="width:${pct.toFixed(0)}%"></i></div><div class="mr-f"><span>${me && !a.owner ? `Ta part : <b>${esc(ensMoney(me.share, a.cur))}</b>` : a.got >= a.budget ? "Tout est réuni 🎉" : `Il manque ${esc(ensMoney(Math.max(0, a.budget - a.got), a.cur))}`}</span>${right}</div></div>` });
+  }
+  for (const d of (typeof DEALS !== "undefined" ? DEALS : []).filter(d => d.kind !== "achat" && d.status === "open")) {
+    const st = d.stats || {}, n = (d.order || []).length, inv = d.you && d.you.pid && (d.parts[d.you.pid] || {}).inv;
+    const pct = d.ton ? (st.need ? Math.min(100, st.paid / st.need * 100) : 0) : d.target ? Math.min(100, (st.sum || 0) / d.target * 100) : 0;
+    const k = d.ton ? `Cagnotte${d.started ? ` · tour ${Math.max(1, (st.round || 0) + 1)}/${n}` : ""}` : "Cagnotte";
+    const sub = d.ton ? (st.need ? `${st.paid || 0} sur ${st.need} ont payé` : `${n} membres`) : `${ensMoney(st.sum || 0, d.cur)}${d.target ? " sur " + ensMoney(d.target, d.cur) : ""} réunis`;
+    out.push({ at: "5", html: `<div class="mr-c" data-deal="${esc(d.id)}" role="button" tabindex="0"><span class="mr-k">${esc(k)}</span>
+      <div class="mr-t"><span class="mr-e">🐷</span><span><b>${esc(d.title)}</b><small>${esc(sub)}</small></span></div>
+      <div class="ep-mbar"><i style="width:${pct.toFixed(0)}%"></i></div><div class="mr-f"><span>${d.cotis || d.amount ? `Cotisation : <b>${esc(ensMoney(d.cotis || d.amount, d.cur))}</b>` : ""}</span>${inv ? `<span class="mr-chip warn">Invitation</span>` : `<span class="mr-chip">Ouvrir ›</span>`}</div></div>` });
+  }
+  for (const pj of (typeof PROJECTS !== "undefined" ? PROJECTS : []).filter(p => p.role === "owner")) {   // ce qu'on me doit est listé juste en dessous
+    const st = pjStats(pj); if (st.due + st.sent < 0.005) continue;
+    const pct = st.total ? Math.min(100, st.ok / st.total * 100) : 0;
+    out.push({ at: "7", html: `<div class="mr-c" data-pj="${esc(pj.id)}" role="button" tabindex="0"><span class="mr-k">${pj.role === "owner" ? "Paiements à faire" : "On te doit"}</span>
+      <div class="mr-t"><span class="mr-e">💸</span><span><b>${esc(pj.title)}</b><small>Total ${esc(ensMoney(st.total, pj.cur))} · ${st.n} personne${st.n > 1 ? "s" : ""}</small></span></div>
+      <div class="ep-mbar"><i style="width:${pct.toFixed(0)}%"></i></div><div class="mr-f"><span>${esc(ensMoney(st.ok, pj.cur))} réglés</span><span class="mr-chip">Ouvrir ›</span></div></div>` });
+  }
+  return out.sort((a, b) => a.at.localeCompare(b.at));
+}
+function ensDoneCount() { return (typeof ACTS !== "undefined" ? ACTS.filter(a => a.status !== "open").length : 0) + (typeof DEALS !== "undefined" ? DEALS.filter(d => d.kind !== "achat" && d.status !== "open").length : 0); }
+function ensMoneyRunHTML() {
+  const owed = typeof projHubHTML === "function" && typeof PROJECTS !== "undefined" && PROJECTS.some(p => p.role === "payee") ? projHubHTML(true) : "";
+  return ensMoneyRunHTML0() + owed;
+}
+function ensMoneyRunHTML0() {
+  const L = ensMoneyItems(), done = ensDoneCount();
+  if (!L.length) return done ? `<button type="button" class="linkbtn ep-done-l" id="epDone">Projets et cagnottes terminés (${done}) ›</button>` : "";
+  return `<div class="ep-cap"><span>Argent en cours · ${L.length}</span>${done ? `<button type="button" class="linkbtn" id="epDone">Terminés (${done})</button>` : L.length > 1 ? "<small>glisse →</small>" : ""}</div>
+    <div class="mr-run${L.length === 1 ? " one" : ""}">${L.map(x => x.html).join("")}</div>`;
+}
+function ensDoneOpen() {
+  const acts = (typeof ACTS !== "undefined" ? ACTS : []).filter(a => a.status !== "open"), ds = (typeof DEALS !== "undefined" ? DEALS : []).filter(d => d.kind !== "achat" && d.status !== "open");
+  const f = openForm(`<div class="f2 ep-donesheet"><h3>Terminés</h3>${acts.map(a => `<div class="card act-card ep-pj ep-done" data-act="${esc(a.id)}" role="button" tabindex="0"><div class="act-top"><span class="act-emo">${esc(a.emoji || "📅")}</span><span class="act-tt"><b>${esc(a.title)}</b><small>${esc(ensMoney(a.got, a.cur))} réunis · ${a.members.length} personnes</small></span></div></div>`).join("")}
+    ${ds.length ? `<div class="hub-deals">${ds.map(d => DEALUI.card(d, dealCtxBase())).join("")}</div>` : ""}</div>`, () => true);
+  f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
+  f.querySelectorAll("[data-act]").forEach(b => b.onclick = () => { closeForm(); actOpen(b.dataset.act); });
+  f.querySelectorAll("[data-deal]").forEach(b => b.onclick = () => { closeForm(); showDeal(b.dataset.deal); });
+}
 const ACT_TPL = [["🎁", "Cadeau", { emoji: "🎁", title: "Cadeau pour " }], ["✈️", "Voyage", { emoji: "✈️", title: "Week-end à " }], ["🍽️", "Sortie", { emoji: "🍽️", title: "Resto " }], ["🐷", "Cagnotte", null]];
 function ensActsHTML() {
   if (!(typeof socOn === "function" && socOn())) return "";
@@ -157,6 +212,9 @@ function ensBind(root) {
   ["#actNew", "#actNew2"].forEach(s => { const b = root.querySelector(s); if (b) b.onclick = () => actNew(); });
   root.querySelectorAll("[data-tpl]").forEach(b => b.onclick = () => { const t = ACT_TPL[+b.dataset.tpl]; if (!t[2]) return editDeal(null, "cagnotte"); actNew({ ...t[2] }); });
   const dn = root.querySelector("#dmNew"); if (dn) dn.onclick = () => chatNew();
+  root.querySelectorAll(".mr-c[data-deal]").forEach(b => b.onclick = () => showDeal(b.dataset.deal));
+  root.querySelectorAll(".mr-c[data-pj]").forEach(b => b.onclick = () => showProject(b.dataset.pj));
+  { const d = root.querySelector("#epDone"); if (d) d.onclick = () => ensDoneOpen(); }
   root.querySelectorAll("[data-start]").forEach(b => b.onclick = () => ensStart(b.dataset.start));
   ensSwipe(root);
 }
@@ -167,6 +225,14 @@ async function ensQuick(ref, text, e) {
 }
 // Raccourcis : choisir avec qui, puis la conversation s'ouvre directement sur le lieu, les dates ou l'invitation
 function ensStart(kind) {
+  if (kind === "cagnotte") return editDeal(null, "cagnotte");
+  if (kind === "projet") {
+    const f = openForm(`<div class="f2"><h3>🎁 Un projet à financer ensemble</h3><p class="hint" style="margin:0 0 10px">Fixez un budget, chacun verse sa part à l'organisateur, de banque à banque, et vous en discutez au même endroit.</p>
+      <div class="ep-tpl">${ACT_TPL.filter(x => x[2]).map(([e, l], i) => `<button type="button" data-tpl2="${i}"><span>${e}</span>${l}</button>`).join("")}<button type="button" data-tpl2="x"><span>✨</span>Autre</button></div></div>`, () => true);
+    f.querySelector("button[type=submit]").hidden = true;
+    f.querySelectorAll("[data-tpl2]").forEach(b => b.onclick = () => { closeForm(); const t = b.dataset.tpl2 === "x" ? {} : { ...ACT_TPL.filter(x => x[2])[+b.dataset.tpl2][2] }; setTimeout(() => actNew(t), 200); });
+    return;
+  }
   if (kind === "invite") {
     (async () => { try { const r = await socApi("/gc", { method: "POST", body: JSON.stringify({ name: ensName(), tags: [], solo: true, title: "Sortie" }) }); chatOpen.intent = "invite"; ensRefresh(); gcOpen(r.gc.id); } catch (e) { toast(e.message); } })();
     return;

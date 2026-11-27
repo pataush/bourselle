@@ -26,8 +26,8 @@ function pjStats(pj) {
 }
 const pjBar = st => st.total ? `<div class="pj-bar"><i class="ok" style="width:${(st.ok / st.total * 100).toFixed(1)}%"></i><i class="sent" style="width:${(st.sent / st.total * 100).toFixed(1)}%"></i><i class="due" style="width:${(st.due / st.total * 100).toFixed(1)}%"></i></div>` : "";
 // Sur « Partage » : mes paiements à gérer, et ce qu'on me doit
-function projHubHTML() {
-  const mine = PROJECTS.filter(p => p.role === "owner"), owed = PROJECTS.filter(p => p.role === "payee");
+function projHubHTML(onlyOwed) {
+  const mine = onlyOwed ? [] : PROJECTS.filter(p => p.role === "owner"), owed = PROJECTS.filter(p => p.role === "payee");
   let h = "";
   if (mine.length) h += `<div class="hub-sec"><span>Mes paiements à faire</span></div><div class="hub-deals">${mine.map(pj => { const st = pjStats(pj); return `<button type="button" class="deal-card" data-pj="${esc(pj.id)}">
       <div class="dc-top"><span class="dc-kind pj">Paiement</span><span class="dc-st${st.due + st.sent < 0.005 ? " ok" : ""}">${st.due + st.sent < 0.005 ? "Tout est payé ✓" : `Reste ${esc(pjMoney(st.due, pj.cur))} à payer`}</span></div>

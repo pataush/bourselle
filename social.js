@@ -539,9 +539,11 @@ async function enablePush() {
   const perm = await Notification.requestPermission();
   if (perm !== "granted") { toast("Notifications refusées : tu peux les autoriser dans les réglages du navigateur"); return; }
   try {
-    const sub = await pushSub(true);
-    await socApi("/me/push", { method: "POST", body: JSON.stringify({ sub: sub.toJSON(), lang: window.LANG === "en" ? "en" : "fr", test: true }) });
-    localStorage.setItem(PUSH_KEY, "1"); toast("Notifications activées"); render();
+    let sub = await pushSub(true);
+    const post = sb => socApi("/me/push", { method: "POST", body: JSON.stringify({ sub: sb.toJSON(), lang: window.LANG === "en" ? "en" : "fr", test: true }) });
+    const r = await post(sub);
+    if (r && r.dead) { await sub.unsubscribe().catch(() => {}); sub = await pushSub(true); await post(sub); }   // ancien abonnement refusé : on en prend un neuf
+    localStorage.setItem(PUSH_KEY, "1"); localStorage.removeItem(PUSH_KEY + "-off"); localStorage.setItem(PUSH_KEY + "-at", String(Date.now())); toast("Notifications activées"); render();
   } catch (e) { toast(e.message || "Activation impossible"); }
 }
 async function disablePush() {
@@ -549,7 +551,7 @@ async function disablePush() {
     const sub = pushSupported() ? await pushSub(false) : null;
     if (sub) { if (socOn()) await socApi("/me/push", { method: "POST", body: JSON.stringify({ off: true, sub: { endpoint: sub.endpoint } }) }).catch(() => {}); await sub.unsubscribe().catch(() => {}); }
   } catch (e) {}
-  try { localStorage.removeItem(PUSH_KEY); } catch (e) {}
+  try { localStorage.removeItem(PUSH_KEY); localStorage.setItem(PUSH_KEY + "-off", "1"); } catch (e) {}
   toast("Notifications désactivées"); render();
 }
 // À chaque connexion : l'abonnement de cet appareil est rattaché au compte connecté (et à la langue choisie)
@@ -571,11 +573,29 @@ function pushAsk() {
     f.querySelector("button[type=submit]").textContent = "Activer"; f.querySelector("#f2Cancel").textContent = "Plus tard";
   }, 2500);
 }
-async function pushResync() {
-  if (!pushOn() || !socOn() || !pushSupported() || SOC.pushSynced) return;
+// À chaque ouverture : l'abonnement de cet appareil est renvoyé au serveur (il peut changer ou expirer, surtout sur iPhone).
+// Si Apple ou Google l'ont refusé (« dead »), on s'abonne à nouveau tout seul. Si l'autorisation est donnée mais que l'appli
+// l'avait oublié (réinstallation, données effacées), on remet les notifications en route sans rien demander.
+async function pushResync(force) {
+  if (!socOn() || !pushSupported() || (SOC.pushSynced && !force)) return;
+  let granted = false; try { granted = Notification.permission === "granted"; } catch (e) {}
+  if (!granted || (isIOS() && !isStandalone())) return;
+  let wanted = true; try { wanted = localStorage.getItem(PUSH_KEY) === "1" || localStorage.getItem(PUSH_KEY + "-off") !== "1"; } catch (e) {}
+  if (!wanted) return;
   SOC.pushSynced = true;
-  try { const sub = await pushSub(true); await socApi("/me/push", { method: "POST", body: JSON.stringify({ sub: sub.toJSON(), lang: window.LANG === "en" ? "en" : "fr" }) }); } catch (e) {}
+  const send = async sub => socApi("/me/push", { method: "POST", body: JSON.stringify({ sub: sub.toJSON(), lang: window.LANG === "en" ? "en" : "fr" }) });
+  try {
+    let sub = await pushSub(true), r = await send(sub);
+    if (r && r.dead) { await sub.unsubscribe().catch(() => {}); sub = await pushSub(true); r = await send(sub); }
+    if (r && r.ok !== false) { const was = localStorage.getItem(PUSH_KEY) === "1"; localStorage.setItem(PUSH_KEY, "1"); localStorage.setItem(PUSH_KEY + "-at", String(Date.now())); if (!was) render(); }
+  } catch (e) {}
 }
+// Revenir sur l'appli après plusieurs heures : on revérifie (sur iPhone, l'appli peut rester ouverte des jours en arrière-plan)
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState !== "visible") return;
+  let at = 0; try { at = Number(localStorage.getItem(PUSH_KEY + "-at")) || 0; } catch (e) {}
+  if (Date.now() - at > 6 * 3600e3) pushResync(true);
+});
 function pushCardHTML() {
   if (!socOn()) return "";
   const on = pushOn();

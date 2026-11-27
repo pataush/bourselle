@@ -5,7 +5,7 @@ const PF_GROUPS = [
   ["Paiements et contacts", ["Me faire payer", "Mes contacts Bourselle", "Verrouillage et clé d'accès", "Mes comptes", "Bourselle Plus"]],
   ["Préférences", ["Apparence", "Langue et devise", "Notifications en direct", "Rappel des garanties"]],
   ["Mon budget", ["Combien as-tu vraiment ?", "Budget mensuel par catégorie", "Listes de choix", "Opérations automatiques", "Importer un relevé bancaire"]],
-  ["Données et app", ["Exporter mes données", "Installer sur ton téléphone", "Version de l'app", "Outils"]],
+  ["Données et app", ["Exporter mes données", "Installer sur ton téléphone", "Fonctions", "Outils"]],
   ["Aide", ["Une suggestion, un problème ?", "À propos"]],
   ["", ["Recommencer à zéro"]],
 ];

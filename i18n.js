@@ -1557,6 +1557,22 @@
     "Synchronisé avec ton autre appareil": "Synced with your other device", "Paiements et contacts": "Payments and contacts", "Aide": "Help", "Invitations": "Invitations"});
   PATTERNS.push(["{n} à accepter", "{n} to accept"]);
   PATTERNS.push(["C'est parti, {x} !", "Let's go, {x}!"]);
+  Object.assign(EXACT, {"Fonctions": "Features", "montrer ou cacher": "show or hide", "Plan d'économies": "Savings plan", "des pistes pour dépenser moins, catégorie par catégorie": "ideas to spend less, category by category",
+    "la date de fin de garantie de tes achats": "when your purchases' warranties end", "Notes de frais": "Expense reports", "tickets photographiés, classeur à envoyer": "photographed receipts, a workbook to send",
+    "Patrimoine et comptes": "Assets and accounts", "tes biens, tes comptes et leur solde": "your assets, your accounts and their balance", "Défis d'épargne entre amis": "Savings challenges with friends", "épargner à plusieurs, chacun à son rythme": "save together, each at your own pace",
+    "Le budget, l'argent entre proches, les dettes, les abonnements et les objectifs sont toujours là. Le reste s'ajoute si tu en as besoin ; tes données ne changent pas.": "Budget, money with your people, debts, subscriptions and goals are always there. Add the rest if you need it; your data doesn't change.",
+    "Ajouté à Suivis": "Added to Tracking", "Caché (rien n'est effacé)": "Hidden (nothing is deleted)", "Toutes les fonctions": "All features", "Notes de frais, patrimoine, garanties…": "Expense reports, assets, warranties…",
+    "Le fil": "The feed", "Le fil de tes proches": "Your people's feed",
+    "🎁 Un projet": "🎁 A project", "🐷 Une cagnotte": "🐷 A money pot", "🎁 Un projet à financer ensemble": "🎁 A project to fund together", "Autre": "Other",
+    "Fixez un budget, chacun verse sa part à l'organisateur, de banque à banque, et vous en discutez au même endroit.": "Set a budget, everyone sends their share to the organiser, bank to bank, and you talk it over in the same place.",
+    "Projet": "Project", "Cagnotte": "Money pot", "Paiements à faire": "Payments to make", "On te doit": "Owed to you", "Verser": "Pay", "Payé ✓": "Paid ✓", "Versé, à confirmer": "Sent, to confirm", "Tu organises": "You're organising", "À confirmer": "To confirm",
+    "Tout est réuni 🎉": "All collected 🎉", "Ouvrir ›": "Open ›", "Terminés": "Finished", "glisse →": "swipe →",
+    "Pas encore de bon plan": "No deals yet", "Ton coiffeur, ton resto, ta boutique préférée ? Envoie-leur la page partenaire : s'ils proposent une offre, tu seras le premier prévenu.": "Your hairdresser, restaurant, favourite shop? Send them the partner page: if they post an offer, you'll be the first to know.",
+    "Envoyer à un commerce": "Send to a business", "📍 Changer de ville": "📍 Change city", "🛒 Voir les codes promo en ligne": "🛒 See online promo codes", "Message copié": "Message copied",
+    "Code promo en ligne": "Online promo code", "Des réductions près de chez toi": "Discounts near you", "Tu connais un commerce ? Propose-lui Bourselle ›": "Know a business? Suggest Bourselle ›", "Choisis ta ville pour les voir ›": "Pick your city to see them ›",
+    "📄 Importer plusieurs opérations depuis un relevé bancaire": "📄 Import several transactions from a bank statement", "Afrique": "Africa"});
+  PATTERNS.push(["Argent en cours · {n}", "Money in progress · {n}"], ["Terminés ({n})", "Finished ({n})"], ["Projets et cagnottes terminés ({n}) ›", "Finished projects and money pots ({n}) ›"], ["Pas encore de bon plan à {x}", "No deals in {x} yet"], ["Bientôt à {x}", "Coming soon to {x}"],
+    ["Ta part : {x}", "Your share: {x}"], ["Il manque {x}", "{x} still needed"], ["Verser {x}", "Pay {x}"], ["{x} réunis 🎉", "{x} collected 🎉"], ["{m} sur {m} · {n} personnes", "{m} of {m} · {n} people"], ["{n} sur {n} ont payé", "{n} of {n} have paid"], ["Cotisation : {x}", "Contribution: {x}"], ["{x} réglés", "{x} settled"]);
   EXACT["Rechercher ou demander"] = "Search or ask"; EXACT["Rechercher ou demander à Bourselle"] = "Search or ask Bourselle";
   const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
   const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];

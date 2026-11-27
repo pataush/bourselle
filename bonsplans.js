@@ -16,7 +16,8 @@ async function offRefresh(rerender) {
     const j = await offApi("/offers"); BPLANS = j.offers || []; OFF_ADMIN = !!j.admin; OFF_LEADS = j.leads || []; if (j.cats) OFF_CATS = j.cats; OFF_INVITES = j.invites || 0; OFF_MYINV = j.myInv || 0; OFF_HASREWARD = !!j.hasReward; offLoaded = true; offBkNews();
     if (!offRefresh.link) { offRefresh.link = true; let id = ""; try { id = sessionStorage.getItem("bourselle-offre") || ""; sessionStorage.removeItem("bourselle-offre"); } catch (e) {} if (id) setTimeout(() => offersOpen(id), 500); let ad = ""; try { ad = sessionStorage.getItem("bourselle-offadmin"); sessionStorage.removeItem("bourselle-offadmin"); } catch (e) {} if (ad && OFF_ADMIN) setTimeout(offAdminOpen, 600); }
     { const c = document.getElementById("bonsCnt"), n = BPLANS.filter(o => o.status !== "off" && offVisible(o) && offTimed(o) && offNow(o)).length; if (c) { c.hidden = !n; c.textContent = n; } }
-    if (rerender !== false && typeof tab !== "undefined" && ["bons", "partage", "mois"].includes(tab) && !document.querySelector("#sheet2Root.open")) render();
+    bonsNavSync();
+    if (rerender !== false && typeof tab !== "undefined" && ["bons", "partage", "mois", "home"].includes(tab) && !document.querySelector("#sheet2Root.open")) render();
   } catch (e) {}
 }
 { const q = new URLSearchParams(location.search); if (q.get("offres") === "admin") { try { sessionStorage.setItem("bourselle-offadmin", "1"); } catch (e) {} history.replaceState(null, "", location.pathname); } }
@@ -466,6 +467,29 @@ function renderBons() {
   view.querySelector("#offAlert").onclick = () => offAlertsOpen();
   view.querySelector("#offLead").onclick = () => offLeadForm();
   { const ad = view.querySelector("#offAdmin"); if (ad) ad.onclick = () => offAdminOpen(); }
+}
+
+// L'onglet Bons plans n'apparaît que s'il y a quelque chose à y voir (offres près de chez moi ou codes promo de mon pays).
+// Sinon, le widget de l'accueil aide à démarrer (choisir sa ville, faire connaître Bourselle à un commerce).
+function offAvail() { return BPLANS.filter(o => o.status !== "off" && (offOnline(o) ? offInCountry(o) : offVisible(o))).length; }
+// Pas encore de bon plan dans ma ville : je peux proposer Bourselle à un commerce que j'aime (page « Devenir partenaire »)
+function offRecommend() {
+  const link = appBase() + "g.html#partenaire", msg = `Bonjour ! J'utilise Bourselle pour mon budget. Vous pourriez y proposer vos offres aux habitants${myCity() ? " de " + myCity() : ""}, c'est gratuit : ${link}`;
+  const f = openForm(`<div class="f2"><div style="font-size:2.2rem;text-align:center">🏪</div><h3 style="text-align:center">Pas encore de bon plan${myCity() ? " à " + esc(myCity()) : ""}</h3>
+    <p class="hint" style="text-align:center;margin:0 0 12px">Ton coiffeur, ton resto, ta boutique préférée ? Envoie-leur la page partenaire : s'ils proposent une offre, tu seras le premier prévenu.</p>
+    <button type="button" class="btn primary" id="orShare" style="width:100%">Envoyer à un commerce</button>
+    <button type="button" class="btn" id="orCity" style="width:100%;margin-top:8px">📍 Changer de ville</button>
+    <button type="button" class="btn" id="orOnline" style="width:100%;margin-top:8px">🛒 Voir les codes promo en ligne</button></div>`, () => true);
+  f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
+  f.querySelector("#orShare").onclick = () => { if (navigator.share) navigator.share({ text: msg }).catch(() => {}); else { try { navigator.clipboard.writeText(msg); toast("Message copié"); } catch (e) { toast(link); } } };
+  f.querySelector("#orCity").onclick = () => { closeForm(); setTimeout(() => offCityAsk(() => render()), 200); };
+  const on = BPLANS.some(o => o.status !== "off" && offOnline(o) && offInCountry(o));
+  if (!on) f.querySelector("#orOnline").remove(); else f.querySelector("#orOnline").onclick = () => { closeForm(); offState.mode = "online"; switchTab("bons"); };
+}
+function bonsNavSync() {
+  const b = document.querySelector('nav.tabs [data-tab="bons"]'); if (!b) return;
+  let n; if (offLoaded) { n = offAvail(); try { localStorage.setItem("bourselle-bons-n", String(n)); } catch (e) {} } else { try { n = Number(localStorage.getItem("bourselle-bons-n")) || 0; } catch (e) { n = 0; } }
+  b.hidden = !(n > 0 || OFF_ADMIN || (typeof tab !== "undefined" && tab === "bons"));
 }
 // Dans « Entre proches » : juste un petit rappel vers l'onglet Bons plans
 function offTeaserHTML() {

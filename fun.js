@@ -212,12 +212,13 @@ function funStoryAuto() {
 const FUN_THEMES = {
   vert: ["Vert Bourselle", "#1f6b4b", "#c9a24a", "Classiques"], ocean: ["Océan", "#1d5f86", "#e0a84a", "Classiques"], sunset: ["Coucher de soleil", "#c8553d", "#f2b54a", "Classiques"], nuit: ["Nuit", "#3b3f73", "#c9a24a", "Classiques"], prune: ["Prune", "#7a3b6b", "#e3b04b", "Classiques"],
   neon: ["Néon", "#7c3aed", "#22d3ee", "Ados"], galaxie: ["Galaxie", "#4338ca", "#f472b6", "Ados"], lagon: ["Lagon", "#0891b2", "#facc15", "Ados"], arcade: ["Arcade", "#ea580c", "#a3e635", "Ados"], street: ["Street", "#18181b", "#f43f5e", "Ados"],
+  kente: ["Kente", "#0f7b3f", "#e0a100", "Afrique"], wax: ["Wax", "#e2572b", "#16807a", "Afrique"], bogolan: ["Bogolan", "#6b4423", "#d9a441", "Afrique"],
   rose: ["Rose bonbon", "#e84a8a", "#f7b2d0", "Girly"], barbie: ["Barbie", "#e0218a", "#ffd1e8", "Girly"], licorne: ["Licorne", "#a78bfa", "#f9a8d4", "Girly"], fraise: ["Fraise", "#f43f5e", "#fecdd3", "Girly"], peche: ["Pêche douce", "#f08a6c", "#ffd8c2", "Girly"],
 };
 function funApplyTheme() { const t = (settings && settings.pal) || "vert"; if (t === "vert" || !FUN_THEMES[t]) document.documentElement.removeAttribute("data-pal"); else document.documentElement.setAttribute("data-pal", t); }
 function funThemeOpen() {
   const cur = settings.pal || "vert", groups = [...new Set(Object.values(FUN_THEMES).map(T => T[3]))];
-  const f = openForm(`<div class="f2"><h3>🎨 Thème de l'appli</h3>${groups.map(g => `<div class="pmx-cap">${g}</div><div class="th-grid">${Object.entries(FUN_THEMES).filter(([, T]) => T[3] === g).map(([k, T]) => `<button type="button" data-pal="${k}" aria-pressed="${k === cur}"><span class="th-sw" style="background:linear-gradient(135deg,${T[1]} 0 60%,${T[2]} 60%)"></span>${esc(T[0])}</button>`).join("")}</div>`).join("")}</div>`, () => true);
+  const f = openForm(`<div class="f2"><h3>🎨 Thème de l'appli</h3>${groups.map(g => `<div class="pmx-cap">${g}</div><div class="th-grid">${Object.entries(FUN_THEMES).filter(([, T]) => T[3] === g).map(([k, T]) => `<button type="button" data-pal="${k}" aria-pressed="${k === cur}"><span class="th-sw${T[3] === "Afrique" ? " pat" : ""}" ${T[3] === "Afrique" ? `data-pal-sw="${k}"` : `style="background:linear-gradient(135deg,${T[1]} 0 60%,${T[2]} 60%)"`}></span>${esc(T[0])}</button>`).join("")}</div>`).join("")}</div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Terminé";
   f.querySelectorAll("[data-pal]").forEach(b => b.onclick = () => { settings.pal = b.dataset.pal; if (settings.pal === "vert") delete settings.pal; saveSettings(); funApplyTheme(); f.querySelectorAll("[data-pal]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); render(); });
 }

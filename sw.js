@@ -1,6 +1,6 @@
 /* Bourselle — service worker : rend l'app installable et ouvre l'interface même hors ligne.
  * Les données ne sont jamais mises en cache ici : elles restent dans le Drive de l'utilisateur. */
-const CACHE = "bourselle-v129";
+const CACHE = "bourselle-v130";
 const SHELL = ["./", "index.html", "style.css", "icons.js", "app.js", "accounts.js", "patrimoine.js", "tontine.js", "economies.js", "ndf.js", "plus.js", "qr.js", "pay.js", "deal-ui.js", "deals.js", "projects.js", "assistant.js", "social.js", "session.js", "lock.js", "payme.js", "proches.js", "ensemble.js", "bankpdf.js", "feedback.js", "reset.js", "widgets.js", "avatar.js", "fun.js", "bonsplans.js", "profile.js", "smart.js", "dyn.js", "onboarding.js", "stats.js", "storage.js", "i18n.js", "config.js", "manifest.webmanifest", "icons/icon-192.png", "icons/favicon-32.png", "icons/og-invite.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL.map(u => new Request(u, { cache: "reload" })))).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => {
@@ -23,9 +23,21 @@ self.addEventListener("push", e => {
   let d = {}; try { d = e.data ? e.data.json() : {}; } catch (err) { d = { body: e.data ? e.data.text() : "" }; }
   e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then(list => {
     list.forEach(c => c.postMessage({ type: "bourselle-push", data: d }));
-    if (list.some(c => c.visibilityState === "visible" && c.focused)) return;
+    // Appli ouverte devant soi : pas de bannière… sauf sur iPhone, où une notification non affichée finit par couper l'abonnement.
+    // Là, on l'affiche sans bruit et on la retire aussitôt.
+    const ios = /iPhone|iPad|iPod|Macintosh/.test(self.navigator.userAgent || "") && !/Chrome|Android/.test(self.navigator.userAgent || "");
+    if (list.some(c => c.visibilityState === "visible" && c.focused)) {
+      if (!ios) return;
+      return self.registration.showNotification(d.title || "Bourselle", { body: d.body || "", tag: "seen", silent: true, icon: "icons/icon-192.png" })
+        .then(() => new Promise(r => setTimeout(r, 1500))).then(() => self.registration.getNotifications({ tag: "seen" })).then(ns => ns.forEach(n => n.close()));
+    }
     return self.registration.showNotification(d.title || "Bourselle", { body: d.body || "", tag: d.tag || undefined, renotify: !!d.tag, icon: "icons/icon-192.png", badge: "icons/favicon-32.png", data: { url: d.url || "./" } });
   }));
+});
+// Abonnement renouvelé par le navigateur : on se réabonne tout de suite ; l'appli le renverra au serveur à la prochaine ouverture
+self.addEventListener("pushsubscriptionchange", e => {
+  const opts = e.oldSubscription && e.oldSubscription.options;
+  if (opts) e.waitUntil(self.registration.pushManager.subscribe(opts).catch(() => {}));
 });
 self.addEventListener("notificationclick", e => {
   e.notification.close();

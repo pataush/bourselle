@@ -1537,6 +1537,8 @@ async function social(req, env, url, cors) {
     const sb = body.sub || {}, ep = String(sb.endpoint || "");
     let list = await kvJ(env, "push:" + me.email, []) || [];
     if (body.off) { list = list.filter(x => x.endpoint !== ep); await kvP(env, "push:" + me.email, list); return json({ ok: true, n: list.length }, 200, cors); }
+    // Abonnement expiré (Apple ou Google l'ont refusé) : l'appareil doit s'abonner à nouveau, on ne le réenregistre pas
+    if (ep && await env.CODES.get("pushdead:" + (await sha(ep)).slice(0, 32))) { await kvP(env, "push:" + me.email, list.filter(x => x.endpoint !== ep)); return json({ ok: false, dead: true }, 200, cors); }
     if (!/^https:\/\/[^\s]{10,600}$/.test(ep) || !sb.keys || !/^[A-Za-z0-9_-]{80,100}$/.test(sb.keys.p256dh || "") || !/^[A-Za-z0-9_-]{16,30}$/.test(sb.keys.auth || "")) throw new HttpErr(400, "abonnement invalide");
     list = list.filter(x => x.endpoint !== ep).concat([{ endpoint: ep, keys: { p256dh: sb.keys.p256dh, auth: sb.keys.auth }, lang: body.lang === "en" ? "en" : "fr", at: Date.now() }]).slice(-6);
     await kvP(env, "push:" + me.email, list);
@@ -1964,7 +1966,7 @@ function notify(env, emails, msg) {
       let dead = false;
       const keep = [];
       for (const sb of subs) {
-        try { const r = await sendPush(env, sb, msg(sb.lang === "en" ? "en" : "fr")); if (r.status === 404 || r.status === 410) { dead = true; continue; } } catch (e) {}
+        try { const r = await sendPush(env, sb, msg(sb.lang === "en" ? "en" : "fr")); if (r.status === 404 || r.status === 410) { dead = true; await env.CODES.put("pushdead:" + (await sha(sb.endpoint)).slice(0, 32), "1", { expirationTtl: 60 * 86400 }); continue; } } catch (e) {}
         keep.push(sb);
       }
       if (dead) await kvP(env, "push:" + email, keep);

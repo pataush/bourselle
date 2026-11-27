@@ -91,6 +91,7 @@
     <div class="grab"></div>
     <div class="seg" id="typeSeg" role="group" aria-label="Type d'opération"></div>
     <button type="button" class="scan-btn" id="scanBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2"/><path d="M8 9h8M8 12h8M8 15h5"/></svg>Scanner un ticket</button>
+    <button type="button" class="linkbtn imp-link" id="impLink">📄 Importer plusieurs opérations depuis un relevé bancaire</button>
     <input type="file" id="scanInput" accept="image/*" capture="environment" hidden>
     <div class="amount"><input id="fAmount" inputmode="decimal" placeholder="0,00" aria-label="Montant"><select id="fCur" class="cur-sel" aria-label="Devise de l'opération"></select></div>
     <div class="fx-line" id="fxLine" hidden><div class="fx-rate"><span id="fxBase">1 € =</span><input id="fRate" class="field num" inputmode="decimal" aria-label="Taux de change"><span id="fxCur"></span><b id="fxEq" class="num"></b></div><p class="hint" id="fxSrc"></p></div>
