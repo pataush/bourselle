@@ -42,44 +42,81 @@ async function ensRefresh() {
 }
 
 // ---------- Entre proches : onglets « Discussions » et « Projets » ----------
+const ensSnip = t => `${t.last.from === "sys" ? "" : t.last.mine ? "Toi : " : t.gid ? favFirst(t.last.name || t.last.from) + " : " : ""}${t.last.kind === "idea" ? "💡 " + t.last.idea.title : t.last.kind === "act" ? "📅 " + (t.last.text || "Projet") : t.last.kind === "place" ? "📍 " + t.last.place.name : t.last.kind === "dates" ? "📅 Dates proposées · vote !" : t.last.del ? "Message supprimé" : t.last.text || ""}`;
 function ensThreadsHTML() {
   if (!(typeof socOn === "function" && socOn())) return `<div class="card"><p class="hint" style="margin:0">Connecte-toi avec Google ou Microsoft pour écrire à tes proches et décider ensemble de ce que vous financez.</p></div>`;
   const threads = DMS.slice().sort((a, b) => b.at - a.at);
-  return `<button type="button" class="btn primary" id="dmNew" style="width:100%">✏️ Nouvelle discussion</button>` + (threads.length ? `<div class="card dm-list">${threads.map(t => `<button type="button" class="dm-th${t.unread ? " unread" : ""}" ${t.gid ? `data-gc="${esc(t.gid)}"` : `data-dm="${esc(t.tag)}"`}>${t.gid ? `<span class="fav-av grp">👥</span>` : `<span class="fav-av" style="background:${favColor("@" + t.tag)}">${esc(favFirst(t.name || t.tag).charAt(0))}</span>`}
-      <span class="dm-tx"><b>${esc(chatTitle(t))}</b><small>${t.last.from === "sys" ? "" : t.last.mine ? "Toi : " : t.gid ? esc(favFirst(t.last.name || t.last.from)) + " : " : ""}${esc(t.last.kind === "idea" ? "💡 " + t.last.idea.title : t.last.kind === "act" ? "📅 " + (t.last.text || "Projet") : t.last.kind === "place" ? "📍 " + t.last.place.name : t.last.kind === "dates" ? "📅 Dates proposées" : t.last.del ? "Message supprimé" : t.last.text || "")}</small></span>
-      <span class="dm-meta"><small>${esc(agoText(t.at))}</small>${t.unread ? `<i>${t.unread}</i>` : ""}</span></button>`).join("")}</div>`
-    : `<div class="card"><p class="hint" style="margin:0">Écris à un proche, propose un lieu ou une date, et décidez ensemble de ce que vous financez.</p></div>`);
+  const row = t => {
+    const act = t.act && typeof ACTS !== "undefined" ? ACTS.find(a => a.id === t.act) : null;
+    const av = t.gid ? `<span class="ep-av g" style="background:${act ? "#c9a24a" : "#1f6b4b"}">${esc(act ? act.emoji || "📅" : "👥")}</span>`
+      : `<span class="ep-av" style="background:${favColor("@" + t.tag)}">${esc(favFirst(chatTitle(t)).charAt(0).toUpperCase())}</span>`;
+    const other = t.unread && !t.last.mine && t.last.from !== "sys";
+    const q = other ? `<span class="ep-q">${t.last.kind === "dates" ? `<i data-open="1">📅 Voter</i>` : t.last.kind === "place" ? `<i class="p" data-qr="👍 Ça me va !">👍 Ça me va</i><i data-open="1">Répondre</i>` : `<i class="p" data-qr="👍 Partant !">👍 Partant</i><i data-open="1">Répondre</i>`}</span>` : "";
+    return `<div class="ep-th${t.unread ? " unread" : ""}" role="button" tabindex="0" ${t.gid ? `data-gc="${esc(t.gid)}"` : `data-dm="${esc(t.tag)}"`}>${av}
+      <span class="ep-tx"><b><span>${esc(chatTitle(t))}</span>${act ? `<em class="ep-tag">projet</em>` : ""}<small>${esc(agoText(t.at))}</small></b><small>${esc(ensSnip(t))}</small>${q}</span>
+      ${t.unread ? `<i class="ep-badge">${t.unread}</i>` : ""}</div>`;
+  };
+  return `<button type="button" class="ep-write" id="dmNew"><span>✏️ Écrire à un proche, proposer une sortie…</span><b aria-hidden="true">➤</b></button>
+    <div class="ep-starters"><button type="button" data-start="place">📍 Un lieu</button><button type="button" data-start="dates">📅 Une date</button><button type="button" data-start="group">👥 Un groupe</button><button type="button" data-start="invite">🔗 Inviter</button></div>`
+    + (threads.length ? `<div class="ep-cap"><span>Récentes</span></div><div class="ep-list">${threads.map(row).join("")}</div>`
+      : `<div class="card"><p class="hint" style="margin:0">Écris à un proche, propose un lieu ou une date : vous décidez ensemble, et vous financez à plusieurs si besoin.</p></div>`);
 }
-// Une carte de projet en une phrase : « On cotise 300 € à 4 · il manque 100 € », et à droite ta part
+// Une carte de projet : montant, progression, qui a payé, ta part, et le dernier message de sa discussion
 function ensActCard(a) {
   const me = a.members.find(m => m.id === a.me), miss = Math.max(0, Math.round((a.budget - a.got) * 100) / 100), n = a.members.length;
   const right = a.invited ? `<span class="act-chip warn">Invitation</span>`
     : a.owner ? (a.members.some(m => m.st === "sent") ? `<span class="act-chip warn">À confirmer</span>` : `<span class="act-chip">Tu organises</span>`)
     : me && me.st === "ok" ? `<span class="act-chip ok">Ta part payée ✓</span>` : me && me.st === "sent" ? `<span class="act-chip">Versée, à confirmer</span>`
     : me ? `<span class="btn primary act-pay" data-actpay="${esc(a.id)}">Verser ${esc(ensMoney(me.share, a.cur))}</span>` : "";
-  return `<div class="card act-card" data-act="${esc(a.id)}" role="button" tabindex="0"><div class="act-top"><span class="act-emo">${esc(a.emoji || "📅")}</span><span class="act-tt"><b>${esc(a.title)}</b><small>${[a.when ? frDate(a.when) : "", a.place].filter(Boolean).map(esc).join(" · ")}</small></span></div>
-    <div class="act-line"><span>On cotise <b class="num">${esc(ensMoney(a.budget, a.cur))}</b> à ${n} · ${miss > 0 ? `il manque <b class="num">${esc(ensMoney(miss, a.cur))}</b>` : "tout est réuni 🎉"}</span>${right}</div>
-    <div class="act-bar"><i style="width:${Math.min(100, Math.round(a.got / a.budget * 100))}%"></i></div></div>`;
+  const days = a.when ? Math.round((new Date(a.when) - new Date(todayISO())) / 864e5) : null;
+  const when = days == null ? "" : days < 0 ? frDate(a.when) : days === 0 ? "aujourd'hui" : days === 1 ? "demain" : days < 15 ? `dans ${days} j` : frDate(a.when).slice(0, 5);
+  const last = (a.msgs || []).filter(m => m.from !== "sys" && (m.text || m.kind)).pop();
+  const lastTxt = last ? `${last.mine || last.from === SOC.tag ? "Toi" : favFirst(last.name || last.from)} : ${last.kind === "place" && last.place ? "📍 " + last.place.name : last.kind === "dates" ? "📅 Dates proposées" : last.text || ""}` : "";
+  const avs = a.members.slice(0, 6).map(m => `<span class="${m.st === "ok" ? "ok" : ""}" style="background:${favColor("@" + (m.tag || m.name))}" title="${esc(m.name || m.tag)}">${esc(favFirst(m.name || m.tag || "?").charAt(0).toUpperCase())}</span>`).join("");
+  return `<div class="card act-card ep-pj" data-act="${esc(a.id)}" role="button" tabindex="0"><div class="act-top"><span class="act-emo">${esc(a.emoji || "📅")}</span><span class="act-tt"><b>${esc(a.title)}</b><small>On cotise ${esc(ensMoney(a.budget, a.cur))} à ${n}${a.place ? " · " + esc(a.place) : ""}</small></span>${when ? `<span class="ep-when">${esc(when)}</span>` : ""}</div>
+    <div class="act-bar"><i style="width:${Math.min(100, Math.round(a.got / a.budget * 100))}%"></i></div>
+    <div class="ep-meta"><span><b class="num">${esc(ensMoney(a.got, a.cur))}</b> sur ${esc(ensMoney(a.budget, a.cur))}</span><span>${miss > 0 ? `il manque <b class="num">${esc(ensMoney(miss, a.cur))}</b>` : "tout est réuni 🎉"}</span></div>
+    <div class="ep-foot"><span class="ep-avs">${avs}</span>${right}</div>
+    ${lastTxt ? `<div class="ep-last">💬 <span>${esc(lastTxt)}</span><i>›</i></div>` : ""}</div>`;
 }
+const ACT_TPL = [["🎁", "Cadeau", { emoji: "🎁", title: "Cadeau pour " }], ["✈️", "Voyage", { emoji: "✈️", title: "Week-end à " }], ["🍽️", "Sortie", { emoji: "🍽️", title: "Resto " }], ["🐷", "Cagnotte", null]];
 function ensActsHTML() {
   if (!(typeof socOn === "function" && socOn())) return "";
-  const acts = ACTS.filter(a => a.status === "open").sort((a, b) => b.invited - a.invited || (a.when || "9").localeCompare(b.when || "9"));
-  return `<button type="button" class="btn primary" id="actNew" style="width:100%">+ Nouveau projet</button>` + (acts.length ? acts.map(ensActCard).join("")
-    : `<button type="button" class="card act-card act-empty" id="actNew2"><b>Une sortie, un week-end, un cadeau ?</b><small>Fixez un budget, chacun verse sa part à l'organisateur, de banque à banque. Vous en discutez dans le projet.</small></button>`);
+  const open = ACTS.filter(a => a.status === "open").sort((a, b) => b.invited - a.invited || (a.when || "9").localeCompare(b.when || "9"));
+  const done = ACTS.filter(a => a.status !== "open").slice(0, 3);
+  return `<div class="ep-cap"><span>Lancer un projet</span></div><div class="ep-tpl">${ACT_TPL.map(([e, l], i) => `<button type="button" data-tpl="${i}"><span>${e}</span>${l}</button>`).join("")}</div>`
+    + (open.length ? `<div class="ep-cap"><span>En cours · ${open.length}</span></div>${open.map(ensActCard).join("")}` : `<p class="hint ep-empty">Une sortie, un week-end, un cadeau ? Fixez un budget, chacun verse sa part à l'organisateur, de banque à banque, et vous en discutez dans le projet.</p>`)
+    + (done.length ? `<div class="ep-cap"><span>Terminés</span></div>${done.map(a => `<div class="card act-card ep-pj ep-done" data-act="${esc(a.id)}" role="button" tabindex="0"><div class="act-top"><span class="act-emo">${esc(a.emoji || "📅")}</span><span class="act-tt"><b>${esc(a.title)}</b><small>${esc(ensMoney(a.budget, a.cur))} · terminé</small></span><span class="ep-when">✓</span></div></div>`).join("")}` : "");
 }
 function ensHTML() { return ensThreadsHTML() + ensActsHTML(); }
 function ensBind(root) {
-  root.querySelectorAll("[data-dm]").forEach(b => b.onclick = () => dmOpen(b.dataset.dm));
-  root.querySelectorAll("[data-gc]").forEach(b => b.onclick = () => gcOpen(b.dataset.gc));
+  root.querySelectorAll("[data-dm]").forEach(b => b.onclick = e => { const q = e.target.closest("[data-qr]"); if (q) return ensQuick({ tag: b.dataset.dm }, q.dataset.qr, e); dmOpen(b.dataset.dm); });
+  root.querySelectorAll("[data-gc]").forEach(b => b.onclick = e => { const q = e.target.closest("[data-qr]"); if (q) return ensQuick({ gid: b.dataset.gc }, q.dataset.qr, e); gcOpen(b.dataset.gc); });
   root.querySelectorAll("[data-act]").forEach(b => b.onclick = e => { if (e.target.closest("[data-actpay]")) return; actOpen(b.dataset.act); });
   root.querySelectorAll("[data-actpay]").forEach(b => b.onclick = async e => { e.stopPropagation(); const a = ACTS.find(x => x.id === b.dataset.actpay); if (a) actPay(a); });
   ["#actNew", "#actNew2"].forEach(s => { const b = root.querySelector(s); if (b) b.onclick = () => actNew(); });
+  root.querySelectorAll("[data-tpl]").forEach(b => b.onclick = () => { const t = ACT_TPL[+b.dataset.tpl]; if (!t[2]) return editDeal(null, "cagnotte"); actNew({ ...t[2] }); });
   const dn = root.querySelector("#dmNew"); if (dn) dn.onclick = () => chatNew();
+  root.querySelectorAll("[data-start]").forEach(b => b.onclick = () => ensStart(b.dataset.start));
+}
+// Réponse en un toucher depuis la liste (« 👍 Partant ! »)
+async function ensQuick(ref, text, e) {
+  e.stopPropagation();
+  try { await socApi(chatPath(ref), { method: "POST", body: JSON.stringify({ name: ensName(), text }) }); toast("Envoyé ✓"); ensRefresh(); } catch (err) { toast(err.message); }
+}
+// Raccourcis : choisir avec qui, puis la conversation s'ouvre directement sur le lieu, les dates ou l'invitation
+function ensStart(kind) {
+  if (kind === "invite") {
+    (async () => { try { const r = await socApi("/gc", { method: "POST", body: JSON.stringify({ name: ensName(), tags: [], solo: true, title: "Sortie" }) }); chatOpen.intent = "invite"; ensRefresh(); gcOpen(r.gc.id); } catch (e) { toast(e.message); } })();
+    return;
+  }
+  chatOpen.intent = kind === "group" ? null : kind;
+  chatNew(kind === "group");
 }
 // Nouvelle discussion : choisir un ou plusieurs proches
-function chatNew() {
+function chatNew(group) {
   const pick = new Set(), people = prochesTagged().slice(0, 16);
-  const f = openForm(`<div class="f2"><h3>Nouvelle discussion</h3>${people.length ? `<div class="chips" id="cnPeople">${people.map(p => `<button type="button" class="chip" data-tag="${esc(p.tag)}" aria-pressed="false">${esc(p.name || "@" + p.tag)}</button>`).join("")}</div>` : ""}
+  const f = openForm(`<div class="f2"><h3>${group ? "Discussion de groupe : avec qui ?" : chatOpen.intent === "place" ? "📍 Proposer un lieu à…" : chatOpen.intent === "dates" ? "📅 Trouver une date avec…" : "Nouvelle discussion"}</h3>${people.length ? `<div class="chips" id="cnPeople">${people.map(p => `<button type="button" class="chip" data-tag="${esc(p.tag)}" aria-pressed="false">${esc(p.name || "@" + p.tag)}</button>`).join("")}</div>` : ""}
     <input class="field" id="cnFind" placeholder="Chercher un @tag…" autocapitalize="off" spellcheck="false" autocomplete="off" style="margin-top:8px"><div id="cnRes"></div>
     <p class="hint" style="margin:8px 0 0">Une personne : conversation à deux. Plusieurs : discussion de groupe. Pour ceux qui n'ont pas l'appli, tu pourras envoyer un lien d'invitation.</p></div>`, () => {
     if (!pick.size) { toast("Choisis au moins une personne"); return false; }
@@ -88,6 +125,7 @@ function chatNew() {
     (async () => { try { const r = await socApi("/gc", { method: "POST", body: JSON.stringify({ name: ensName(), tags }) }); ensRefresh(); setTimeout(() => gcOpen(r.gc.id), 250); } catch (e) { toast(e.message); } })();
   });
   f.querySelector("button[type=submit]").textContent = "Écrire";
+  f.querySelector("#f2Cancel").addEventListener("click", () => { chatOpen.intent = null; });
   const tog = b => { const t = b.dataset.tag; pick.has(t) ? pick.delete(t) : pick.add(t); b.setAttribute("aria-pressed", pick.has(t)); };
   f.querySelectorAll("#cnPeople [data-tag]").forEach(b => b.onclick = () => tog(b));
   tagPicker(f.querySelector("#cnFind"), f.querySelector("#cnRes"), (tag, nm) => {
@@ -154,6 +192,7 @@ async function chatOpen(ref) {
   f.querySelector("#dmPlace").onclick = () => placeSearch(pl => post({ place: pl }).catch(e => toast(e.message)));
   f.querySelector("#dmDates").onclick = () => datesForm(f, post);
   f.querySelector("#dmInvite").onclick = () => chatInvite(ctx);
+  if (chatOpen.intent) { const it = chatOpen.intent; chatOpen.intent = null; setTimeout(() => { const b = f.querySelector({ place: "#dmPlace", dates: "#dmDates", invite: "#dmInvite" }[it]); if (b) b.click(); }, 350); }
   { const g = f.querySelector("#dmGo"); if (g) g.onclick = async () => { const yes = (ctx.d.rsvp || {})[SOC.tag] === "yes"; try { await post({ action: "rsvp", v: yes ? "no" : "yes" }); closeForm(); setTimeout(() => gcOpen(ref.gid), 200); } catch (e) { toast(e.message); } }; }
   f.querySelector("#dmAdd").onclick = () => chatAddPeople(f, ctx);
   const lv = f.querySelector("#dmLeave"); if (lv) lv.onclick = async e => { const q = e.currentTarget; if (!q.dataset.sure) { q.dataset.sure = "1"; q.textContent = "Toucher encore pour quitter la discussion"; return; } try { await socApi(chatPath(ref), { method: "POST", body: JSON.stringify({ action: "leave" }) }); DMS = DMS.filter(t => chatKey(t) !== chatKey(ref)); closeForm(); render(); toast("Tu as quitté la discussion"); } catch (err) { toast(err.message); } };

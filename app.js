@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "107";
+const APP_VERSION = "108";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -238,42 +238,53 @@ function homeMoreOpen(v) {
 function showProfileMenu() {
   if (!store) return;
   const u = store.user ? store.user() : {}, local = store.id === "local", soc = typeof socOn === "function" && socOn();
-  const theme0 = applyTheme.cur || "auto", theme = theme0 === "auto" ? (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : theme0;
-  const TH = { auto: "Automatique", light: "Clair", dark: "Sombre" };
-  const nAl = alertsList().reduce((a, x) => a + x.n, 0);
-  const row = (id, icon, label, sub) => `<button type="button" class="pm-row" id="${id}"><span class="pm-ic" aria-hidden="true">${icon}</span><span class="pm-t"><b>${esc(label)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}</span><span class="pm-chev" aria-hidden="true">›</span></button>`;
-  const f = openForm(`<div class="f2 pm">
-    <div class="pm-head"><span class="avatar">${esc((document.getElementById("avatar").textContent || "B"))}</span>
-      <div><b>${esc(u.name || "Mon compte")}</b><div class="hint">${esc(u.email || (local ? "Données gardées sur cet appareil" : ""))}</div><div class="hint">${local ? "" : esc(store.label || "")}${typeof isPlus === "function" && isPlus() ? " · Bourselle Plus" : ""}</div></div></div>
-    <div class="pm-segs">
-      <div><span class="lbl">Apparence</span><div class="seg2" id="pmTheme"><button type="button" data-th="light" aria-pressed="${theme === "light"}">☀︎ Clair</button><button type="button" data-th="dark" aria-pressed="${theme === "dark"}">☾ Sombre</button></div></div>
-      <div><span class="lbl">Version</span><div class="seg2" id="pmMode"><button type="button" data-m="simple" aria-pressed="${isSimple()}">Simple</button><button type="button" data-m="complete" aria-pressed="${!isSimple()}">Complète</button></div></div></div>
-    ${soc && SOC.tag ? `<div class="pm-tag"><button type="button" class="pm-tagbtn" id="pmCopy" title="Toucher pour copier"><span class="hint">Mon tag</span> <b class="num">@${esc(SOC.tag)}</b><small class="pm-copyhint">Toucher pour copier</small></button>
-      <button type="button" class="btn pm-qrbtn" id="pmQr" aria-label="Mon QR code"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v7h-7"/></svg> QR code</button></div>` : ""}
-    ${soc ? `<div class="pm-push"><span class="lbl">Notifications</span><div class="seg2" id="pmPushSeg"><button type="button" data-p="on" aria-pressed="${typeof pushOn === "function" && pushOn()}">🔔 Activées</button><button type="button" data-p="off" aria-pressed="${!(typeof pushOn === "function" && pushOn())}">🔕 Désactivées</button></div></div>` : ""}
-    <div class="pm-list">
-      ${soc ? row("pmContacts", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.6.9 2.6 2.6 3 5.2"/></svg>', "Mes contacts", `${(settings.contacts || []).length} contact${(settings.contacts || []).length > 1 ? "s" : ""}`) : ""}
-      ${soc ? row("pmPay", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/></svg>', "Me faire payer", "IBAN, PayPal.me, lien de paiement") : ""}
-      ${row("pmLang", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9s1.3-6.3 3.8-9z"/></svg>', window.LANG === "en" ? "Français" : "English", window.LANG === "en" ? "Langue : anglais" : "Langue : français")}
-      ${!local && store.folderUrl && store.folderUrl() ? row("pmFolder", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>', "Ouvrir mon dossier", store.label) : ""}
-      ${row("pmFb", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>', "Une suggestion, un problème ?", "Écrire à l'équipe Bourselle")}
-      ${row("pmSettings", '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>', "Paramètres", "Mon compte, budget, catégories, devise, exports")}
+  const theme0 = applyTheme.cur || "auto", dark = (theme0 === "auto" ? (window.matchMedia && matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light") : theme0) === "dark";
+  const push = typeof pushOn === "function" && pushOn();
+  const I = p => `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+  const IC = {
+    moon: I('<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>'), bell: I('<path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/>'),
+    leaf: I('<path d="M4 20c0-9 6-15 16-16-1 10-7 16-16 16z"/><path d="M4 20l8-8"/>'), user: I('<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 14.8c1.6.9 2.6 2.6 3 5.2"/>'),
+    card: I('<rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20M6 15h4"/>'), globe: I('<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.7 3.8 5.7 3.8 9s-1.3 6.3-3.8 9c-2.5-2.7-3.8-5.7-3.8-9s1.3-6.3 3.8-9z"/>'),
+    folder: I('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>'), msg: I('<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>'),
+    gear: I('<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>'),
+    qr: I('<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M21 14v7h-7"/>'),
+    copy: '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>' };
+  const sq = (ic, col) => `<span class="pmx-sq" style="background:${col}" aria-hidden="true">${IC[ic]}</span>`;
+  const sw = (id, ic, col, label, on, sub) => `<button type="button" class="pmx-r" id="${id}" role="switch" aria-checked="${on}">${sq(ic, col)}<b>${esc(label)}${sub ? `<small>${esc(sub)}</small>` : ""}</b><span class="pmx-sw" aria-hidden="true"></span></button>`;
+  const go = (id, ic, col, label, val) => `<button type="button" class="pmx-r" id="${id}">${sq(ic, col)}<b>${esc(label)}</b>${val ? `<span class="pmx-v">${esc(val)}</span>` : ""}<span class="pmx-chev" aria-hidden="true">›</span></button>`;
+  const nC = (settings.contacts || []).length;
+  const f = openForm(`<div class="f2 pmx">
+    <div class="pmx-top"><span class="pmx-av">${esc((document.getElementById("avatar").textContent || "B"))}</span>
+      <b>${esc(u.name || "Mon compte")}</b><small>${esc(u.email || (local ? "Données gardées sur cet appareil" : ""))}${!local && store.label ? " · " + esc(store.label) : ""}${typeof isPlus === "function" && isPlus() ? " · Bourselle Plus" : ""}</small>
+      ${soc && SOC.tag ? `<div class="pmx-tag"><button type="button" id="pmCopy" title="Toucher pour copier"><span class="num">@${esc(SOC.tag)}</span><small>${IC.copy} <span class="pm-copyhint">Copier</span></small></button><button type="button" id="pmQr" aria-label="Mon QR code">${IC.qr} QR code</button></div>` : ""}</div>
+    <div class="pmx-cap">Préférences</div>
+    <div class="pmx-sec">
+      ${sw("pmDark", "moon", "#3b4a6b", "Mode sombre", dark)}
+      ${soc ? sw("pmPush", "bell", "#e67e22", "Notifications", push) : ""}
+      ${sw("pmFull", "leaf", "#2e8a5b", "Version complète", !isSimple(), "Patrimoine, notes de frais…")}
+    </div>
+    <div class="pmx-cap">Mon compte</div>
+    <div class="pmx-sec">
+      ${soc ? go("pmContacts", "user", "#1f6b4b", "Mes contacts", String(nC)) : ""}
+      ${soc ? go("pmPay", "card", "#0070ba", "Me faire payer", "IBAN, PayPal…") : ""}
+      ${go("pmLang", "globe", "#6b5bd6", window.LANG === "en" ? "Language" : "Langue", window.LANG === "en" ? "English" : "Français")}
+      ${!local && store.folderUrl && store.folderUrl() ? go("pmFolder", "folder", "#8a6d1f", "Ouvrir mon dossier", store.label || "") : ""}
+    </div>
+    <div class="pmx-sec">
+      ${go("pmFb", "msg", "#c9a24a", "Une suggestion, un problème ?")}
+      ${go("pmSettings", "gear", "#5d6d7e", "Paramètres")}
     </div></div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
   const on = (id, fn) => { const b = f.querySelector("#" + id); if (b) b.onclick = fn; };
-  f.querySelectorAll("#pmPushSeg [data-p]").forEach(b => b.onclick = async () => {
-    const want = b.dataset.p === "on"; if (want === pushOn()) return;
-    await (want ? enablePush() : disablePush());
-    f.querySelectorAll("#pmPushSeg [data-p]").forEach(x => x.setAttribute("aria-pressed", String((x.dataset.p === "on") === pushOn())));
-  });
+  const setSw = (id, v) => { const b = f.querySelector("#" + id); if (b) b.setAttribute("aria-checked", String(!!v)); };
+  on("pmDark", () => { const d = f.querySelector("#pmDark").getAttribute("aria-checked") !== "true"; try { localStorage.setItem("bourselle-theme", d ? "dark" : "light"); } catch (e) {} applyTheme.cur = applyTheme(d ? "dark" : "light"); setSw("pmDark", d); render(); });
+  on("pmPush", async () => { const want = !pushOn(); setSw("pmPush", want); await (want ? enablePush() : disablePush()); setSw("pmPush", pushOn()); });
+  on("pmFull", () => { const full = isSimple(); setMode(full ? "complete" : "simple"); setSw("pmFull", !isSimple()); });
   on("pmPay", () => { closeForm(); setTimeout(editPay, 250); });
-  on("pmCopy", () => { const done = () => { toast(`@${SOC.tag} copié`); const h = f.querySelector(".pm-copyhint"); if (h) { h.textContent = "✓ Copié"; setTimeout(() => { h.textContent = "Toucher pour copier"; }, 1800); } };
+  on("pmCopy", () => { const done = () => { toast(`@${SOC.tag} copié`); const h = f.querySelector(".pm-copyhint"); if (h) { h.textContent = "Copié ✓"; setTimeout(() => { h.textContent = "Copier"; }, 1800); } };
     try { navigator.clipboard.writeText("@" + SOC.tag).then(done).catch(() => toast("@" + SOC.tag)); } catch (e) { toast("@" + SOC.tag); } });
   on("pmQr", () => { closeForm(); socShowQr(); });
   on("pmContacts", () => { closeForm(); switchTab("reglages"); setTimeout(() => document.getElementById("socSearch")?.scrollIntoView({ block: "center" }), 80); });
-  on("pmPlus", () => { closeForm(); showPlus(); });
-  f.querySelectorAll("#pmTheme [data-th]").forEach(b => b.onclick = () => { try { localStorage.setItem("bourselle-theme", b.dataset.th); } catch (e) {} applyTheme.cur = applyTheme(b.dataset.th); f.querySelectorAll("#pmTheme [data-th]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); render(); });
-  f.querySelectorAll("#pmMode [data-m]").forEach(b => b.onclick = () => { if ((b.dataset.m === "simple") !== isSimple()) setMode(b.dataset.m); f.querySelectorAll("#pmMode [data-m]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); });
   on("pmLang", () => { closeForm(); if (typeof setLang === "function") setLang(window.LANG === "en" ? "fr" : "en"); });
   on("pmFolder", () => { window.open(store.folderUrl(), "_blank", "noopener"); });
   on("pmSettings", () => { closeForm(); switchTab("reglages"); });
@@ -1057,6 +1068,7 @@ function render() {
   if (!subAllowed(tab) || tab === "tontines") tab = "mois";
   document.body.classList.toggle("mode-simple", isSimple());
   document.body.classList.toggle("tab-reglages", tab === "reglages");
+  document.body.classList.toggle("ep-nohero", (tab === "partage" || tab === "accueil") && !openGroup);
   { const sb = document.querySelector("header .nm .sub"); if (sb) sb.textContent = isSimple() ? "Version simple" : ""; }
   {
     const u = store && store.user ? store.user() : {}, first = store && store.id === "local" ? "" : String((u && u.name) || "").trim().split(/[\s@]/)[0];
@@ -1089,6 +1101,7 @@ function render() {
     const act = sn.querySelector('[aria-pressed="true"]'), seg = sn.querySelector(".seg");
     if (act && seg) seg.scrollLeft = Math.max(0, act.offsetLeft - seg.offsetLeft - (seg.clientWidth - act.offsetWidth) / 2);
   }
+  if (typeof epFeedRefresh === "function") epFeedRefresh();
 }
 function switchTab(t) {
   // « Partage » est réuni dans « Entre proches » : l'ancien onglet ne sert plus qu'à afficher un achat groupé, une cagnotte ou un paiement ouvert
@@ -2376,7 +2389,7 @@ function settle(bal) {
 }
 const mName = (g, id) => (g.members.find(m => m.id === id) || { name: "?" }).name + (id === g.me ? " (moi)" : "");
 // Entre proches : ce qu'on me doit, les 4 boutons d'argent, mes proches, puis trois onglets (Discussions, Projets, Groupes)
-let epSub = (() => { try { return localStorage.getItem("bourselle-ep") || "groupes"; } catch (e) { return "groupes"; } })();
+let epSub = (() => { try { return localStorage.getItem("bourselle-ep") || "discussions"; } catch (e) { return "discussions"; } })();
 function renderPartage() {
   if (openGroup && !groups[openGroup]) openGroup = null;
   if (openGroup) return renderGroup(openGroup);
@@ -2390,49 +2403,90 @@ function renderPartage() {
   document.getElementById("resPill").innerHTML = owed > 0.004 && owe > 0.004 ? `<span class="pill" style="background:rgba(255,255,255,.15);color:#fff">On te doit ${esc(eur(owed, true))} · tu dois ${esc(eur(owe, true))}</span>` : "";
   const soc = typeof socOn === "function" && socOn();
   const unread = typeof DMS !== "undefined" ? DMS.reduce((a, t) => a + (t.unread || 0), 0) : 0;
-  let html = banner + `<div class="hub-acts">
+  // En-tête : deux cartes « On te doit » (Relancer) et « Tu dois » (Régler), à la place du grand bandeau
+  document.body.classList.toggle("ep-nohero", true);
+  // Par personne : ce qu'on me doit et ce que je dois, sans compenser entre proches différents
+  { const pl = typeof prochesList === "function" ? prochesList() : [];
+    const r2 = v => Math.round(v * 100) / 100;
+    var epIn = r2(pl.reduce((a, p) => a + Math.max(0, p.owe - p.due), 0) + hb.owed), epOut = r2(pl.reduce((a, p) => a + Math.max(0, p.due - p.owe), 0) + hb.owe); }
+  let html = banner + `<div class="ep-sum">
+    <div class="ep-card"><small>On te doit</small><b class="num ${epIn > 0.004 ? "good" : ""}">${esc(eur(epIn))}</b>${epIn > 0.004 ? `<button type="button" class="ep-btn good" id="epRemind">🔔 Relancer</button>` : `<span class="ep-none">Personne</span>`}</div>
+    <div class="ep-card"><small>Tu dois</small><b class="num ${epOut > 0.004 ? "bad" : ""}">${esc(eur(epOut))}</b>${epOut > 0.004 ? `<button type="button" class="ep-btn bad" id="epSettle">💸 Régler</button>` : `<span class="ep-none">Rien à régler</span>`}</div></div>
+    <div class="hub-acts">
     <button type="button" data-hub="proj">${hubIcon("bill")}<span>Payer</span></button>
     <button type="button" data-hub="pay">${hubIcon("pay")}<span>Me faire payer</span></button>
-    <button type="button" data-hub="cagnotte">${hubIcon("cagnotte")}<span>Cagnotte</span></button>
-    <button type="button" data-hub="achat">${hubIcon("achat")}<span>Achat groupé</span></button></div>`;
+    <button type="button" data-hub="cagnotte">${hubIcon("cagnotte")}<span>Cagnotte</span></button></div>`;   // achat groupé masqué pour l'instant
   if (typeof favRowHTML === "function") html += favRowHTML();
   if (typeof offTeaserHTML === "function") html += offTeaserHTML();
-  const SUBT = [["discussions", "Discussions", "Tes conversations avec tes proches"], ["projets", "Projets", "On cotise pour un objectif"], ["groupes", "Groupes", "On partage les dépenses au quotidien"]];
-  if (!SUBT.some(([k]) => k === epSub)) epSub = "groupes";
-  html += `<div class="ep-tabs" role="tablist">${SUBT.map(([k, l]) => `<button type="button" role="tab" data-ep="${k}" aria-selected="${epSub === k}">${l}${k === "discussions" && unread ? ` <i class="ep-badge">${unread}</i>` : ""}</button>`).join("")}</div>
-    <p class="ep-sub">${esc(SUBT.find(([k]) => k === epSub)[2])}</p>`;
+  const SUBT = [["discussions", "Discussions"], ["projets", "Projets"], ["groupes", "Groupes"]];
+  if (!SUBT.some(([k]) => k === epSub)) epSub = "discussions";
+  html += `<div class="ep-tabs" role="tablist">${SUBT.map(([k, l]) => `<button type="button" role="tab" data-ep="${k}" aria-selected="${epSub === k}">${l}${k === "discussions" && unread ? ` <i class="ep-badge">${unread}</i>` : ""}</button>`).join("")}</div>`;
   if (epSub === "discussions") html += typeof ensThreadsHTML === "function" ? ensThreadsHTML() : "";
   else if (epSub === "projets") {
     html += typeof ensActsHTML === "function" ? ensActsHTML() : "";
     if (typeof projHubHTML === "function") html += projHubHTML();
-    const ds = (typeof DEALS !== "undefined" ? DEALS : []).slice().sort((a, b) => (a.status !== "open") - (b.status !== "open") || (b.updated || 0) - (a.updated || 0));
-    if (ds.length) html += `<div class="hub-sec"><span>Cagnottes et achats groupés</span><small>${ds.filter(d => d.status === "open").length} en cours</small></div><div class="hub-deals">${ds.slice(0, 8).map(d => DEALUI.card(d, dealCtxBase())).join("")}</div>`;
+    // Cagnottes (les achats groupés sont masqués pour l'instant)
+    const ds = (typeof DEALS !== "undefined" ? DEALS : []).filter(d => d.kind !== "achat").slice().sort((a, b) => (a.status !== "open") - (b.status !== "open") || (b.updated || 0) - (a.updated || 0));
+    if (ds.length) html += `<div class="ep-cap"><span>Cagnottes</span><small>${ds.filter(d => d.status === "open").length} en cours</small></div><div class="hub-deals">${ds.slice(0, 8).map(d => DEALUI.card(d, dealCtxBase())).join("")}</div>`;
     if (!soc) html += `<div class="card hub-intro"><p class="hint" style="margin:0">Connecte-toi avec Google ou Microsoft pour cotiser avec tes proches : chacun paie de banque à banque, l'argent ne passe jamais par Bourselle.</p></div>`;
   } else {
-    if (!list.length) html += `<div class="card"><div class="empty">Couple, colocation, voyage, famille : chacun ajoute ses dépenses, Bourselle calcule qui doit combien à qui.</div></div><button class="btn primary" id="grNew" style="width:100%">+ Créer un groupe</button>`;
-    else html += `<div class="hub-sec"><span>Dépenses partagées</span><button class="linkbtn" id="grNew">+ Nouveau groupe</button></div>`;
-    for (const g of list) {
-      const b = g.bal[g.me] || 0;
-      html += `<button class="gar ${b > 0.004 ? "owed" : b < -0.004 ? "debt" : "done"}" data-open="${esc(g.id)}" style="text-align:left;width:100%;cursor:pointer;font:inherit;color:inherit">
-      <div class="top"><span class="n">${esc(g.name)}</span><span class="st">${b > 0.004 ? "On te doit" : b < -0.004 ? "Tu dois" : "Équilibré"}</span></div>
-      <div class="top"><span class="amt num">${esc(gMoney(g, Math.abs(b)))}</span><span class="hint">${g.members.length} personnes · ${Object.values(liveExp(g)).filter(e => e.kind !== "transfer").length} dépenses</span></div>
-      ${g.shared ? `<div class="hint" style="margin-top:4px">${g.owner && typeof SOC !== "undefined" && g.owner !== SOC.tag ? `<span>Partagé par</span> @${esc(g.owner)}` : "Partagé avec les membres Bourselle"}</div>` : ""}</button>`;
+    const GT = [["🏠", "Coloc"], ["💑", "Couple"], ["🧳", "Voyage"], ["👨‍👩‍👧", "Famille"]];
+    html += `<div class="ep-cap"><span>Nouveau groupe</span></div><div class="ep-tpl">${GT.map(([e, l], i) => `<button type="button" data-gtpl="${i}"><span>${e}</span>${l}</button>`).join("")}</div>`;
+    if (list.length) html += `<div class="ep-cap"><span>Mes groupes · ${list.length}</span><button class="linkbtn" id="grNew">+ Autre</button></div>`;
+    else html += `<p class="hint ep-empty">Couple, colocation, voyage, famille : chacun ajoute ses dépenses, Bourselle calcule qui doit combien à qui.</p>`;
+    const nm = (g, id) => id === g.me ? "Tu" : ((g.members.find(m => m.id === id) || {}).name || "?");
+    const lastAt = g => Math.max(0, ...Object.values(liveExp(g)).map(e => e.created || 0));
+    for (const g of list.slice().sort((a, b) => lastAt(b) - lastAt(a))) {
+      const b = g.bal[g.me] || 0, exps = Object.values(liveExp(g)), n = exps.filter(e => e.kind !== "transfer").length;
+      const last = exps.slice().sort((x, y) => (y.created || 0) - (x.created || 0))[0];
+      const lastTxt = !last ? "" : last.kind === "transfer" ? `${nm(g, last.from)} a remboursé ${nm(g, last.to) === "Tu" ? "toi" : nm(g, last.to)} · ${gMoney(g, last.amount)}`
+        : `${nm(g, last.paidBy)} ${last.paidBy === g.me ? "as" : "a"} payé « ${last.label} » · ${gMoney(g, last.amount, true)}${gForeign(g) && gToBase(g, Number(last.amount)) != null ? ` ≈ ${eur(gToBase(g, Number(last.amount)), true)}` : ""}`;
       const owers = settle(g.bal).filter(x => x.to === g.me);
-      if (owers.length) html += `<button type="button" class="btn gr-rem" data-grem="${esc(g.id)}">🔔 Relancer ${owers.length > 1 ? `les ${owers.length} personnes qui te doivent` : esc((g.members.find(m => m.id === owers[0].from) || {}).name || "")}</button>`;
+      html += `<div class="card ep-gr" data-open="${esc(g.id)}" role="button" tabindex="0"><div class="act-top"><span class="act-emo">${esc(g.emoji || "👥")}</span><span class="act-tt"><b>${esc(g.name)}${gForeign(g) ? ` <em class="ep-tag">${esc(curSymOf(gCur(g)))}</em>` : ""}</b><small>${g.members.length} pers. · ${n} dépense${n > 1 ? "s" : ""}${g.shared && g.owner && typeof SOC !== "undefined" && g.owner !== SOC.tag ? ` · par @${esc(g.owner)}` : ""}</small></span>
+        <span class="ep-pill ${b > 0.004 ? "good" : b < -0.004 ? "bad" : ""}">${b > 0.004 ? "On te doit " + esc(gMoney(g, b, true)) : b < -0.004 ? "Tu dois " + esc(gMoney(g, -b, true)) : "Équilibré"}</span></div>
+        ${lastTxt ? `<div class="ep-last">🧾 <span>${esc(lastTxt)}</span><small>${esc(agoText(last.created || last.updated || Date.now()))}</small></div>` : ""}
+        <div class="ep-foot"><span class="ep-avs">${g.members.slice(0, 6).map(m => `<span style="background:${favColor(m.tag ? "@" + m.tag : "n:" + String(m.name || "").toLowerCase())}">${esc(String(m.name || "?").charAt(0).toUpperCase())}</span>`).join("")}</span>
+          ${owers.length ? `<button type="button" class="btn ep-b" data-grem="${esc(g.id)}">🔔 Relancer</button>` : b < -0.004 ? `<button type="button" class="btn ep-b" data-gpay2="${esc(g.id)}">💸 Régler</button>` : ""}<button type="button" class="btn primary ep-b" data-gexp="${esc(g.id)}">＋ Dépense</button></div></div>`;
     }
-    if (typeof chalHTML === "function") html += chalHTML();
-    html += typeof feedHTML === "function" ? feedHTML() : "";
+    html += `<button type="button" class="ep-feedlink" id="epFeed"><span>📰 Le fil et les défis d'épargne</span><i>›</i></button>`;
   }
   view.innerHTML = html;
+  { const r = document.getElementById("epRemind"); if (r) r.onclick = () => epWho("in"); const g = document.getElementById("epSettle"); if (g) g.onclick = () => epWho("out"); }
   view.querySelectorAll("[data-ep]").forEach(b => b.onclick = () => { epSub = b.dataset.ep; try { localStorage.setItem("bourselle-ep", epSub); } catch (e) {} render(); });
   view.querySelectorAll("[data-hub]").forEach(b => b.onclick = () => ({ proj: () => editProject(), achat: () => editDeal(null, "achat"), cagnotte: () => editDeal(null, "cagnotte"), pay: () => editPay() })[b.dataset.hub]());
   view.querySelectorAll("[data-deal]").forEach(b => b.onclick = () => showDeal(b.dataset.deal));
-  view.querySelectorAll("[data-open]").forEach(b => b.onclick = () => { openGroup = b.dataset.open; render(); window.scrollTo(0, 0); });
+  view.querySelectorAll("[data-open]").forEach(b => b.onclick = e => { if (e.target.closest("[data-grem],[data-gexp],[data-gpay2]")) return; openGroup = b.dataset.open; render(); window.scrollTo(0, 0); });
+  view.querySelectorAll("[data-gexp]").forEach(b => b.onclick = e => { e.stopPropagation(); editGroupExpense(b.dataset.gexp, null); });
+  view.querySelectorAll("[data-gpay2]").forEach(b => b.onclick = e => { e.stopPropagation(); openGroup = b.dataset.gpay2; render(); window.scrollTo(0, 0); });
+  view.querySelectorAll("[data-gtpl]").forEach(b => b.onclick = () => { const t = [["🏠", "Coloc"], ["💑", "Couple"], ["🧳", "Voyage"], ["👨‍👩‍👧", "Famille"]][+b.dataset.gtpl]; editGroup(null, { emoji: t[0], name: t[1] === "Voyage" ? "" : t[1], trip: t[1] === "Voyage" }); });
+  { const fd = document.getElementById("epFeed"); if (fd) fd.onclick = () => epFeedOpen(); }
   { const n = document.getElementById("grNew"); if (n) n.onclick = () => editGroup(null); }
   actBind(view); if (typeof projBindHub === "function") projBindHub();
   if (typeof favBind === "function") { favBind(view); feedBind(view); chalBind(view); if (typeof ensBind === "function") ensBind(view); }
   if (typeof offHubBind === "function") offHubBind(view);
-  view.querySelectorAll("[data-grem]").forEach(b => b.onclick = () => { const g = groups[b.dataset.grem]; groupRemind(b.dataset.grem, settle(groupBalances(g)).filter(x => x.to === g.me)); });
+  view.querySelectorAll("[data-grem]").forEach(b => b.onclick = e => { e.stopPropagation(); const g = groups[b.dataset.grem]; groupRemind(b.dataset.grem, settle(groupBalances(g)).filter(x => x.to === g.me)); });
+}
+// Le fil des proches et les défis d'épargne, dans une feuille à part
+const epFeedInner = () => `<h3>📰 Le fil et les défis</h3>${typeof chalHTML === "function" ? chalHTML() : ""}${typeof feedHTML === "function" ? feedHTML() : ""}`;
+function epFeedBind(box) { if (typeof actBind === "function") actBind(box); if (typeof feedBind === "function") feedBind(box); if (typeof chalBind === "function") chalBind(box); }
+function epFeedOpen() {
+  const f = openForm(`<div class="f2 ep-feedsheet">${epFeedInner()}</div>`, () => true);
+  f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
+  epFeedBind(f.querySelector(".ep-feedsheet"));
+}
+// La feuille reste à jour quand l'appli se redessine (réaction, commentaire, défi…)
+function epFeedRefresh() {
+  const box = document.querySelector("#sheet2Root.open .ep-feedsheet"); if (!box) return;
+  box.innerHTML = epFeedInner(); epFeedBind(box);
+}
+// « Relancer » / « Régler » : les proches concernés, puis leur fiche (relance, paiement)
+function epWho(dir) {
+  const list = prochesList().filter(p => dir === "in" ? p.owe - p.due > 0.004 : p.due - p.owe > 0.004);
+  if (list.length === 1) return favOpen(list[0].key);
+  const f = openForm(`<div class="f2"><h3>${dir === "in" ? "Qui te doit ?" : "À qui tu dois ?"}</h3><div class="pm-list">${list.map(p => { const v = Math.abs(p.owe - p.due);
+    return `<button type="button" class="pm-row" data-ew="${esc(p.key)}"><span class="fav-av" style="background:${favColor(p.key)};width:38px;height:38px;font-size:1rem">${esc(favFirst(p.name).charAt(0))}</span><span class="pm-t"><b>${esc(p.name)}</b><small>${dir === "in" ? "Te doit" : "Tu lui dois"} ${esc(eur(v))}</small></span><span class="ep-btn ${dir === "in" ? "good" : "bad"}">${dir === "in" ? "Relancer" : "Payer"}</span></button>`; }).join("") || `<p class="hint">Personne pour l'instant.</p>`}</div></div>`, () => true);
+  f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
+  f.querySelectorAll("[data-ew]").forEach(b => b.onclick = () => { closeForm(); setTimeout(() => favOpen(b.dataset.ew), 220); });
 }
 // Relancer : on choisit le message (régler la somme, ou un autre message). Résout avec le texte, ou null si annulé.
 function remindPick(who, amountTxt, context, opts) {
@@ -2539,9 +2593,11 @@ function renderGroup(gid) {
   { const l = document.getElementById("gLinkOff"); if (l) l.onclick = () => { if (l.dataset.c !== "1") { l.dataset.c = "1"; l.textContent = "Confirmer ?"; return; } socGroupLink(gid, true); }; }
   view.querySelectorAll("[data-exp]").forEach(b => b.onclick = () => editGroupExpense(gid, b.dataset.exp));
 }
-function editGroup(id) {
+function editGroup(id, pre) {
+  pre = pre || {};
+  if (pre.trip) setTimeout(() => { const c = document.getElementById("grCur"), n = document.getElementById("grName"); if (n) n.placeholder = "ex. New York, Lisbonne, Japon"; if (c) c.style.boxShadow = "0 0 0 2px var(--gold)"; }, 60);
   if (id && groups[id] && groups[id].shared && groups[id].owner && typeof SOC !== "undefined" && groups[id].owner !== SOC.tag) { toast(`Seul @${groups[id].owner} peut modifier ce groupe`); return; }
-  const g = id ? clone(groups[id]) : { name: "", members: [], me: "", expenses: {} };
+  const g = id ? clone(groups[id]) : { name: pre.name || "", members: [], me: "", expenses: {}, ...(pre.emoji ? { emoji: pre.emoji } : {}) };
   // Mon profil proposé d'office (à cocher), ou un autre nom pour moi dans ce groupe
   const profName = (() => { const u = store && store.id !== "local" && store.user ? store.user() : {}; const f = String((u && u.name) || "").trim().split(/[\s@._]/)[0]; return f ? f.charAt(0).toUpperCase() + f.slice(1) : ""; })();
   openForm(`<div class="f2"><h3>${id ? "Modifier le groupe" : "Nouveau groupe"}</h3>
