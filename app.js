@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "147";
+const APP_VERSION = "148";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -308,6 +308,7 @@ function showProfileMenu() {
     </div>
     <div class="pmx-cap">Mon compte</div>
     <div class="pmx-sec">
+      ${go("pmImport", "bank", "#1d5f86", "Importer un relevé bancaire", "CSV, OFX ou PDF de ta banque")}
       ${soc ? go("pmContacts", "user", "#1f6b4b", "Mes contacts", String(nC)) : ""}
       ${soc ? go("pmPay", "card", "#0070ba", "Me faire payer", "IBAN, PayPal…") : ""}
       ${go("pmLang", "globe", "#6b5bd6", window.LANG === "en" ? "Language" : "Langue", window.LANG === "en" ? "English" : "Français")}
@@ -337,6 +338,7 @@ function showProfileMenu() {
   on("pmBdg", () => { closeForm(); setTimeout(() => funBadgesOpen(), 250); });
   on("pmTheme", () => { closeForm(); setTimeout(() => funThemeOpen(), 250); });
   on("pmNotif", () => { closeForm(); setTimeout(() => notifCheck(), 250); });
+  on("pmImport", () => { closeForm(); setTimeout(() => { if (tab !== "mois") switchTab("mois"); startImport(); }, 250); });
   on("pmBg", () => { closeForm(); setTimeout(() => funBgOpen(), 250); });
 }
 // Alertes regroupées derrière la cloche.
@@ -831,7 +833,7 @@ function renderMois() {
   }
 
   const OPS_N = 6, showAll = window.__opsAll || list.length <= OPS_N + 2;
-  html += `<div class="card"><h2>${showAll ? "Opérations" : "Dernières opérations"}</h2>${list.length ? txListHTML(showAll ? list : list.slice(0, OPS_N)) : `<div class="empty">Rien d'enregistré pour ${MOIS[cur.m - 1]}.</div>`}
+  html += `<div class="card"><h2>${showAll ? "Opérations" : "Dernières opérations"}<button class="linkbtn" id="impBtn">📄 Importer un relevé</button></h2>${list.length ? txListHTML(showAll ? list : list.slice(0, OPS_N)) : `<div class="empty">Rien d'enregistré pour ${MOIS[cur.m - 1]}.</div>`}
     ${list.length > OPS_N + 2 ? `<button class="ops-more" id="opsMore">${showAll ? "Voir moins" : `Voir tout (${list.length})`}</button>` : ""}</div>`;
   view.innerHTML = html; budSegBind(); if (typeof todayBind === "function") todayBind(view);
   const om = document.getElementById("opsMore"); if (om) om.onclick = () => { window.__opsAll = !window.__opsAll; render(); };

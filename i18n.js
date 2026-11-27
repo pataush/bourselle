@@ -1611,6 +1611,7 @@
     ["Encore {n} badges pour débloquer ta récompense du palier {n} 🎁", "{n} more badges to unlock your level {n} reward 🎁"], ["Encore {n} badge pour débloquer ta récompense du palier {n} 🎁", "{n} more badge to unlock your level {n} reward 🎁"], ["{n} palier terminé · {n} badges", "{n} level complete · {n} badges"], ["{n} paliers terminés · {n} badges", "{n} levels complete · {n} badges"], ["{n} palier", "{n} level"], ["{n} paliers", "{n} levels"],
     ["🎁 Voir ma récompense dans Bons plans", "🎁 See my reward in Deals"]);
   EXACT["🎁 Voir ma récompense dans Bons plans"] = "🎁 See my reward in Deals"; EXACT["🎁 Voir mes récompenses dans Bons plans"] = "🎁 See my rewards in Deals";
+  EXACT["📄 Importer un relevé"] = "📄 Import a statement"; EXACT["CSV, OFX ou PDF de ta banque"] = "CSV, OFX or PDF from your bank";
   EXACT["Rechercher ou demander"] = "Search or ask"; EXACT["Rechercher ou demander à Bourselle"] = "Search or ask Bourselle";
   const MOIS = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet", "août", "septembre", "octobre", "novembre", "décembre"];
   const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
