@@ -1452,3 +1452,36 @@ button.pmx-av.av-svg { overflow: visible; } button.pmx-av.av-svg > svg { border-
 .dm-pav { position: absolute; left: 0; bottom: 18px; width: 28px; height: 28px; border-radius: 50%; overflow: hidden; background-size: cover; background-position: center; animation: avPop .35s cubic-bezier(.3,1.5,.5,1); }
 .dm-pav svg { width: 100%; height: 100%; display: block; }
 @media (prefers-reduced-motion: reduce) { .av-eyes, .av-in, .av-wave, .av-hand, .dm-pav { animation: none !important; } }
+
+/* ---------- Thèmes ados et girly ---------- */
+:root[data-pal="neon"] { --green: #7c3aed; --green-2: #3b0764; --head: #5b21b6; --accent: #22d3ee; --gold: #22d3ee; }
+:root[data-pal="neon"][data-theme="light"] { --bg: #f6f3ff; --surface: #fdfcff; --line: #e6defc; }
+@media (prefers-color-scheme: light) { :root[data-pal="neon"]:not([data-theme="dark"]) { --bg: #f6f3ff; --surface: #fdfcff; --line: #e6defc; } }
+:root[data-pal="galaxie"] { --green: #4338ca; --green-2: #1e1b4b; --head: #312e81; --accent: #f472b6; --gold: #f472b6; }
+:root[data-pal="galaxie"][data-theme="light"] { --bg: #f3f2fb; --surface: #fdfdff; --line: #e1dff3; }
+@media (prefers-color-scheme: light) { :root[data-pal="galaxie"]:not([data-theme="dark"]) { --bg: #f3f2fb; --surface: #fdfdff; --line: #e1dff3; } }
+:root[data-pal="lagon"] { --green: #0891b2; --green-2: #155e75; --head: #0e7490; --accent: #facc15; --gold: #eab308; }
+:root[data-pal="lagon"][data-theme="light"] { --bg: #eefaf9; --surface: #fbfffe; --line: #d3eeeb; }
+@media (prefers-color-scheme: light) { :root[data-pal="lagon"]:not([data-theme="dark"]) { --bg: #eefaf9; --surface: #fbfffe; --line: #d3eeeb; } }
+:root[data-pal="arcade"] { --green: #ea580c; --green-2: #7c2d12; --head: #c2410c; --accent: #a3e635; --gold: #84cc16; }
+:root[data-pal="arcade"][data-theme="light"] { --bg: #fff6ee; --surface: #fffcf8; --line: #f6e0cc; }
+@media (prefers-color-scheme: light) { :root[data-pal="arcade"]:not([data-theme="dark"]) { --bg: #fff6ee; --surface: #fffcf8; --line: #f6e0cc; } }
+:root[data-pal="street"] { --green: #27272a; --green-2: #09090b; --head: #18181b; --accent: #f43f5e; --gold: #f43f5e; }
+:root[data-pal="street"][data-theme="light"] { --bg: #f4f4f5; --surface: #ffffff; --line: #e4e4e7; }
+@media (prefers-color-scheme: light) { :root[data-pal="street"]:not([data-theme="dark"]) { --bg: #f4f4f5; --surface: #ffffff; --line: #e4e4e7; } }
+:root[data-pal="rose"] { --green: #e84a8a; --green-2: #a0225b; --head: #c42f72; --accent: #f7b2d0; --gold: #e884b0; }
+:root[data-pal="rose"][data-theme="light"] { --bg: #fff1f6; --surface: #fffafc; --line: #f6d6e4; }
+@media (prefers-color-scheme: light) { :root[data-pal="rose"]:not([data-theme="dark"]) { --bg: #fff1f6; --surface: #fffafc; --line: #f6d6e4; } }
+:root[data-pal="barbie"] { --green: #e0218a; --green-2: #8f0f55; --head: #c0177a; --accent: #ffd1e8; --gold: #f472b6; }
+:root[data-pal="barbie"][data-theme="light"] { --bg: #ffeef7; --surface: #fff9fc; --line: #fbd0e6; }
+@media (prefers-color-scheme: light) { :root[data-pal="barbie"]:not([data-theme="dark"]) { --bg: #ffeef7; --surface: #fff9fc; --line: #fbd0e6; } }
+:root[data-pal="licorne"] { --green: #a78bfa; --green-2: #ec4899; --head: #9b7bf0; --accent: #67e8f9; --gold: #f9a8d4; }
+:root[data-pal="licorne"][data-theme="light"] { --bg: #faf5ff; --surface: #fffbff; --line: #ecdcfb; }
+@media (prefers-color-scheme: light) { :root[data-pal="licorne"]:not([data-theme="dark"]) { --bg: #faf5ff; --surface: #fffbff; --line: #ecdcfb; } }
+:root[data-pal="fraise"] { --green: #f43f5e; --green-2: #9f1239; --head: #e11d48; --accent: #fecdd3; --gold: #fb7185; }
+:root[data-pal="fraise"][data-theme="light"] { --bg: #fff1f2; --surface: #fffafa; --line: #fbd5da; }
+@media (prefers-color-scheme: light) { :root[data-pal="fraise"]:not([data-theme="dark"]) { --bg: #fff1f2; --surface: #fffafa; --line: #fbd5da; } }
+:root[data-pal="peche"] { --green: #f08a6c; --green-2: #c2553a; --head: #e07a5f; --accent: #ffd8c2; --gold: #f4a582; }
+:root[data-pal="peche"][data-theme="light"] { --bg: #fff6f0; --surface: #fffcf9; --line: #f8e0d2; }
+@media (prefers-color-scheme: light) { :root[data-pal="peche"]:not([data-theme="dark"]) { --bg: #fff6f0; --surface: #fffcf9; --line: #f8e0d2; } }
+:root[data-pal="street"] .btn.primary, :root[data-pal="street"] .wg-pt button[aria-selected="true"] { color: #fff; }
