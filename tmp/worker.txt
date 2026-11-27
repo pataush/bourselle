@@ -1234,7 +1234,7 @@ function offerView(o, email, admin) {
   const joined = !!(email && (o.joins || {})[email]), t = offerTier(o);
   const revs = Object.values(o.reviews || {}).sort((a, b) => b.at - a.at), avg = revs.length ? Math.round(revs.reduce((s, r) => s + r.stars, 0) / revs.length * 10) / 10 : 0;
   const v = { id: o.id, partner: o.partner, emoji: o.emoji, title: o.title, desc: o.desc, cat: o.cat, city: o.city || "", country: o.country || "", slots: o.slots || [], kind: o.kind, url: o.url, until: o.until, featured: !!o.featured, online: !!o.online, status: o.status,
-    book: !!o.book, reward: !!o.reward, tiers: (o.tiers || []).map(x => ({ n: x.n, pct: x.pct, label: x.label || "" })), count: t.n, joined, unlocked: t.cur ? { n: t.cur.n, pct: t.cur.pct, label: t.cur.label || "" } : null, next: t.next ? { n: t.next.n, pct: t.next.pct } : null,
+    book: !!o.book, reward: !!o.reward, lvl: o.lvl || 0, tiers: (o.tiers || []).map(x => ({ n: x.n, pct: x.pct, label: x.label || "" })), count: t.n, joined, unlocked: t.cur ? { n: t.cur.n, pct: t.cur.pct, label: t.cur.label || "" } : null, next: t.next ? { n: t.next.n, pct: t.next.pct } : null,
     rating: { avg, n: revs.length }, reviews: revs.slice(0, 5).map(r => ({ name: r.name, stars: r.stars, text: r.text, at: r.at })), myReview: email && (o.reviews || {})[email] ? { stars: o.reviews[email].stars, text: o.reviews[email].text } : null };
   if (o.kind === "promo") v.code = o.code || "";
   else if (joined && t.cur) v.code = t.cur.code || o.code || "";
@@ -1257,7 +1257,7 @@ function offerApply(o, b) {
   if (o.book && !o.slots.length) throw new HttpErr(400, "la réservation demande au moins un créneau");
   o.online = !!b.online && b.kind !== "group"; if (o.online) o.city = "";   // code promo en ligne : valable partout, sans ville
   o.kind = b.kind === "group" ? "group" : "promo"; o.code = offerCode(b.code); o.until = isoOk(b.until) ? b.until : ""; o.featured = !!b.featured; o.status = b.status === "off" ? "off" : "on";
-  o.groupDays = Math.max(1, Math.min(60, parseInt(b.groupDays, 10) || 7)); o.reward = !!b.reward;
+  o.groupDays = Math.max(1, Math.min(60, parseInt(b.groupDays, 10) || 7)); o.reward = !!b.reward; o.lvl = Math.max(0, Math.min(50, parseInt(b.lvl, 10) || 0));
   let u = String(b.url || "").trim(); if (u && !/^https:\/\//i.test(u)) throw new HttpErr(400, "le lien doit commencer par https://"); o.url = u.slice(0, 500);
   o.tiers = (Array.isArray(b.tiers) ? b.tiers : []).slice(0, 6).map(t => ({ n: Math.max(2, Math.min(10000, parseInt(t.n, 10) || 0)), pct: Math.max(0, Math.min(90, num(t.pct) || 0)), code: offerCode(t.code), label: dmTxt(t.label).slice(0, 60) })).filter(t => t.n >= 2);
   if (!o.partner || !o.title) throw new HttpErr(400, "indique le partenaire et le titre");
@@ -1305,11 +1305,12 @@ async function offersApi(req, env, url, cors) {
   }
   if (path === "/offers" && req.method === "GET") {
     if (admin) await pushTo(env, "owners", me.email);   // pour prévenir le propriétaire quand une marque écrit
-    const myInv = me ? Number(await env.CODES.get("invj:" + me.email) || 0) : 0;
+    const myInv = me ? Number(await env.CODES.get("invj:" + me.email) || 0) : 0, lvl = Math.max(0, Math.min(50, parseInt(url.searchParams.get("lvl"), 10) || 0));
     const out = [];
     for (const id of ids.slice(0, 100)) {
       const o = await kvJ(env, "offer:" + id); if (!o || o.deleted || (!admin && !live(o))) continue;
       if (o.reward && !admin && myInv < 3) continue;   // bon plan exclusif : débloqué quand 3 amis invités ont rejoint l'appli
+      if (o.lvl && !admin && lvl < o.lvl) continue;   // récompense de badges : visible quand le palier est terminé (palier calculé sur l'appareil)
       const v = offerView(o, me && me.email, admin);
       if (o.book && me) { const bk = await listOf(env, "obk:" + o.id); v.mybk = bk.filter(x => x.email === me.email).map(bkPub); if (admin) v.bkPending = bk.filter(x => x.st === "pending").length; }
       out.push(v);

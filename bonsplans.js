@@ -13,7 +13,8 @@ async function offApi(path, body) {
 async function offRefresh(rerender) {
   if (!offBase()) return;
   try {
-    const j = await offApi("/offers"); BPLANS = j.offers || []; OFF_ADMIN = !!j.admin; OFF_LEADS = j.leads || []; if (j.cats) OFF_CATS = j.cats; OFF_INVITES = j.invites || 0; OFF_MYINV = j.myInv || 0; OFF_HASREWARD = !!j.hasReward; offLoaded = true; offBkNews();
+    const lv = typeof funTier === "function" ? funTier() : 0;
+    const j = await offApi("/offers" + (lv ? "?lvl=" + lv : "")); BPLANS = j.offers || []; OFF_ADMIN = !!j.admin; OFF_LEADS = j.leads || []; if (j.cats) OFF_CATS = j.cats; OFF_INVITES = j.invites || 0; OFF_MYINV = j.myInv || 0; OFF_HASREWARD = !!j.hasReward; offLoaded = true; offBkNews();
     if (!offRefresh.link) { offRefresh.link = true; let id = ""; try { id = sessionStorage.getItem("bourselle-offre") || ""; sessionStorage.removeItem("bourselle-offre"); } catch (e) {} if (id) setTimeout(() => offersOpen(id), 500); let ad = ""; try { ad = sessionStorage.getItem("bourselle-offadmin"); sessionStorage.removeItem("bourselle-offadmin"); } catch (e) {} if (ad && OFF_ADMIN) setTimeout(offAdminOpen, 600); }
     { const c = document.getElementById("bonsCnt"), n = BPLANS.filter(o => o.status !== "off" && offVisible(o) && offTimed(o) && offNow(o)).length; if (c) { c.hidden = !n; c.textContent = n; } }
     bonsNavSync();
@@ -244,6 +245,7 @@ function offEdit(o) {
     ${o.id ? `<button type="button" class="btn" id="oePoster" style="width:100%;margin:8px 0">🖨️ Affichette A5 pour la vitrine</button>` : ""}
     ${o.mlink ? `<div class="off-code"><span>Lien commerçant</span><b style="font-size:.8rem;letter-spacing:0;word-break:break-all">${esc(offMerchantLink(o))}</b><button type="button" class="linkbtn" id="oeMl">Partager</button></div>` : ""}
     <label class="chk"><input type="checkbox" id="oeReward" ${o.reward ? "checked" : ""}> Récompense de parrainage (visible seulement après 3 amis invités)</label>
+    <label class="lbl" for="oeLvl">Récompense de badges</label><select class="field" id="oeLvl">${[0, 1, 2, 3, 4, 5].map(n => `<option value="${n}"${(o.lvl || 0) === n ? " selected" : ""}>${n ? "Palier " + n + " (après " + n * 10 + " badges)" : "Non : offre normale"}</option>`).join("")}</select>
     <label class="chk"><input type="checkbox" id="oeFeat" ${o.featured ? "checked" : ""}> Mettre en avant (en tête et dans Partage)</label>
     <label class="chk"><input type="checkbox" id="oeOff" ${o.status === "off" ? "checked" : ""}> En pause (cachée)</label>
     ${o.id ? `<button type="button" class="linkbtn" id="oeDel" style="color:var(--bad);margin-top:10px">Supprimer l'offre</button>` : ""}</div>`, () => {
@@ -252,7 +254,7 @@ function offEdit(o) {
     (async () => {
       try {
         const slots = [...document.querySelectorAll("#oeSlots .off-slot")].map(r => ({ days: [...r.querySelectorAll("[data-d][aria-pressed=true]")].map(x => +x.dataset.d), from: r.querySelector("[data-sf]").value, to: r.querySelector("[data-st]").value })).filter(x => x.days.length && x.from && x.to);
-        await offApi("/offers", { id: o.id || "", slots, book: document.getElementById("oeBook").checked, kind, partner: v("oePartner"), emoji: v("oeEmoji"), title: v("oeTitle"), desc: v("oeDesc"), url: v("oeUrl"), code: v("oeCode"), until: v("oeUntil"), cat: document.getElementById("oeCat").value, groupDays: +v("oeDays") || 7, fromLeadId: o.fromLeadId || "", contact: o.contact || "", city: v("oeCity"), country: document.getElementById("oeCountry").value, online: document.getElementById("oeOnline").checked, featured: document.getElementById("oeFeat").checked, reward: document.getElementById("oeReward").checked, status: document.getElementById("oeOff").checked ? "off" : "on", tiers: kind === "group" ? tl : [] });
+        await offApi("/offers", { id: o.id || "", slots, book: document.getElementById("oeBook").checked, kind, partner: v("oePartner"), emoji: v("oeEmoji"), title: v("oeTitle"), desc: v("oeDesc"), url: v("oeUrl"), code: v("oeCode"), until: v("oeUntil"), cat: document.getElementById("oeCat").value, groupDays: +v("oeDays") || 7, fromLeadId: o.fromLeadId || "", contact: o.contact || "", city: v("oeCity"), country: document.getElementById("oeCountry").value, online: document.getElementById("oeOnline").checked, featured: document.getElementById("oeFeat").checked, reward: document.getElementById("oeReward").checked, lvl: +document.getElementById("oeLvl").value, status: document.getElementById("oeOff").checked ? "off" : "on", tiers: kind === "group" ? tl : [] });
         await offRefresh(false); render(); toast("Offre enregistrée"); setTimeout(offAdminOpen, 250);
       } catch (e) { toast(e.message); setTimeout(() => offEdit({ ...o, kind, partner: v("oePartner"), title: v("oeTitle"), desc: v("oeDesc"), url: v("oeUrl"), code: v("oeCode"), until: v("oeUntil"), city: v("oeCity"), country: document.getElementById("oeCountry").value, tiers: tl }), 300); }
     })();
@@ -421,7 +423,7 @@ function renderBons() {
   }
   document.body.classList.add("bp-nohero");
   const mode = offState.mode || "near", cat = offState.cat || "";
-  const vis = BPLANS.filter(o => o.status !== "off" && (offOnline(o) ? offInCountry(o) : offVisible(o)));
+  const vis = BPLANS.filter(o => o.status !== "off" && !o.lvl && (offOnline(o) ? offInCountry(o) : offVisible(o)));
   const online = vis.filter(offOnline), local = offSort(vis.filter(o => !offOnline(o)));
   const inCat = l => cat ? l.filter(o => o.cat === cat) : l;
   const al = settings.offAlert;
@@ -430,6 +432,7 @@ function renderBons() {
   let html = banner + `<div class="ep-sum bp-sum">
       <div class="ep-card"><small>Économisé grâce à Bourselle</small><b class="num good">${esc(eur(savedTotal(), true))}</b><button type="button" class="ep-btn good" id="bpHist">📜 Mon historique</button></div>
       <div class="ep-card"><small>Près de chez moi</small><button type="button" class="bp-city" id="bpCity">📍 ${myCity() ? esc(myCity()) : "Choisir ma ville"}</button><button type="button" class="ep-btn ${al ? "good" : ""}" id="offAlert" style="${al ? "" : "background:var(--bg);color:var(--ink)"}">🔔 ${al ? "Alertes activées" : "Être prévenu"}</button></div></div>
+    ${offRewardsHTML()}
     <div class="off-intro"><span>💰</span><p><b>Des réductions pour faire des économies.</b> Près de chez toi, ou en ligne avec des codes promo valables partout.</p></div>
     <div class="ep-tabs bp-tabs" role="tablist"><button type="button" role="tab" data-bmode="near" aria-selected="${mode === "near"}">📍 Près de chez moi</button><button type="button" role="tab" data-bmode="online" aria-selected="${mode === "online"}">🛒 En ligne${online.length ? ` <i class="ep-badge" style="background:var(--gold,#c9a24a)">${online.length}</i>` : ""}</button></div>`;
   if (mode === "near") {
@@ -462,6 +465,7 @@ function renderBons() {
   view.querySelectorAll("[data-odet]").forEach(b => b.onclick = () => offersOpen(b.dataset.odet));
   view.querySelectorAll("[data-ofocus]").forEach(b => b.onclick = () => offersOpen(b.dataset.ofocus));
   view.querySelector("#bpHist").onclick = () => savedOpen();
+  { const bb = view.querySelector("#bpBdg"); if (bb) bb.onclick = () => funBadgesOpen(); }
   { const a = view.querySelector("#bpAll"); if (a) a.onclick = () => { offState = { ...offState, view: "list", filter: "all", focus: null }; render(); window.scrollTo(0, 0); }; }
   view.querySelector("#bpCity").onclick = () => offCityAsk(() => render());
   view.querySelector("#offAlert").onclick = () => offAlertsOpen();
@@ -490,6 +494,16 @@ function bonsNavSync() {
   const b = document.querySelector('nav.tabs [data-tab="bons"]'); if (!b) return;
   let n; if (offLoaded) { n = offAvail(); try { localStorage.setItem("bourselle-bons-n", String(n)); } catch (e) {} } else { try { n = Number(localStorage.getItem("bourselle-bons-n")) || 0; } catch (e) { n = 0; } }
   b.hidden = false;   // l'onglet Bons plans est toujours là, même vide (il explique alors comment en avoir)
+}
+// Récompenses des badges : chaque palier de 10 badges terminé débloque une récompense (offres marquées « palier N » par l'équipe)
+function offRewardsHTML() {
+  if (typeof funTierView !== "function") return "";
+  const V = funTierView(), R = BPLANS.filter(o => o.lvl && o.status !== "off" && (OFF_ADMIN || o.lvl <= V.done)).sort((a, b) => a.lvl - b.lvl);
+  const left = V.list.length - V.on;
+  return `<div class="card bp-rw" id="bpRewards"><h2>🎁 Mes récompenses<small>${V.done} palier${V.done > 1 ? "s" : ""}</small></h2>
+    ${R.length ? R.map(o => `<button type="button" class="bp-row" data-odet="${esc(o.id)}"><span class="bp-em">${esc(o.emoji || "🎁")}</span><span class="bp-t"><b>${esc(o.partner)}</b><small>${esc(o.title)} · palier ${o.lvl}</small></span><span class="bp-go">›</span></button>`).join("")
+      : V.done ? `<p class="hint" style="margin:0 0 8px">Bravo, tu as terminé ${V.done > 1 ? V.done + " paliers" : "ton premier palier"} ! Ta récompense arrive très bientôt ici.</p>` : ""}
+    ${V.all ? "" : `<button type="button" class="bp-rwp" id="bpBdg"><span>🏅 Palier ${V.cur + 1} · ${V.on} / ${V.list.length} badges</span><span class="bdg-bar"><i style="width:${Math.round(V.on / V.list.length * 100)}%"></i></span><small>${left ? `Encore ${left} badge${left > 1 ? "s" : ""} pour ta prochaine récompense ›` : "Palier terminé ›"}</small></button>`}</div>`;
 }
 // Dans « Entre proches » : juste un petit rappel vers l'onglet Bons plans
 function offTeaserHTML() {

@@ -1741,3 +1741,11 @@ nav.tabs button[hidden] { display: none !important; }
 .sm-next .btn { align-self: flex-start; }
 .sm-next .chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .fun-cele { pointer-events: none; }
+/* Badges par paliers et récompenses */
+.bdg-tier { margin: 0 0 12px; }
+.bdg-bar { display: block; height: 8px; border-radius: 9px; background: var(--line); overflow: hidden; }
+.bdg-bar i { display: block; height: 100%; background: linear-gradient(90deg, #f2b928, #e0a100); border-radius: 9px; }
+.bp-rw h2 small { font-weight: 500; }
+.bp-rwp { display: flex; flex-direction: column; gap: 6px; width: 100%; text-align: left; background: var(--bg); border: 0; border-radius: 14px; padding: 10px 12px; font: inherit; color: inherit; margin-top: 6px; cursor: pointer; }
+.bp-rwp span:first-child { font-weight: 600; }
+.bp-rwp small { color: var(--muted); }

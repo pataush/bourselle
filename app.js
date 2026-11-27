@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "143";
+const APP_VERSION = "144";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -296,7 +296,7 @@ function showProfileMenu() {
     <div class="pmx-top"><button type="button" class="pmx-av" id="pmAv" aria-label="Changer mon avatar">${esc((document.getElementById("avatar").dataset.init || "B"))}<span class="pmx-cam" aria-hidden="true">📷</span></button>
       <b>${esc(u.name || "Mon compte")}</b><small>${esc(u.email || (local ? "Données gardées sur cet appareil" : ""))}${!local && store.label ? " · " + esc(store.label) : ""}${typeof isPlus === "function" && isPlus() ? " · Bourselle Plus" : ""}</small>
       ${soc && SOC.tag ? `<div class="pmx-tag"><button type="button" id="pmCopy" title="Toucher pour copier"><span class="num">@${esc(SOC.tag)}</span><small>${IC.copy} <span class="pm-copyhint">Copier</span></small></button><button type="button" id="pmQr" aria-label="Mon QR code">${IC.qr} QR code</button></div>` : ""}</div>
-    ${typeof funBadges === "function" ? (() => { const B = funBadges(), on = B.filter(b => b.on); return `<button type="button" class="pmx-bdg" id="pmBdg"><span>${on.length ? on.map(b => b.ic).join("") : "🏅"}</span><small>${on.length} / ${B.length} badges ›</small></button>`; })() : ""}
+    ${typeof funTierView === "function" ? (() => { const V = funTierView(), on = V.list.filter(b => b.on); return `<button type="button" class="pmx-bdg" id="pmBdg"><span>${on.length ? on.map(b => b.ic).join("") : "🏅"}</span><small>Palier ${V.cur + 1} · ${V.on} / ${V.list.length} badges${V.done ? " · 🎁" : ""} ›</small></button>`; })() : ""}
     <div class="pmx-cap">Préférences</div>
     <div class="pmx-sec">
       ${sw("pmDark", "moon", "#3b4a6b", "Mode sombre", dark)}

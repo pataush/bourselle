@@ -129,7 +129,35 @@ const BADGES = [
   ["proches5", "🤝", "5 proches remboursés", "On t'a remboursé 5 fois", () => funRepaid() >= 5],
   ["streak7", "🔥", "7 jours sous le budget", "Une série de 7 jours", () => (settings.bestStreak || 0) >= 7],
   ["group", "👥", "En groupe", "Ton 1er groupe de partage", () => Object.keys(groups || {}).length >= 1],
+  // Palier 2
+  ["ops200", "📚", "Carnet bien rempli", "200 opérations notées", () => allItems().length >= 200],
+  ["budgets", "🧭", "Cap fixé", "Un budget dans 5 catégories", () => (settings.cats || []).filter(c => Number(c.budget) > 0).length >= 5],
+  ["subs", "🔁", "Abonnements à l'œil", "Un abonnement suivi", () => Object.keys(subs || {}).length >= 1],
+  ["month3", "🥉", "3 mois tenus", "3 mois sous ton budget", () => funMonthsUnder() >= 3],
+  ["streak30", "🔥", "30 jours sous le budget", "Une série de 30 jours", () => (settings.bestStreak || 0) >= 30],
+  ["save500", "💵", "500 € économisés", "Épargne et placements", () => funSaved() >= 500],
+  ["contacts3", "🤗", "Bien entouré", "3 proches ajoutés", () => typeof socContacts === "function" && socContacts().length >= 3],
+  ["chat", "💬", "Ça papote", "3 discussions avec tes proches", () => typeof DMS !== "undefined" && DMS.length >= 3],
+  ["pot", "🐷", "Cagnotte lancée", "Une cagnotte ou une tontine", () => typeof DEALS !== "undefined" && DEALS.some(d => d.kind !== "achat")],
+  ["deal1", "🎟️", "Malin", "Un bon plan utilisé", () => typeof savedTotal === "function" && savedTotal() > 0],
+  // Palier 3
+  ["ops500", "🗂️", "Archiviste", "500 opérations notées", () => allItems().length >= 500],
+  ["month6", "🥈", "6 mois tenus", "6 mois sous ton budget", () => funMonthsUnder() >= 6],
+  ["month12", "🥇", "Une année tenue", "12 mois sous ton budget", () => funMonthsUnder() >= 12],
+  ["save5000", "🏦", "5 000 € économisés", "Épargne et placements", () => funSaved() >= 5000],
+  ["goals3", "🎯", "Triple objectif", "3 objectifs atteints", () => Object.keys(goals || {}).filter(id => goals[id].target > 0 && goalSaved(id) >= goals[id].target).length >= 3],
+  ["debts3", "🧾", "Comptes propres", "3 dettes soldées", () => Object.values(debts || {}).filter(x => x.kind !== "medoit" && debtCalc(x).done).length >= 3],
+  ["proches20", "🤝", "Toujours remboursé", "On t'a remboursé 20 fois", () => funRepaid() >= 20],
+  ["groups3", "👨‍👩‍👧", "Chef de bande", "3 groupes de partage", () => Object.keys(groups || {}).length >= 3],
+  ["streak90", "☀️", "90 jours sous le budget", "Une série de 90 jours", () => (settings.bestStreak || 0) >= 90],
+  ["deals5", "🛍️", "Chasseur de bons plans", "50 € économisés avec les bons plans", () => typeof savedTotal === "function" && savedTotal() >= 50],
 ];
+// Paliers de 10 badges : quand les 10 badges d'un palier sont obtenus, une récompense se débloque dans Bons plans
+// et le palier suivant apparaît (10 nouveaux badges), et ainsi de suite.
+const BADGE_TIER = 10;
+function funTier() { const on = new Set(funBadges().filter(b => b.on).map(b => b.k)); let t = 0; while ((t + 1) * BADGE_TIER <= BADGES.length && BADGES.slice(t * BADGE_TIER, (t + 1) * BADGE_TIER).every(b => on.has(b[0]))) t++; return t; }
+function funTierView() { const all = funBadges(), t = funTier(), last = Math.ceil(BADGES.length / BADGE_TIER) - 1, cur = Math.min(t, last), list = all.slice(cur * BADGE_TIER, (cur + 1) * BADGE_TIER);
+  return { done: t, cur, list, on: list.filter(b => b.on).length, all: t > last }; }
 const funSaved = () => allItems().filter(x => x.type === "epargne" || x.type === "invest").reduce((a, x) => a + (Number(x.amount) || 0), 0);
 const funRepaid = () => Object.values(debts || {}).filter(x => x.kind === "medoit" && debtCalc(x).done).length + ((typeof SOC !== "undefined" && SOC.out) || []).filter(c => c.kind === "req" && c.status === "settled").length;
 function funMonthsUnder() {
@@ -140,10 +168,15 @@ function funMonthsUnder() {
 }
 const funBadges = () => BADGES.map(([k, ic, t, d, f]) => { let on = false; try { on = !!f(); } catch (e) {} return { k, ic, t, d, on }; });
 function funBadgesOpen() {
-  const L = funBadges(), n = L.filter(b => b.on).length;
-  const f = openForm(`<div class="f2"><h3>🏅 Mes badges <small class="hint">${n} / ${L.length}</small></h3>
-    <div class="bdg-grid">${L.map(b => `<div class="bdg${b.on ? " on" : ""}"><span>${b.ic}</span><b>${esc(b.t)}</b><small>${esc(b.d)}</small></div>`).join("")}</div></div>`, () => true);
+  const V = funTierView(), left = V.list.length - V.on;
+  const f = openForm(`<div class="f2"><h3>🏅 Mes badges <small class="hint">Palier ${V.cur + 1} · ${V.on} / ${V.list.length}</small></h3>
+    <div class="bdg-tier"><div class="bdg-bar"><i style="width:${Math.round(V.on / V.list.length * 100)}%"></i></div>
+      <p class="hint" style="margin:6px 0 0">${V.all ? "Tous les paliers sont terminés : bravo ! De nouveaux badges arrivent bientôt." : left ? `Encore ${left} badge${left > 1 ? "s" : ""} pour débloquer ta récompense du palier ${V.cur + 1} 🎁` : "Palier terminé !"}</p></div>
+    <div class="bdg-grid">${V.list.map(b => `<div class="bdg${b.on ? " on" : ""}"><span>${b.ic}</span><b>${esc(b.t)}</b><small>${esc(b.d)}</small></div>`).join("")}</div>
+    ${V.done ? `<button type="button" class="btn primary" id="bdgRw" style="width:100%;margin-top:12px">🎁 Voir ${V.done > 1 ? "mes récompenses" : "ma récompense"} dans Bons plans</button>
+      <p class="hint" style="text-align:center;margin:6px 0 0">${V.done} palier${V.done > 1 ? "s" : ""} terminé${V.done > 1 ? "s" : ""} · ${V.done * BADGE_TIER} badges</p>` : ""}</div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
+  const rw = f.querySelector("#bdgRw"); if (rw) rw.onclick = () => { closeForm(); if (typeof offState !== "undefined") { offState.view = "home"; offState.mode = "near"; } switchTab("bons"); setTimeout(() => { const e = document.getElementById("bpRewards"); if (e) e.scrollIntoView({ block: "center", behavior: "smooth" }); }, 400); };
 }
 // Vérifie à chaque affichage s'il y a quelque chose à fêter (objectif, dette soldée, mois sous le budget, badge)
 function funCheck() {
@@ -153,15 +186,18 @@ function funCheck() {
   const badges = funBadges().filter(b => b.on).map(b => b.k);
   const prev = new Date(); prev.setDate(1); prev.setMonth(prev.getMonth() - 1); const pk = funYM(prev);
   const C = settings.celeb;
-  if (!C) { settings.celeb = { g: goalsDone, d: debtsDone, b: badges, m: pk }; return; }   // 1re fois : rien à fêter rétroactivement
+  if (!C) { settings.celeb = { g: goalsDone, d: debtsDone, b: badges, m: pk, t: funTier() }; return; }   // 1re fois : rien à fêter rétroactivement
   let msg = null;
   const ng = goalsDone.find(id => !C.g.includes(id)), nd = debtsDone.find(id => !C.d.includes(id)), nb = badges.find(k => !C.b.includes(k));
   if (ng) msg = ["🎯 Objectif atteint !", goals[ng].name];
   else if (nd) msg = [debts[nd].kind === "medoit" ? "🤝 Tu as été remboursé !" : "✅ Dette soldée !", debts[nd].name];
   else if (C.m !== pk) { const L = itemsOf(prev.getFullYear(), prev.getMonth() + 1), bud = (settings.cats || []).reduce((a, c) => a + (Number(c.budget) || 0), 0);
     if (L.length >= 5 && bud && totals(L).depense <= bud) msg = [`🏆 ${MOIS[prev.getMonth()]} tenu sous ton budget !`, `${eur(bud - totals(L).depense, true)} d'avance`]; }
+  const tier = funTier();
+  if (tier > (C.t || 0)) msg = [`🎁 Palier ${tier} terminé !`, "Ta récompense t'attend dans Bons plans"];
   if (!msg && nb) { const b = BADGES.find(x => x[0] === nb); msg = [`${b[1]} Nouveau badge !`, b[2]]; }
-  settings.celeb = { g: goalsDone, d: debtsDone, b: badges, m: pk };
+  settings.celeb = { g: goalsDone, d: debtsDone, b: badges, m: pk, t: tier };
+  if (tier > (C.t || 0) && typeof offRefresh === "function") offRefresh(false);
   saveSettings();
   if (msg) setTimeout(() => funCelebrate(msg[0], msg[1]), 350);
 }
