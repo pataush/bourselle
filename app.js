@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "112";
+const APP_VERSION = "113";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -1069,6 +1069,7 @@ function render() {
   document.body.classList.toggle("mode-simple", isSimple());
   document.body.classList.toggle("tab-reglages", tab === "reglages");
   document.body.classList.toggle("ep-nohero", (tab === "partage" || tab === "accueil") && !openGroup);
+  if (tab !== "bons") document.body.classList.remove("bp-nohero");
   { const sb = document.querySelector("header .nm .sub"); if (sb) sb.textContent = isSimple() ? "Version simple" : ""; }
   {
     const u = store && store.user ? store.user() : {}, first = store && store.id === "local" ? "" : String((u && u.name) || "").trim().split(/[\s@]/)[0];

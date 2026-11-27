@@ -3,7 +3,7 @@
  * On rejoint une offre de groupe ; quand le palier est atteint, chaque partant reçoit le code et achète sur le site du
  * partenaire. L'argent ne passe jamais par Bourselle. Seul le propriétaire de Bourselle publie les offres. */
 let OFF_MYINV = 0, OFF_HASREWARD = false;
-let BPLANS = [], OFF_ADMIN = false, OFF_LEADS = [], OFF_CATS = ["Resto & bars", "Coiffure & beauté", "Sport & bien-être", "Loisirs & sorties", "Shopping", "Voyage", "Autre"], OFF_INVITES = 0, offLoaded = false, offState = { focus: null, filter: "all" };
+let BPLANS = [], OFF_ADMIN = false, OFF_LEADS = [], OFF_CATS = ["Resto & bars", "Coiffure & beauté", "Sport & bien-être", "Loisirs & sorties", "Shopping", "Mode", "Maison", "High-tech", "Courses", "Voyage", "Autre"], OFF_INVITES = 0, offLoaded = false, offState = { focus: null, filter: "all", view: "home", mode: "near", cat: "" };
 const offBase = () => (typeof PLUS_CFG !== "undefined" && PLUS_CFG.api ? PLUS_CFG.api.replace(/\/$/, "") : "");
 async function offApi(path, body) {
   if (typeof socOn === "function" && socOn()) return socApi(path, body ? { method: "POST", body: JSON.stringify(body) } : {});
@@ -127,22 +127,11 @@ function offHubBind(root) {
   root.querySelectorAll("[data-ocity]").forEach(b => b.onclick = () => offCityAsk());
   root.querySelectorAll("[data-oopen]").forEach(b => b.onclick = () => offersOpen(b.dataset.oopen));
 }
-function offListRender(root, focus, filter) {
-  filter = filter || "all";
-  const allCities = filter === "cities";
-  const list = (filter === "now" ? l => l.slice().sort((a, b) => offLocal(b) - offLocal(a)) : offSort)(BPLANS.filter(o => (OFF_ADMIN || o.status !== "off") && offVisible(o, allCities || (focus && o.id === focus)) && (filter === "all" || filter === "cities" || (filter === "now" ? !!offNow(o) : filter === "near" ? offLocal(o) : filter === "group" ? o.kind === "group" : filter === "promo" ? !!o.code : true))));
-  const elsewhere = !allCities && BPLANS.some(o => o.city && !offVisible(o));
-  root.insertAdjacentHTML("beforeend", `<div class="off-sheet" id="offAll"><div class="hub-sec"><span>Tous les bons plans</span></div>
-    <button type="button" class="off-where" id="offCity">${flag(myCountry())} ${myCity() ? `Près de chez toi : <b>${esc(myCity())}</b> · changer` : "Indique ta ville pour les bons plans près de chez toi ›"}</button>
-    <div class="chips" id="offF">${[["all", "Tout"], ...(BPLANS.some(o => offTimed(o) && offNow(o)) ? [["now", "En ce moment"]] : []), ...(myCity() ? [["near", "Près de moi"]] : []), ["group", "Offres de groupe"], ["promo", "Codes promo"], ...(BPLANS.some(o => o.city) ? [["cities", "Toutes les villes"]] : [])].map(([k, l]) => `<button type="button" class="chip" data-of="${k}" aria-pressed="${filter === k}">${l}</button>`).join("")}</div>
-    ${OFF_ADMIN ? `<button type="button" class="btn" id="offAdmin" style="width:100%;margin-top:10px">⚙️ Gérer les bons plans${OFF_LEADS.length ? ` <i class="badge">${OFF_LEADS.length}</i>` : ""}</button>` : ""}
-    <div class="off-list">${list.length ? list.map(o => offCardHTML(o, true)).join("") : `<p class="hint" style="text-align:center;margin:24px 0">${filter === "near" ? `Pas encore de bon plan à ${esc(myCity())}. Tu connais un commerce ? Envoie-lui la page « Devenir partenaire » !` : filter === "group" ? `Pas encore d'offre de groupe${myCity() ? ` à ${esc(myCity())}` : ""}. ${BPLANS.some(o => o.kind === "group" && o.status !== "off") ? "Il y en a dans d'autres villes : touche « Voir aussi les bons plans des autres villes »." : "Reviens bientôt !"}` : filter === "promo" ? `Pas encore de code promo${myCity() ? ` à ${esc(myCity())}` : ""}. ${BPLANS.some(o => o.code && o.status !== "off") ? "Il y en a dans d'autres villes : touche « Voir aussi les bons plans des autres villes »." : "Reviens bientôt !"}` : "Pas encore de bon plan ici. Reviens bientôt !"}</p>`}</div>
-    ${elsewhere ? `<button type="button" class="linkbtn" data-of="cities" style="display:block;margin:10px auto 0">Voir aussi les bons plans des autres villes ›</button>` : ""}
-    <p class="hint off-legal">Offres de nos partenaires. Tu paies directement le partenaire, sur son site : l'argent ne passe pas par Bourselle. Bourselle peut toucher une commission quand tu achètes via ces liens. Tes données de budget ne sont jamais partagées.</p>
-    <button type="button" class="linkbtn" id="offLead" style="display:block;margin:4px auto 0">Tu es une marque ? Propose ton offre ›</button></div>`);
+// Les boutons d'une offre (code, réserver, groupe, avis…), dans la liste comme dans une fiche
+function offBindActs(root, focus, filter) {
   const f = root;
   const reopen = () => { closeForm(); setTimeout(() => offersOpen(focus, filter), 220); };
-  f.querySelector("#offCity").onclick = () => { closeForm(); setTimeout(() => offCityAsk(() => offersOpen(null, filter)), 220); };
+  { const c = f.querySelector("#offCity"); if (c) c.onclick = () => { closeForm(); setTimeout(() => offCityAsk(() => offersOpen(null, filter)), 220); }; }
   f.querySelectorAll("[data-of]").forEach(b => b.onclick = () => { closeForm(); setTimeout(() => offersOpen(null, b.dataset.of), 200); });
   const find = id => BPLANS.find(o => o.id === id);
   const upd = o => { const i = BPLANS.findIndex(x => x.id === o.id); if (i >= 0) BPLANS[i] = o; };
@@ -178,6 +167,22 @@ function offListRender(root, focus, filter) {
   f.querySelectorAll("[data-oused]").forEach(b => b.onclick = () => { closeForm(); setTimeout(() => offUsed(find(b.dataset.oused), () => offersOpen(b.dataset.oused, filter)), 220); });
   f.querySelectorAll("[data-obook]").forEach(b => b.onclick = () => { if (!(typeof socOn === "function" && socOn())) { toast("Connecte-toi avec Google ou Microsoft pour réserver"); return; } closeForm(); setTimeout(() => offBook(find(b.dataset.obook), () => offersOpen(b.dataset.obook, filter)), 220); });
   f.querySelectorAll("[data-obkx]").forEach(b => b.onclick = async () => { try { const r = await offApi("/offers/" + b.dataset.obkx, { action: "unbook", bid: b.dataset.bid }); const o = find(b.dataset.obkx); o.mybk = r.mybk; focus = o.id; toast("Réservation annulée"); reopen(); } catch (e) { toast(e.message); } });
+}
+function offListRender(root, focus, filter) {
+  filter = filter || "all";
+  const allCities = filter === "cities";
+  const list = (filter === "now" ? l => l.slice().sort((a, b) => offLocal(b) - offLocal(a)) : offSort)(BPLANS.filter(o => (OFF_ADMIN || o.status !== "off") && offVisible(o, allCities || (focus && o.id === focus)) && (filter === "all" || filter === "cities" || (filter === "now" ? !!offNow(o) : filter === "near" ? offLocal(o) : filter === "group" ? o.kind === "group" : filter === "promo" ? !!o.code : true))));
+  const elsewhere = !allCities && BPLANS.some(o => o.city && !offVisible(o));
+  root.insertAdjacentHTML("beforeend", `<div class="off-sheet" id="offAll"><div class="hub-sec"><span>Tous les bons plans</span></div>
+    <button type="button" class="off-where" id="offCity">${flag(myCountry())} ${myCity() ? `Près de chez toi : <b>${esc(myCity())}</b> · changer` : "Indique ta ville pour les bons plans près de chez toi ›"}</button>
+    <div class="chips" id="offF">${[["all", "Tout"], ...(BPLANS.some(o => offTimed(o) && offNow(o)) ? [["now", "En ce moment"]] : []), ...(myCity() ? [["near", "Près de moi"]] : []), ["group", "Offres de groupe"], ["promo", "Codes promo"], ...(BPLANS.some(o => o.city) ? [["cities", "Toutes les villes"]] : [])].map(([k, l]) => `<button type="button" class="chip" data-of="${k}" aria-pressed="${filter === k}">${l}</button>`).join("")}</div>
+    ${OFF_ADMIN ? `<button type="button" class="btn" id="offAdmin" style="width:100%;margin-top:10px">⚙️ Gérer les bons plans${OFF_LEADS.length ? ` <i class="badge">${OFF_LEADS.length}</i>` : ""}</button>` : ""}
+    <div class="off-list">${list.length ? list.map(o => offCardHTML(o, true)).join("") : `<p class="hint" style="text-align:center;margin:24px 0">${filter === "near" ? `Pas encore de bon plan à ${esc(myCity())}. Tu connais un commerce ? Envoie-lui la page « Devenir partenaire » !` : filter === "group" ? `Pas encore d'offre de groupe${myCity() ? ` à ${esc(myCity())}` : ""}. ${BPLANS.some(o => o.kind === "group" && o.status !== "off") ? "Il y en a dans d'autres villes : touche « Voir aussi les bons plans des autres villes »." : "Reviens bientôt !"}` : filter === "promo" ? `Pas encore de code promo${myCity() ? ` à ${esc(myCity())}` : ""}. ${BPLANS.some(o => o.code && o.status !== "off") ? "Il y en a dans d'autres villes : touche « Voir aussi les bons plans des autres villes »." : "Reviens bientôt !"}` : "Pas encore de bon plan ici. Reviens bientôt !"}</p>`}</div>
+    ${elsewhere ? `<button type="button" class="linkbtn" data-of="cities" style="display:block;margin:10px auto 0">Voir aussi les bons plans des autres villes ›</button>` : ""}
+    <p class="hint off-legal">Offres de nos partenaires. Tu paies directement le partenaire, sur son site : l'argent ne passe pas par Bourselle. Bourselle peut toucher une commission quand tu achètes via ces liens. Tes données de budget ne sont jamais partagées.</p>
+    <button type="button" class="linkbtn" id="offLead" style="display:block;margin:4px auto 0">Tu es une marque ? Propose ton offre ›</button></div>`);
+  offBindActs(root, focus, filter);
+  const f = root;
   f.querySelector("#offLead").onclick = () => { closeForm(); setTimeout(offLeadForm, 220); };
   const ad = f.querySelector("#offAdmin"); if (ad) ad.onclick = () => { closeForm(); setTimeout(offAdminOpen, 220); };
   if (focus) setTimeout(() => { const el = document.getElementById("off-" + focus); if (el) { el.scrollIntoView({ block: "center" }); el.classList.add("flash"); } }, 120);
@@ -227,6 +232,7 @@ function offEdit(o) {
     <label class="lbl" for="oeDesc">Description</label><textarea class="field" id="oeDesc" rows="3" maxlength="800">${esc(o.desc || "")}</textarea>
     ${fld("oeUrl", "Lien (partenaire ou affilié, https://)", `maxlength="500" value="${esc(o.url || "")}"`)}
     <div class="two"><div>${fld("oeCode", "Code promo", `maxlength="30" value="${esc(o.code || "")}"`)}</div><div>${fld("oeUntil", "Jusqu'au", `type="date" value="${esc(o.until || "")}"`)}</div></div>
+    <label class="toggle" for="oeOnline" style="margin-top:8px"><span>🛒 Code promo en ligne<small class="hint" style="display:block">Pour les achats sur internet : valable partout, sans ville</small></span><input type="checkbox" id="oeOnline" ${o.online || (o.code && o.url && !o.city && !(o.slots && o.slots.length) && o.kind !== "group") ? "checked" : ""}></label>
     <div id="oeTiers" ${kind === "group" ? "" : "hidden"}><span class="lbl">Paliers (personnes, réduction, code donné aux partants)</span>${tiers.map(tierRow).join("")}
       ${fld("oeDays", "Délai pour réunir un groupe (jours)", `type="number" min="1" max="60" value="${esc(o.groupDays || 7)}"`)}</div>
     <label class="lbl" for="oeCountry">Pays</label><select class="field" id="oeCountry"><option value="">🌍 Tous les pays (offre internationale en ligne)</option>${[...new Set([o.country, myCountry(), ...OFF_COUNTRIES].filter(Boolean))].map(c => `<option value="${c}" ${c === (o.id ? o.country : myCountry()) ? "selected" : ""}>${flag(c)} ${esc(countryName(c))}</option>`).join("")}</select>
@@ -245,7 +251,7 @@ function offEdit(o) {
     (async () => {
       try {
         const slots = [...document.querySelectorAll("#oeSlots .off-slot")].map(r => ({ days: [...r.querySelectorAll("[data-d][aria-pressed=true]")].map(x => +x.dataset.d), from: r.querySelector("[data-sf]").value, to: r.querySelector("[data-st]").value })).filter(x => x.days.length && x.from && x.to);
-        await offApi("/offers", { id: o.id || "", slots, book: document.getElementById("oeBook").checked, kind, partner: v("oePartner"), emoji: v("oeEmoji"), title: v("oeTitle"), desc: v("oeDesc"), url: v("oeUrl"), code: v("oeCode"), until: v("oeUntil"), cat: document.getElementById("oeCat").value, groupDays: +v("oeDays") || 7, fromLeadId: o.fromLeadId || "", contact: o.contact || "", city: v("oeCity"), country: document.getElementById("oeCountry").value, featured: document.getElementById("oeFeat").checked, reward: document.getElementById("oeReward").checked, status: document.getElementById("oeOff").checked ? "off" : "on", tiers: kind === "group" ? tl : [] });
+        await offApi("/offers", { id: o.id || "", slots, book: document.getElementById("oeBook").checked, kind, partner: v("oePartner"), emoji: v("oeEmoji"), title: v("oeTitle"), desc: v("oeDesc"), url: v("oeUrl"), code: v("oeCode"), until: v("oeUntil"), cat: document.getElementById("oeCat").value, groupDays: +v("oeDays") || 7, fromLeadId: o.fromLeadId || "", contact: o.contact || "", city: v("oeCity"), country: document.getElementById("oeCountry").value, online: document.getElementById("oeOnline").checked, featured: document.getElementById("oeFeat").checked, reward: document.getElementById("oeReward").checked, status: document.getElementById("oeOff").checked ? "off" : "on", tiers: kind === "group" ? tl : [] });
         await offRefresh(false); render(); toast("Offre enregistrée"); setTimeout(offAdminOpen, 250);
       } catch (e) { toast(e.message); setTimeout(() => offEdit({ ...o, kind, partner: v("oePartner"), title: v("oeTitle"), desc: v("oeDesc"), url: v("oeUrl"), code: v("oeCode"), until: v("oeUntil"), city: v("oeCity"), country: document.getElementById("oeCountry").value, tiers: tl }), 300); }
     })();
@@ -381,7 +387,7 @@ function offPoster(o) {
 
 // ---------- Onglet « Bons plans » : grandes cartes en haut, « En ce moment », puis toute la liste avec les filtres ----------
 function offersOpen(focus, filter) {
-  offState = { focus: focus || null, filter: filter || (focus ? "all" : offState.filter || "all") };
+  offState = { ...offState, focus: focus || null, filter: filter || (focus ? "all" : offState.filter || "all"), view: focus || (filter && filter !== "all") ? "list" : offState.view || "home" };
   if (document.querySelector("#sheet2Root.open")) closeForm();
   const toList = !focus && filter && filter !== "all";
   if (typeof tab !== "undefined" && tab === "bons") { render(); if (!focus) window.scrollTo(0, 0); } else switchTab("bons");
@@ -394,21 +400,72 @@ function offBigCardHTML(o) {
     <span class="off-big-pct">${pct ? `-${String(pct).replace(".", ",")} %` : "Bon plan"}</span><span class="off-big-tt">${esc(o.title)}</span>
     <span class="off-big-p">${esc(o.partner)}${o.city ? ` · 📍 ${esc(o.city)}` : ""}</span></button>`;
 }
+// Codes promo en ligne : valables partout (pas de ville), pour les achats et commandes sur internet
+const offOnline = o => o.kind !== "group" && (!!o.online || (!!o.code && !!o.url && !o.city && !(o.slots && o.slots.length)));
+const OFF_CAT_IC = { "Resto & bars": ["🍽️", "Resto"], "Coiffure & beauté": ["💇", "Beauté"], "Sport & bien-être": ["🏋️", "Sport"], "Loisirs & sorties": ["🎬", "Sorties"], "Shopping": ["🛍️", "Shopping"], "Mode": ["👗", "Mode"], "Maison": ["🏠", "Maison"], "High-tech": ["📱", "High-tech"], "Courses": ["🛒", "Courses"], "Voyage": ["✈️", "Voyage"], "Autre": ["✨", "Autre"] };
+const offPctTxt = o => { const p = offPctOf(o) || (o.tiers && o.tiers.length ? Math.max(...o.tiers.map(t => t.pct)) : 0); return p ? `-${String(p).replace(".", ",")} %` : "🎁 Offert"; };
 function renderBons() {
   document.getElementById("periodLabel").textContent = "Bons plans";
   document.getElementById("resCap").textContent = "Économisé grâce à Bourselle";
   const big = document.getElementById("resBig"); big.textContent = eur(savedTotal()); big.className = "big num good";
-  document.getElementById("resPill").innerHTML = myCity() ? `<span class="pill" style="background:rgba(255,255,255,.15);color:#fff">${flag(myCountry())} ${esc(myCity())}</span>` : "";
-  if (!offLoaded) { view.innerHTML = banner + `<div class="card"><div class="empty">Chargement des bons plans…</div></div>`; if (!offRefresh.busy) { offRefresh.busy = true; offRefresh(false).then(() => { if (tab === "bons") render(); }); } return; }
-  const vis = offSort(BPLANS.filter(o => o.status !== "off" && offVisible(o)));
-  const top = vis.slice().sort((a, b) => !!(offTimed(b) && offNow(b)) - !!(offTimed(a) && offNow(a)) || offLocal(b) - offLocal(a) || b.featured - a.featured).slice(0, 8);
-  const reward = OFF_HASREWARD && OFF_MYINV < 3 && typeof socOn === "function" && socOn() ? `<div class="card off-reward"><b>🎁 Un bon plan exclusif t'attend</b><small>Invite tes amis dans tes sorties : quand 3 d'entre eux créent leur compte, il se débloque.</small><div class="act-bar"><i style="width:${Math.round(OFF_MYINV / 3 * 100)}%"></i></div><small><b>${OFF_MYINV} / 3</b> amis</small></div>` : "";
-  const intro = `<div class="off-intro"><span>💰</span><p><b>Des réductions près de chez toi pour faire des économies.</b> Chaque bon plan utilisé s'ajoute à ton compteur « Économisé grâce à Bourselle ».</p></div>`;
-  view.innerHTML = banner + intro + reward + (top.length ? `<div class="off-carousel">${top.map(offBigCardHTML).join("")}</div>` : "") + `<button type="button" class="off-where" id="offAlert">🔔 ${settings.offAlert ? `Alerte nouveaux bons plans activée${myCity() ? ` · ${esc(myCity())}` : ""} · régler` : "Être prévenu des nouveaux bons plans près de chez moi ›"}</button>` + offNowHTML();
-  offListRender(view, offState.focus, offState.filter);
-  view.querySelectorAll("[data-ofocus]").forEach(b => b.onclick = () => { const el = document.getElementById("off-" + b.dataset.ofocus); if (el) { el.scrollIntoView({ behavior: "smooth", block: "center" }); el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); offApi("/offers/" + b.dataset.ofocus, { action: "view" }).catch(() => {}); } });
-  view.querySelectorAll(".off-nowlist [data-oopen]").forEach(b => b.onclick = () => offersOpen(b.dataset.oopen));
+  document.getElementById("resPill").innerHTML = "";
+  if (!offLoaded) { document.body.classList.remove("bp-nohero"); view.innerHTML = banner + `<div class="card"><div class="empty">Chargement des bons plans…</div></div>`; if (!offRefresh.busy) { offRefresh.busy = true; offRefresh(false).then(() => { if (tab === "bons") render(); }); } return; }
+  // Liste complète (un filtre, ou une offre ouverte) : l'ancienne vue détaillée, avec un retour
+  if (offState.view === "list") {
+    document.body.classList.remove("bp-nohero");
+    view.innerHTML = banner + `<button class="btn" id="bpBack" style="align-self:flex-start">‹ Bons plans</button>`;
+    offListRender(view, offState.focus, offState.filter);
+    view.querySelector("#bpBack").onclick = () => { offState = { ...offState, view: "home", focus: null, filter: "all" }; render(); window.scrollTo(0, 0); };
+    return;
+  }
+  document.body.classList.add("bp-nohero");
+  const mode = offState.mode || "near", cat = offState.cat || "";
+  const vis = BPLANS.filter(o => o.status !== "off" && (offOnline(o) ? offInCountry(o) : offVisible(o)));
+  const online = vis.filter(offOnline), local = offSort(vis.filter(o => !offOnline(o)));
+  const inCat = l => cat ? l.filter(o => o.cat === cat) : l;
+  const al = settings.offAlert;
+  const bubbles = l => { const cs = OFF_CATS.filter(c => l.some(o => o.cat === c)); return cs.length ? `<div class="ep-cap"><span>Catégories</span></div><div class="bp-bub"><button type="button" data-bcat="" class="${!cat ? "on" : ""}"><span>✨</span>Tout</button>${cs.map(c => `<button type="button" data-bcat="${esc(c)}" class="${cat === c ? "on" : ""}"><span>${(OFF_CAT_IC[c] || ["🎁"])[0]}</span>${esc((OFF_CAT_IC[c] || [, c])[1])}</button>`).join("")}</div>` : ""; };
+  const row = o => `<button type="button" class="bp-row" data-odet="${esc(o.id)}"><span class="bp-em">${esc(o.emoji || "🎁")}</span><span class="bp-t"><b>${esc(o.partner)}</b><small>${esc(o.title)}${o.kind === "group" ? " · offre de groupe" : ""}${o.city ? " · 📍 " + esc(o.city) : offOnline(o) ? " · en ligne" : ""}</small></span><span class="bp-pct${offPctOf(o) || o.kind === "group" ? "" : " gift"}">${esc(offPctTxt(o))}</span></button>`;
+  let html = banner + `<div class="ep-sum bp-sum">
+      <div class="ep-card"><small>Économisé grâce à Bourselle</small><b class="num good">${esc(eur(savedTotal(), true))}</b><button type="button" class="ep-btn good" id="bpHist">📜 Mon historique</button></div>
+      <div class="ep-card"><small>Près de chez moi</small><button type="button" class="bp-city" id="bpCity">📍 ${myCity() ? esc(myCity()) : "Choisir ma ville"}</button><button type="button" class="ep-btn ${al ? "good" : ""}" id="offAlert" style="${al ? "" : "background:var(--bg);color:var(--ink)"}">🔔 ${al ? "Alertes activées" : "Être prévenu"}</button></div></div>
+    <div class="off-intro"><span>💰</span><p><b>Des réductions pour faire des économies.</b> Près de chez toi, ou en ligne avec des codes promo valables partout.</p></div>
+    <div class="ep-tabs bp-tabs" role="tablist"><button type="button" role="tab" data-bmode="near" aria-selected="${mode === "near"}">📍 Près de chez moi</button><button type="button" role="tab" data-bmode="online" aria-selected="${mode === "online"}">🛒 En ligne${online.length ? ` <i class="ep-badge" style="background:var(--gold,#c9a24a)">${online.length}</i>` : ""}</button></div>`;
+  if (mode === "near") {
+    const L = inCat(local), now = L.filter(o => offTimed(o) && offNow(o)), groups = L.filter(o => o.kind === "group");
+    html += bubbles(local);
+    if (now.length) html += `<div class="ep-cap"><span>● En ce moment près de toi</span></div><div class="off-carousel">${now.slice(0, 8).map(offBigCardHTML).join("")}</div>`;
+    if (online.length && !cat) html += `<div class="ep-cap"><span>🛒 Codes promo en ligne</span><button type="button" class="linkbtn" data-bmode="online">Tout voir</button></div><div class="bp-minis">${online.slice(0, 6).map(o => `<button type="button" class="bp-mini" data-odet="${esc(o.id)}"><span class="bp-em">${esc(o.emoji || "🛒")}</span><b>${esc(o.partner)}</b><small>${esc((OFF_CAT_IC[o.cat] || [, o.cat || "En ligne"])[1])} · partout</small><span class="bp-pct">${esc(offPctTxt(o))}</span></button>`).join("")}</div>`;
+    if (groups.length) html += `<div class="ep-cap"><span>👥 À plusieurs, c'est moins cher</span></div>${groups.slice(0, 3).map(o => { const mx = Math.max(...o.tiers.map(t => t.n)), c = o.squad ? o.squad.in : o.count || 0;
+      return `<div class="card bp-grp" data-odet="${esc(o.id)}" role="button" tabindex="0"><div class="act-top"><span class="act-emo">${esc(o.emoji || "👥")}</span><span class="act-tt"><b>${esc(o.partner)} · ${esc(o.title)}</b><small>${esc(o.tiers.map(t => `-${t.pct} % dès ${t.n}`).join(" · "))}</small></span><span class="bp-pct">${esc(offPctTxt(o))}</span></div>
+        <div class="act-bar"><i style="width:${Math.min(100, Math.round(c / mx * 100))}%"></i></div><div class="ep-foot"><span class="hint" style="font-size:.8rem">${o.squad ? esc(offStatus(o)) : `${mx} personnes pour la meilleure réduction`}</span><span class="btn primary ep-b">🙋 Réunir mes amis</span></div></div>`; }).join("")}`;
+    const rest = L.filter(o => o.kind !== "group");
+    html += `<div class="ep-cap"><span>Tous les bons plans · ${rest.length}</span><button type="button" class="linkbtn" id="bpAll">Voir en détail</button></div>`
+      + (rest.length ? `<div class="bp-list">${rest.map(row).join("")}</div>` : `<p class="hint ep-empty">${myCity() ? `Pas encore de bon plan à ${esc(myCity())}. Tu connais un commerce ? Envoie-lui la page « Devenir partenaire » !` : "Indique ta ville pour voir les bons plans près de chez toi."}</p>`);
+    if (BPLANS.some(o => o.city && !offVisible(o) && !offOnline(o))) html += `<button type="button" class="linkbtn bp-other" data-of="cities">Voir les autres villes ›</button>`;
+  } else {
+    const L = inCat(online);
+    html += bubbles(online) + `<div class="ep-cap"><span>🛒 Codes promo · partout</span></div>`;
+    html += L.length ? L.map(o => `<div class="card bp-promo" id="off-${esc(o.id)}"><div class="act-top"><span class="act-emo">${esc(o.emoji || "🛒")}</span><span class="act-tt"><b>${esc(o.partner)}</b><small>${esc(o.title)}${o.desc ? " · " + esc(o.desc.slice(0, 60)) : ""}</small></span>${o.until ? `<span class="ep-when${(new Date(o.until) - Date.now()) / 864e5 < 7 ? " soon" : ""}">${(new Date(o.until) - Date.now()) / 864e5 < 7 ? "⏳ " + Math.max(0, Math.ceil((new Date(o.until) - Date.now()) / 864e5)) + " j" : "jusqu'au " + esc(frDate(o.until).slice(0, 5))}</span>` : ""}</div>
+      ${o.code ? `<div class="bp-code"><span><small>Code promo</small><b>${esc(o.code)}</b></span><button type="button" class="btn" data-ocopy="${esc(o.id)}">📋 Copier</button></div>` : ""}
+      <div class="bp-go">${o.url ? `<button type="button" class="btn primary" data-ogo="${esc(o.id)}">J'en profite sur le site ›</button>` : ""}<button type="button" class="btn" data-oshare="${esc(o.id)}">👥 Partager</button></div></div>`).join("")
+      : `<p class="hint ep-empty">Pas encore de code promo en ligne. Reviens bientôt !</p>`;
+  }
+  html += `<p class="hint off-legal" style="text-align:center">Tu paies directement le partenaire : l'argent ne passe pas par Bourselle. Bourselle peut toucher une commission quand tu achètes via ces liens.</p>
+    <button type="button" class="linkbtn" id="offLead" style="display:block;margin:4px auto 0">Tu es une marque ? Propose ton offre ›</button>
+    ${OFF_ADMIN ? `<button type="button" class="btn" id="offAdmin" style="width:100%;margin-top:10px">⚙️ Gérer les bons plans${OFF_LEADS.length ? ` <i class="badge">${OFF_LEADS.length}</i>` : ""}</button>` : ""}`;
+  view.innerHTML = html;
+  offBindActs(view, null, "all");
+  view.querySelectorAll("[data-bmode]").forEach(b => b.onclick = () => { offState.mode = b.dataset.bmode; offState.cat = ""; render(); window.scrollTo(0, 0); });
+  view.querySelectorAll("[data-bcat]").forEach(b => b.onclick = () => { offState.cat = b.dataset.bcat; render(); });
+  view.querySelectorAll("[data-odet]").forEach(b => b.onclick = () => offersOpen(b.dataset.odet));
+  view.querySelectorAll("[data-ofocus]").forEach(b => b.onclick = () => offersOpen(b.dataset.ofocus));
+  view.querySelector("#bpHist").onclick = () => savedOpen();
+  { const a = view.querySelector("#bpAll"); if (a) a.onclick = () => { offState = { ...offState, view: "list", filter: "all", focus: null }; render(); window.scrollTo(0, 0); }; }
+  view.querySelector("#bpCity").onclick = () => offCityAsk(() => render());
   view.querySelector("#offAlert").onclick = () => offAlertsOpen();
+  view.querySelector("#offLead").onclick = () => offLeadForm();
+  { const ad = view.querySelector("#offAdmin"); if (ad) ad.onclick = () => offAdminOpen(); }
 }
 // Dans « Entre proches » : juste un petit rappel vers l'onglet Bons plans
 function offTeaserHTML() {
