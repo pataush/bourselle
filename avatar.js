@@ -2,7 +2,33 @@
  * Gardé dans les réglages (donc sur tous les appareils) : settings.avatar = { char: {…} } | { ini: {…} } | { img: "data:image/jpeg…" }
  * (l'ancien { emo, bg } reste affiché). La photo est réduite à 160 px avant d'être enregistrée (quelques Ko). */
 let avUid = 0;
-const AV_HS = [["court", "Court"], ["long", "Long"], ["boucle", "Bouclé"], ["chignon", "Chignon"], ["meche", "Mèche"], ["rase", "Rasé"]];
+const AV_HS = [["court", "Court"], ["long", "Long"], ["carre", "Carré"], ["boucle", "Bouclé"], ["afro", "Afro"], ["rasta", "Locks"], ["tresses", "Tresses"], ["chignon", "Chignon"], ["couettes", "Couettes"], ["meche", "Mèche"], ["iroquois", "Iroquois"], ["rase", "Rasé"], ["chauve", "Sans"]];
+// Les cheveux suivent la forme du visage : w = demi-largeur, h = demi-hauteur du visage (centre 50, 48)
+function avHair(o, w, h) {
+  const L = 50 - w, R = 50 + w, T = 48 - h, c = o.hair, f = v => Math.round(v * 10) / 10;
+  const P = (d, x) => `<path d="${d}" fill="${c}"${x || ""}/>`, C = (x, y, r, col) => `<circle cx="${f(x)}" cy="${f(y)}" r="${r}" fill="${col || c}"/>`;
+  const cap = (dip, x) => P(`M${f(L - 1.5)} 47 Q${f(L - 3)} ${f(T - 2)} 50 ${f(T - 2)} Q${f(R + 3)} ${f(T - 2)} ${f(R + 1.5)} 47 Q${f(R - 1)} ${f(T + dip)} 50 ${f(T + dip)} Q${f(L + 1)} ${f(T + dip)} ${f(L - 1.5)} 47z`, x);
+  const arc = (r0, step, a0, a1, rr) => { let o2 = ""; for (let a = a0; a <= a1; a += step) { const t = a * Math.PI / 180; o2 += C(50 + (w + r0) * Math.cos(t), 46 + (h + r0) * Math.sin(t), rr); } return o2; };
+  const BEADS = ["#e0a84a", "#c8553d", "#2e8a5b"];
+  switch (o.hs) {
+    case "long": return [P(`M${f(L - 3)} 46 Q${f(L - 5)} ${f(T - 4)} 50 ${f(T - 4)} Q${f(R + 5)} ${f(T - 4)} ${f(R + 3)} 46 L${f(R + 7)} 84 Q50 90 ${f(L - 7)} 84z`), P(`M${f(L - 1)} 46 Q${f(L - 1)} ${f(T - 1)} 50 ${f(T - 1)} Q${f(R + 1)} ${f(T - 1)} ${f(R + 1)} 46 Q${f(R - 5)} ${f(T + 8)} 52 ${f(T + 11)} Q${f(L + 6)} ${f(T + 13)} ${f(L - 1)} 46z`)];
+    case "carre": return [P(`M${f(L - 4)} 46 Q${f(L - 5)} ${f(T - 4)} 50 ${f(T - 4)} Q${f(R + 5)} ${f(T - 4)} ${f(R + 4)} 46 L${f(R + 5)} 67 Q${f(R + 1)} 70 ${f(R - 3)} 67 L${f(L + 3)} 67 Q${f(L - 1)} 70 ${f(L - 5)} 67z`), P(`M${f(L - 0.5)} 46 Q${f(L - 1)} ${f(T - 1)} 50 ${f(T - 1)} Q${f(R + 1)} ${f(T - 1)} ${f(R + 0.5)} 46 L${f(R - 1)} ${f(T + 13)} Q50 ${f(T + 15)} ${f(L + 1)} ${f(T + 13)}z`)];
+    case "boucle": return [arc(2, 20, 190, 350, 8.5), cap(8)];
+    case "afro": return [`<ellipse cx="50" cy="${f(T + 9)}" rx="${f(w + 14)}" ry="${f(h + 3)}" fill="${c}"/>` + arc(12, 22.5, 180, 360, 7), cap(9)];
+    case "rasta": { let s2 = ""; [L - 8, L - 3, R + 3, R + 8, L - 12, R + 12].forEach((x, i) => { const y1 = i > 3 ? 70 : 86; let d = `M${f(x)} ${f(T + 2)}`; for (let y = T + 2, k = 0; y < y1 - 6; y += 6, k++) d += ` q${k % 2 ? -2.2 : 2.2} 3 0 6`;
+        s2 += `<path d="${d}" stroke="${c}" stroke-width="5.4" stroke-linecap="round" fill="none"/>` + C(x, y1 - 2, 2.7, BEADS[i % 3]); });
+      return [s2, cap(9) + P(`M${f(L + 2)} ${f(T + 2)} Q50 ${f(T - 9)} ${f(R - 2)} ${f(T + 2)}`, ` stroke="${c}" stroke-width="5" fill="none"`)]; }
+    case "tresses": { let s2 = ""; [L - 7, L - 2, R + 2, R + 7].forEach(x => { for (let y = T + 6; y < 86; y += 5) s2 += `<ellipse cx="${f(x + ((y / 5) % 2 ? .8 : -.8))}" cy="${f(y)}" rx="3" ry="3.2" fill="${c}"/>`; });
+      return [s2, cap(9) + `<path d="M${f(50 - w / 2)} ${f(T + 1)} L${f(50 - w / 2)} ${f(T + 9)} M50 ${f(T)} L50 ${f(T + 9)} M${f(50 + w / 2)} ${f(T + 1)} L${f(50 + w / 2)} ${f(T + 9)}" stroke="rgba(0,0,0,.25)" stroke-width="1"/>`]; }
+    case "chignon": return [C(50, T - 7, 9), cap(10)];
+    case "couettes": return [C(L - 8, T + 13, 9) + C(R + 8, T + 13, 9), cap(10) + C(L - 2, T + 10, 2.2, "#e84a8a") + C(R + 2, T + 10, 2.2, "#e84a8a")];
+    case "meche": return ["", P(`M${f(L - 1.5)} 46 Q${f(L - 4)} ${f(T - 3)} 52 ${f(T - 3)} Q${f(R + 4)} ${f(T - 2)} ${f(R + 1.5)} 46 Q${f(R - 1)} ${f(T + 12)} ${f(R - 10)} ${f(T + 8)} Q50 ${f(T + 16)} ${f(L - 1.5)} ${f(T + 20)}z`)];
+    case "iroquois": return ["", cap(8, ` opacity=".35"`) + P(`M${f(50 - 6)} ${f(T + 8)} Q${f(50 - 4)} ${f(T - 18)} 50 ${f(T - 18)} Q${f(50 + 4)} ${f(T - 18)} ${f(50 + 6)} ${f(T + 8)}z`)];
+    case "rase": return ["", cap(8, ` opacity=".45"`)];
+    case "chauve": return ["", `<ellipse cx="${f(50 - w / 3)}" cy="${f(T + 6)}" rx="4" ry="2" fill="#fff" opacity=".35"/>`];
+    default: return ["", cap(10)];
+  }
+}
 const AV_SKIN = ["#f6d7bf", "#f1c7a5", "#dba47a", "#c98e62", "#9c6644", "#6b4429"];
 const AV_HAIR = ["#2a1d16", "#5b3a24", "#a5673f", "#d9a441", "#c8553d", "#9aa0a6"];
 const AV_BGS = ["#cfe8d9", "#fbe0d2", "#e6ddf6", "#d9e8fb", "#f6e7b8", "#1f6b4b"];
@@ -14,13 +40,7 @@ function avChar(o) {
   const id = "avc" + (++avUid);
   const F = { oval: [20, 23], rond: [22, 22], long: [18, 25] }[o.face];
   const dk = h => { const n = parseInt(h.slice(1), 16); const f = v => Math.round(v * .8).toString(16).padStart(2, "0"); return "#" + f(n >> 16) + f(n >> 8 & 255) + f(n & 255); };
-  let back = "", top = "";
-  if (o.hs === "long") { back = `<path d="M27 45 Q26 19 50 19 Q74 19 73 45 L76 82 Q62 86 50 86 Q38 86 24 82z" fill="${o.hair}"/>`; top = `<path d="M29 45 Q29 23 50 23 Q71 23 71 45 Q63 31 47 33 Q35 35 29 45z" fill="${o.hair}"/>`; }
-  if (o.hs === "court") top = `<path d="M28 47 Q26 21 50 21 Q74 21 72 47 Q69 31 50 31 Q31 31 28 47z" fill="${o.hair}"/>`;
-  if (o.hs === "boucle") { back = [[30,30,10],[42,22,11],[58,22,11],[70,30,10],[26,42,8],[74,42,8],[50,18,10]].map(([x,y,r]) => `<circle cx="${x}" cy="${y}" r="${r}" fill="${o.hair}"/>`).join(""); top = `<path d="M30 40 Q38 28 50 30 Q62 28 70 40 Q66 26 50 26 Q34 26 30 40z" fill="${o.hair}"/>`; }
-  if (o.hs === "chignon") { back = `<circle cx="50" cy="17" r="9" fill="${o.hair}"/>`; top = `<path d="M28 47 Q27 22 50 22 Q73 22 72 47 Q68 30 50 30 Q32 30 28 47z" fill="${o.hair}"/>`; }
-  if (o.hs === "meche") top = `<path d="M28 46 Q25 20 52 20 Q76 21 72 46 Q70 34 60 30 Q48 38 30 40z" fill="${o.hair}"/>`;
-  if (o.hs === "rase") top = `<path d="M29 44 Q29 24 50 24 Q71 24 71 44 Q66 30 50 30 Q34 30 29 44z" fill="${o.hair}" opacity=".45"/>`;
+  const H = avHair(o, F[0], F[1]), back = H[0], top = H[1];
   return `<svg viewBox="0 0 100 100" class="avb"><defs><clipPath id="${id}"><circle cx="50" cy="50" r="50"/></clipPath></defs><g clip-path="url(#${id})">
   <rect width="100" height="100" fill="${o.bg}"/>${back}
   <path d="M14 104 Q18 77 50 76 Q82 77 86 104z" fill="${o.shirt}"/><rect x="44" y="64" width="12" height="14" rx="5" fill="${dk(o.skin)}"/>

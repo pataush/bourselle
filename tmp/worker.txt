@@ -154,7 +154,7 @@ function avClean(a) {
   if (!a || typeof a !== "object") return null;
   if (a.char && typeof a.char === "object") { const c = a.char, o = {};
     for (const k of ["bg", "skin", "hair", "shirt"]) o[k] = AV_HEX(c[k]) || "#cccccc";
-    o.hs = ["court", "long", "boucle", "chignon", "meche", "rase"].includes(c.hs) ? c.hs : "court";
+    o.hs = ["court", "long", "carre", "boucle", "afro", "rasta", "tresses", "chignon", "couettes", "meche", "iroquois", "rase", "chauve"].includes(c.hs) ? c.hs : "court";
     o.face = ["oval", "rond", "long"].includes(c.face) ? c.face : "oval"; o.glasses = !!c.glasses; o.beard = !!c.beard; return { char: o }; }
   if (a.ini && typeof a.ini === "object") { const c = a.ini;
     return { ini: { t: String(c.t || "").replace(/[<>&"']/g, "").slice(0, 8) || "?", pat: ["points", "rayures", "vagues", "confettis", "damier", "soleil"].includes(c.pat) ? c.pat : "points", bg: AV_HEX(c.bg) || "#1f6b4b", fg: AV_HEX(c.fg) || "#2e8a5b", ink: AV_HEX(c.ink) || "#ffffff" } }; }
