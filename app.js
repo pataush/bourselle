@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "165";
+const APP_VERSION = "166";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -361,7 +361,8 @@ function showProfileMenu0() {
   on("pmCopy", () => { const done = () => { toast(`@${SOC.tag} copié`); const h = f.querySelector(".pm-copyhint"); if (h) { h.textContent = "Copié ✓"; setTimeout(() => { h.textContent = "Copier"; }, 1800); } };
     try { navigator.clipboard.writeText("@" + SOC.tag).then(done).catch(() => toast("@" + SOC.tag)); } catch (e) { toast("@" + SOC.tag); } });
   on("pmQr", () => { closeForm(); socShowQr(); });
-  on("pmContacts", () => { closeForm(); switchTab("reglages"); setTimeout(() => document.getElementById("socSearch")?.scrollIntoView({ block: "center" }), 80); });
+  // Mes contacts : la carte « Mes contacts Bourselle » des Paramètres, ouverte et en haut de l'écran
+  on("pmContacts", () => { closeForm(); setTimeout(() => { if (typeof pfGoto === "function") pfGoto("Mes contacts Bourselle"); else switchTab("reglages"); }, 200); });
   on("pmLang", () => { closeForm(); if (typeof setLang === "function") setLang(window.LANG === "en" ? "fr" : "en"); });
   on("pmFolder", () => { window.open(store.folderUrl(), "_blank", "noopener"); });
   on("pmSettings", () => { closeForm(); switchTab("reglages"); });
