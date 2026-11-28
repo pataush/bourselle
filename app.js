@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "163";
+const APP_VERSION = "164";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -336,19 +336,16 @@ function showProfileMenu0() {
     <div class="pmx-cap">Préférences</div>
     <div class="pmx-sec">
       ${sw("pmDark", "moon", "#3b4a6b", "Mode sombre", dark)}
-      ${typeof FUN_THEMES !== "undefined" ? go("pmTheme", "pal", "var(--green)", "Thème de l'appli", (FUN_THEMES[settings.pal] || FUN_THEMES.vert)[0]) : ""}
-      ${typeof FUN_BG !== "undefined" ? go("pmBg", "img", "#b5838d", "Fond d'écran", (FUN_BG[settings.homeBg || "auto"] || "Aucun") + (settings.homeBgAll ? " · partout" : "")) : ""}
+      ${typeof FUN_THEMES !== "undefined" ? go("pmTheme", "pal", "var(--green)", "Thème et fond d'écran", (FUN_THEMES[settings.pal] || FUN_THEMES.vert)[0] + (typeof FUN_BG !== "undefined" ? " · " + String(FUN_BG[settings.homeBg || "auto"] || "Aucun").split(" ")[0] : "")) : ""}
       ${soc ? sw("pmPush", "bell", "#e67e22", "Notifications", push) : ""}
-      ${soc ? go("pmNotif", "bell", "#e67e22", "Vérifier mes notifications", "") : ""}
       ${sw("pmFull", "leaf", "#2e8a5b", "Toutes les fonctions", !isSimple(), "Notes de frais, patrimoine, garanties…")}
     </div>
     <div class="pmx-cap">Mon compte</div>
     <div class="pmx-sec">
       ${go("pmImport", "bank", "#1d5f86", "Importer un relevé", "CSV, OFX, PDF")}
       ${soc ? go("pmContacts", "user", "#1f6b4b", "Mes contacts", String(nC)) : ""}
-      ${soc ? go("pmPay", "card", "#0070ba", "Me faire payer", "IBAN, PayPal…") : ""}
+      ${soc ? go("pmPay", "card", "#0070ba", "Moyens de paiement", "IBAN, PayPal…") : ""}
       ${go("pmLang", "globe", "#6b5bd6", window.LANG === "en" ? "Language" : "Langue", window.LANG === "en" ? "English" : "Français")}
-      ${!local && store.folderUrl && store.folderUrl() ? go("pmFolder", "folder", "#8a6d1f", "Ouvrir mon dossier", store.label || "") : ""}
     </div>
     <div class="pmx-sec">
       ${go("pmFb", "msg", "#c9a24a", "Une suggestion, un problème ?")}

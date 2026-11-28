@@ -308,18 +308,29 @@ const FUN_THEMES = {
   rose: ["Rose bonbon", "#e84a8a", "#f7b2d0", "Girly"], barbie: ["Barbie", "#e0218a", "#ffd1e8", "Girly"], licorne: ["Licorne", "#a78bfa", "#f9a8d4", "Girly"], fraise: ["Fraise", "#f43f5e", "#fecdd3", "Girly"], peche: ["Pêche douce", "#f08a6c", "#ffd8c2", "Girly"],
 };
 function funApplyTheme() { const t = (settings && settings.pal) || "vert"; if (t === "vert" || !FUN_THEMES[t]) document.documentElement.removeAttribute("data-pal"); else document.documentElement.setAttribute("data-pal", t); }
-function funThemeOpen() {
-  const cur = settings.pal || "vert", groups = [...new Set(Object.values(FUN_THEMES).map(T => T[3]))];
-  const f = openForm(`<div class="f2"><h3>🎨 Thème de l'appli</h3>${groups.map(g => `<div class="pmx-cap">${g}</div><div class="th-grid">${Object.entries(FUN_THEMES).filter(([, T]) => T[3] === g).map(([k, T]) => `<button type="button" data-pal="${k}" aria-pressed="${k === cur}"><span class="th-sw${T[3] === "Afrique" ? " pat" : ""}" ${T[3] === "Afrique" ? `data-pal-sw="${k}"` : `style="background:linear-gradient(135deg,${T[1]} 0 60%,${T[2]} 60%)"`}></span>${esc(T[0])}</button>`).join("")}</div>`).join("")}</div>`, () => true);
+// Thème et fond d'écran : une seule fenêtre, deux onglets (Couleurs, Fond d'écran)
+function funThemeOpen() { funStyleOpen("theme"); }
+function funBgOpen() { funStyleOpen("bg"); }
+function funStyleOpen(tab) {
+  const f = openForm(`<div class="f2"><h3>🎨 Thème et fond d'écran</h3><div class="seg2 st-seg"><button type="button" data-stt="theme">Couleurs</button><button type="button" data-stt="bg">Fond d'écran</button></div><div id="stBody"></div></div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Terminé";
-  f.querySelectorAll("[data-pal]").forEach(b => b.onclick = () => { settings.pal = b.dataset.pal; if (settings.pal === "vert") delete settings.pal; saveSettings(); funApplyTheme(); f.querySelectorAll("[data-pal]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); render(); });
+  const body = f.querySelector("#stBody");
+  const draw = t => {
+    tab = t; f.querySelectorAll("[data-stt]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.stt === t)));
+    if (t === "theme") {
+      const cur = settings.pal || "vert", groups = [...new Set(Object.values(FUN_THEMES).map(T => T[3]))];
+      body.innerHTML = groups.map(g => `<div class="pmx-cap">${g}</div><div class="th-grid">${Object.entries(FUN_THEMES).filter(([, T]) => T[3] === g).map(([k, T]) => `<button type="button" data-pal="${k}" aria-pressed="${k === cur}"><span class="th-sw${T[3] === "Afrique" ? " pat" : ""}" ${T[3] === "Afrique" ? `data-pal-sw="${k}"` : `style="background:linear-gradient(135deg,${T[1]} 0 60%,${T[2]} 60%)"`}></span>${esc(T[0])}</button>`).join("")}</div>`).join("");
+      body.querySelectorAll("[data-pal]").forEach(b => b.onclick = () => { settings.pal = b.dataset.pal; if (settings.pal === "vert") delete settings.pal; saveSettings(); funApplyTheme(); body.querySelectorAll("[data-pal]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); render(); });
+    } else {
+      const cur = settings.homeBg || "auto";
+      body.innerHTML = `<div class="th-grid">${Object.entries(FUN_BG).map(([k, l]) => `<button type="button" data-hbg="${k}" aria-pressed="${k === cur}"><span class="th-sw hbg-sw" data-bgk="${k}"></span>${esc(l)}</button>`).join("")}</div>
+        <div class="pmx-sec" style="margin-top:14px"><button type="button" class="pmx-r" id="hbgAll" role="switch" aria-checked="${!!settings.homeBgAll}"><b>Appliquer à tous les onglets<small>sinon seulement sur l'accueil</small></b><span class="pmx-sw" aria-hidden="true"></span></button></div>`;
+      body.querySelector("#hbgAll").onclick = e => { settings.homeBgAll = !settings.homeBgAll; if (!settings.homeBgAll) delete settings.homeBgAll; e.currentTarget.setAttribute("aria-checked", String(!!settings.homeBgAll)); saveSettings(); render(); };
+      body.querySelectorAll("[data-hbg]").forEach(b => b.onclick = () => { settings.homeBg = b.dataset.hbg; if (settings.homeBg === "auto") delete settings.homeBg; saveSettings(); body.querySelectorAll("[data-hbg]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); render(); });
+    }
+    if (typeof funPalSwatches === "function") funPalSwatches(body);
+  };
+  f.querySelectorAll("[data-stt]").forEach(b => b.onclick = () => draw(b.dataset.stt));
+  draw(tab === "bg" ? "bg" : "theme");
 }
 const FUN_BG = { auto: "Ciel du moment", none: "Aucun", menthe: "Menthe", peche: "Pêche", lavande: "Lavande", ciel: "Ciel", or: "Or", aurore: "Aurore" };
-function funBgOpen() {
-  const cur = settings.homeBg || "auto";
-  const f = openForm(`<div class="f2"><h3>🖼 Fond d'écran</h3><div class="th-grid">${Object.entries(FUN_BG).map(([k, l]) => `<button type="button" data-hbg="${k}" aria-pressed="${k === cur}"><span class="th-sw hbg-sw" data-bgk="${k}"></span>${esc(l)}</button>`).join("")}</div>
-    <div class="pmx-sec" style="margin-top:14px"><button type="button" class="pmx-r" id="hbgAll" role="switch" aria-checked="${!!settings.homeBgAll}"><b>Appliquer à tous les onglets<small>sinon seulement sur l'accueil</small></b><span class="pmx-sw" aria-hidden="true"></span></button></div></div>`, () => true);
-  f.querySelector("#hbgAll").onclick = e => { settings.homeBgAll = !settings.homeBgAll; if (!settings.homeBgAll) delete settings.homeBgAll; e.currentTarget.setAttribute("aria-checked", String(!!settings.homeBgAll)); saveSettings(); render(); };
-  f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Terminé";
-  f.querySelectorAll("[data-hbg]").forEach(b => b.onclick = () => { settings.homeBg = b.dataset.hbg; if (settings.homeBg === "auto") delete settings.homeBg; saveSettings(); f.querySelectorAll("[data-hbg]").forEach(x => x.setAttribute("aria-pressed", String(x === b))); render(); });
-}

@@ -1838,3 +1838,4 @@ nav.tabs button[hidden] { display: none !important; }
 .wg-first { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: .86rem; color: var(--muted); flex-wrap: wrap; }
 .wg-first button { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 6px 12px; font: inherit; font-weight: 600; cursor: pointer; }
 .wg-first button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+.st-seg { margin: 4px 0 12px; }
