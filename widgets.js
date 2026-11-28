@@ -2,7 +2,7 @@
  * La disposition est gardée dans les réglages (donc dans le compte, sur tous les appareils) : settings.widgets = [{ k, w }]
  * k : le widget, w : 1 (demi-largeur) ou 2 (toute la largeur). Chaque widget mène à la rubrique concernée. */
 const WG_SERVICES = [["budget", "Budget"], ["proches", "Entre proches"], ["suivis", "Suivis"], ["bons", "Bons plans"]];
-const WG_DEFAULT = [["reste", 2], ["meteo", 0], ["serie", 0], ["objectif", 0], ["prelev", 1], ["saved", 1], ["deal", 2], ["jour", 0], ["epargne", 0], ["bilan", 0], ["owed", 0], ["owe", 0], ["anniv", 0], ["msgs", 2], ["projet", 2]];
+const WG_DEFAULT = [["reste", 2], ["meteo", 0], ["serie", 0], ["objectif", 0], ["prelev", 1], ["saved", 1], ["deal", 2], ["jour", 0], ["epargne", 0], ["bilan", 0], ["owed", 0], ["owe", 0], ["proches", 2], ["anniv", 0], ["msgs", 2], ["projet", 2]];
 let wgEdit = false;
 // Couleurs au choix pour chaque widget (🎨 en mode Personnaliser) : fond, texte, texte secondaire
 const WG_COLORS = {
@@ -41,6 +41,12 @@ const WG = {
   ajout: { s: "budget", ic: "plus", t: "Ajouter vite", d: "Dépense, ticket, relevé", w: 2, html: () => `<small>Ajouter</small><div class="wg-acts"><button type="button" data-wa="tx">➕ Dépense</button><button type="button" data-wa="scan">📷 Ticket</button><button type="button" data-wa="imp">📄 Relevé</button></div>` },
   owed: { s: "proches", ic: "in", t: "On te doit", d: "Entre proches", w: 1, go: () => switchTab("partage"), html: () => { const d = wgDues(); return `<small>On te doit</small><b class="num ${d.owed > 0.004 ? "good" : ""}">${esc(wgMoney(d.owed, true))}</b><i>${d.inn.length ? esc(d.inn.slice(0, 3).map(p => favFirst(p.name)).join(", ")) : "personne"}</i>${d.owed > 0.004 ? `<div class="wg-acts"><button type="button" data-wa="remind">🔔 Relancer</button></div>` : ""}`; } },
   owe: { s: "proches", ic: "out", t: "Tu dois", d: "Entre proches", w: 1, go: () => switchTab("partage"), html: () => { const d = wgDues(); return `<small>Tu dois</small><b class="num ${d.owe > 0.004 ? "bad" : ""}">${esc(wgMoney(d.owe, true))}</b><i>${d.out.length ? esc(d.out.slice(0, 3).map(p => favFirst(p.name)).join(", ")) : "rien à régler"}</i>${d.owe > 0.004 ? `<div class="wg-acts"><button type="button" data-wa="settle">💸 Régler</button></div>` : ""}`; } },
+  // Mes proches en pastilles : un toucher ouvre directement la discussion
+  proches: { s: "proches", ic: "chat", t: "Mes proches", d: "Un toucher pour leur écrire", w: 2, go: () => { epSub = "discussions"; switchTab("partage"); }, html: () => {
+    const l = typeof prochesList === "function" ? prochesList().slice(0, 10) : [];
+    if (!l.length) return `<small>Mes proches</small><i>Ajoute un proche avec son @tag ou son QR code</i>`;
+    return `<div class="wg-favs">${l.map(p => { const net = Math.round((p.owe - p.due) * 100) / 100, cls = net > 0.004 ? "good" : net < -0.004 ? "bad" : "", un = p.tag && typeof dmUnread === "function" && dmUnread(p.tag);
+      return `<button type="button" class="wg-fav" data-wfav="${esc(p.key)}"><span class="fav-ring ${cls}"><span class="fav-av" data-avtag="${esc(p.tag || "")}" style="background:${favColor(p.key)}">${esc(favFirst(p.name).charAt(0))}${un ? `<em class="fav-un"></em>` : ""}</span></span><b>${esc(favFirst(p.name))}</b></button>`; }).join("")}</div>`; } },
   msgs: { s: "proches", ic: "chat", t: "Messages", d: "Dernière discussion", w: 2, go: () => { epSub = "discussions"; switchTab("partage"); }, html: () => {
     const t = typeof DMS !== "undefined" ? DMS.slice().sort((a, b) => (b.unread || 0) - (a.unread || 0) || b.at - a.at)[0] : null;
     if (!t) return `<small>Messages</small><i>Écris à un proche, propose une sortie…</i>`;
@@ -92,6 +98,8 @@ const WG_RD = {
 function wgList() {
   if (!Array.isArray(settings.widgets)) settings.widgets = WG_DEFAULT.map(([k, w]) => ({ k, w }));
   if (!settings.wgPg0) { settings.wgPg0 = 1; for (const x of settings.widgets) if (WG[x.k] && WG[x.k].s === "proches" && x.p === undefined) x.p = 1; }
+  // Nouveau widget « Mes proches » (pastilles) : ajouté une fois, juste après « On te doit / Tu dois »
+  if (!settings.wgFav0) { settings.wgFav0 = 1; if (!settings.widgets.some(x => x.k === "proches")) { const i = settings.widgets.map(x => x.k).lastIndexOf("owe"), it = { k: "proches", w: 2, p: 1 }; if (i >= 0) settings.widgets.splice(i + 1, 0, it); else settings.widgets.push(it); } }
   if (!settings.wgCol0) { settings.wgCol0 = 1; for (const x of settings.widgets) if (!x.c && WG_DEF_COL[x.k]) x.c = WG_DEF_COL[x.k]; }
   return settings.widgets.filter(x => WG[x.k]);
 }
@@ -136,6 +144,7 @@ function renderHome() {
     ({ tx: () => openSheet(null), scan: () => { openSheet(null); setTimeout(() => { const s = document.getElementById("scanBtn"); if (s && !s.hidden) s.click(); }, 300); }, imp: () => startImport(),
       pay: () => editProject(), ask: () => editPay(), note: () => noteShare(),
       remind: () => typeof epWho === "function" ? epWho("in") : switchTab("partage"), settle: () => typeof epWho === "function" ? epWho("out") : switchTab("partage") })[a](); });
+  view.querySelectorAll("[data-wfav]").forEach(b => b.onclick = e => { e.stopPropagation(); if (wgEdit) return; favTap(b.dataset.wfav); });
   const RD_GO = { ajout: () => openSheet(null), raccourcis: () => editProject(), jour: () => openSheet(null) };
   view.querySelectorAll("[data-wg]").forEach(el => el.addEventListener("click", e => { if (wgEdit || el.dataset.dragged) return; const W = WG[el.dataset.wg]; if (W && W.go) W.go(); else if (el.classList.contains("rd") && RD_GO[el.dataset.wg]) RD_GO[el.dataset.wg](); }));
   // Appui long : mode édition
