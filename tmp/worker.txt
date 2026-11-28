@@ -163,6 +163,7 @@ function avClean(a) {
   return null;
 }
 const slug = s => String(s || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 14) || "membre";
+const BDAY_RE = /^(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/;
 async function myTag(env, me) {
   const t = await env.CODES.get("owner:" + me.email);
   if (t) return t;
@@ -1567,8 +1568,26 @@ async function social(req, env, url, cors) {
     if (tag === old) return json({ tag }, 200, cors);
     const holder = await env.CODES.get("tag:" + tag);
     if (holder && holder !== me.email) throw new HttpErr(409, "ce tag est déjà pris");
-    await env.CODES.put("tag:" + tag, me.email, { metadata: { n: me.name || "" } }); await env.CODES.put("owner:" + me.email, tag); await env.CODES.delete("tag:" + old);
+    const bd = await kvJ(env, "bday:" + me.email);
+    await env.CODES.put("tag:" + tag, me.email, { metadata: { n: me.name || "", ...(bd && bd.vis && bd.d ? { b: bd.d } : {}) } }); await env.CODES.put("owner:" + me.email, tag); await env.CODES.delete("tag:" + old);
     return json({ tag }, 200, cors);
+  }
+  // Mon anniversaire (jour et mois seulement). S'il est visible, il est lisible par ceux qui connaissent mon @tag (mes proches qui m'ajoutent).
+  if (path === "/me/bday" && req.method === "GET") { const bd = await kvJ(env, "bday:" + me.email) || {}; return json({ d: bd.d || "", vis: bd.vis !== false }, 200, cors); }
+  if (path === "/me/bday" && req.method === "POST") {
+    const d = String(body.d || ""); if (d && !BDAY_RE.test(d)) throw new HttpErr(400, "date invalide");
+    const vis = body.vis !== false, tag = await myTag(env, me);
+    await kvP(env, "bday:" + me.email, { d, vis, at: Date.now() });
+    const cur = await env.CODES.getWithMetadata("tag:" + tag), meta = { n: (cur && cur.metadata && cur.metadata.n) || me.name || "" };
+    if (vis && d) meta.b = d;
+    await env.CODES.put("tag:" + tag, me.email, { metadata: meta });
+    return json({ d, vis }, 200, cors);
+  }
+  // Les anniversaires visibles de mes proches, à partir de leurs @tags
+  if (path === "/bdays" && req.method === "POST") {
+    const tags = [...new Set((Array.isArray(body.tags) ? body.tags : []).map(t => String(t || "").toLowerCase()).filter(t => TAG_RE.test(t)))].slice(0, 100), out = {};
+    for (const t of tags) { const r = await env.CODES.getWithMetadata("tag:" + t); const b = r && r.value && r.metadata && r.metadata.b; if (b && BDAY_RE.test(b)) out[t] = b; }
+    return json({ bdays: out }, 200, cors);
   }
   if (path === "/me/push" && req.method === "POST") {
     const sb = body.sub || {}, ep = String(sb.endpoint || "");
@@ -2083,7 +2102,7 @@ const WORKER = {
         try { return await offersApi(req, env, url, cors); }
         catch (e) { if (e instanceof HttpErr) return json({ error: e.message }, e.status, cors); throw e; }
       }
-      if (/^\/(me|tag|claims|search|groups|deals|projects|challenges|dm|gc|acts|avatars)(\/|$)/.test(url.pathname)) {
+      if (/^\/(me|tag|claims|search|groups|deals|projects|challenges|dm|gc|acts|avatars|bdays)(\/|$)/.test(url.pathname)) {
         try { return await social(req, env, url, cors); }
         catch (e) { if (e instanceof HttpErr) return json({ error: e.message }, e.status, cors); throw e; }
       }

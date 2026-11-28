@@ -86,7 +86,7 @@ document.addEventListener("visibilitychange", () => { if (document.visibilitySta
 function socTagInlineHTML() {
   if (!socOn()) return "";
   return `<div class="soc-tag-row"><span class="hint">Tag Bourselle</span> ${SOC.tag ? `<b class="num">@${esc(SOC.tag)}</b>` : `<span class="hint">${SOC.err ? esc(SOC.err) : "Chargement…"}</span>`}
-    ${SOC.tag ? `<span class="soc-tag-btns"><button class="linkbtn" id="socCopy">Copier</button>${navigator.share ? `<button class="linkbtn" id="socShare">Partager</button>` : ""}<button class="linkbtn" id="socEdit">Modifier</button><button class="linkbtn" id="socQr">QR code</button></span>` : ""}</div>`;
+    ${SOC.tag ? `<span class="soc-tag-btns"><button class="linkbtn" id="socCopy">Copier</button>${navigator.share ? `<button class="linkbtn" id="socShare">Partager</button>` : ""}<button class="linkbtn" id="socEdit">Modifier</button><button class="linkbtn" id="socQr">QR code</button></span>` : ""}</div>${typeof bdMineRowHTML === "function" ? bdMineRowHTML() : ""}`;
 }
 // QR code personnel : le scanner avec l'appareil photo ouvre Bourselle et propose d'ajouter ce tag aux contacts.
 const socAddUrl = tag => location.origin + location.pathname.replace(/[^/]*$/, "") + "?add=" + encodeURIComponent(tag);
@@ -174,6 +174,7 @@ function socContactsCardHTML() {
     <label class="lbl" for="socSearch">Rechercher un utilisateur par son tag</label>
     <input class="field" id="socSearch" placeholder="@paul…" autocapitalize="off" spellcheck="false" autocomplete="off">
     <div id="socResults"></div>
+    <button class="btn" id="socBdays" style="margin-top:8px">🎂 Anniversaires de mes proches</button>
     ${"BarcodeDetector" in window ? `<button class="btn" id="socScan" style="margin-top:8px">Scanner un QR code</button>`
       : `<p class="hint" style="margin:8px 0 0">Tu peux aussi scanner le QR code d'un proche avec l'appareil photo de ton téléphone.</p>`}
     ${list.length ? `<div class="soc-contacts">${list.map(c => `<div class="soc-contact"><div><b>@${esc(c.tag)}</b>${c.name ? ` <span class="hint">${esc(c.name)}</span>` : ""}</div>
@@ -184,7 +185,8 @@ function socBindTagCard() {
   const msg = () => `Mon tag Bourselle : @${SOC.tag}\n${appBase()}`;
   const cp = document.getElementById("socCopy"); if (cp) cp.onclick = () => { navigator.clipboard?.writeText("@" + SOC.tag).then(() => toast("Tag copié")).catch(() => toast("@" + SOC.tag)); };
   const sh = document.getElementById("socShare"); if (sh) sh.onclick = () => navigator.share({ text: msg() }).catch(() => {});
-  const qb = document.getElementById("socQr"); if (qb) qb.onclick = socShowQr;
+  const qb = document.getElementById("socQr"); if (qb) qb.onclick = socShowQr; if (typeof bdMineRowBind === "function") bdMineRowBind();
+  { const bl = document.getElementById("socBdays"); if (bl) bl.onclick = () => funBdays(); }
   const sc = document.getElementById("socScan"); if (sc) sc.onclick = socScanQr;
   const ed = document.getElementById("socEdit"); if (ed) ed.onclick = () => {
     openForm(`<div class="f2"><h3>Modifier mon tag</h3>${fld("socNew", "Nouveau tag", `value="${esc(SOC.tag)}" autocapitalize="off" spellcheck="false"`)}

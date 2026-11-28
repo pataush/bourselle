@@ -88,16 +88,29 @@ Object.assign(WG, {
 
 // ---------- Anniversaires ----------
 function funBdays() {
-  const draw = () => (settings.bdays || []).slice().sort((a, b) => a.d.localeCompare(b.d)).map(b => `<div class="bd-row"><span>🎂 <b>${esc(b.name)}</b> · ${esc(Number(b.d.slice(3)))} ${esc(MOIS[Number(b.d.slice(0, 2)) - 1])}</span><button type="button" class="hbtn" data-bdx="${esc(b.name + "|" + b.d)}" aria-label="Retirer">✕</button></div>`).join("") || `<p class="hint">Aucun anniversaire pour l'instant.</p>`;
+  const key = b => b.name + "|" + b.d;
+  const draw = () => (settings.bdays || []).slice().sort((a, b) => a.d.localeCompare(b.d)).map(b => `<div class="bd-row"><span>🎂 <b>${esc(b.name)}</b> · ${esc(Number(b.d.slice(3)))} ${esc(MOIS[Number(b.d.slice(0, 2)) - 1])}${b.src === "tag" ? ` <small class="hint">via @${esc(b.tag)}</small>` : ""}</span><button type="button" class="hbtn" data-bdx="${esc(key(b))}" aria-label="Retirer">✕</button></div>`).join("") || `<p class="hint">Aucun anniversaire pour l'instant.</p>`;
   const f = openForm(`<div class="f2"><h3>🎂 Anniversaires</h3><div id="bdList">${draw()}</div>
     <div class="two" style="margin-top:12px"><div><label class="lbl" for="bdN">Prénom</label><input class="field" id="bdN" placeholder="ex. Léa"></div>
     <div><label class="lbl" for="bdD">Date</label><input class="field" id="bdD" type="date"></div></div>
-    <button type="button" class="btn primary" id="bdAdd" style="margin-top:10px">＋ Ajouter</button></div>`, () => true);
+    <button type="button" class="btn primary" id="bdAdd" style="margin-top:10px">＋ Ajouter</button>
+    <div class="bd-imp"><span class="lbl">Importer depuis mes contacts</span>
+      <label class="btn" style="display:flex;justify-content:center;gap:6px;cursor:pointer">📇 Choisir un fichier de contacts (.vcf)<input type="file" id="bdVcf" accept=".vcf,text/vcard,text/x-vcard" hidden></label>
+      <details class="bd-how"><summary>Comment obtenir ce fichier ?</summary>
+        <p><b>iPhone</b> : sur icloud.com › Contacts, sélectionne tout, puis ⚙️ › Exporter une vCard.</p>
+        <p><b>Google</b> : contacts.google.com › Exporter › vCard.</p>
+        <p><b>Android</b> : appli Contacts › Paramètres › Exporter.</p>
+        <p class="hint">Le fichier est lu sur ton téléphone : seuls les prénoms et les dates d'anniversaire sont gardés, rien n'est envoyé.</p></details></div>
+    ${typeof socOn === "function" && socOn() ? `<p class="hint" style="margin:10px 0 0">Les proches qui ont rendu leur anniversaire visible s'ajoutent tout seuls.</p>` : ""}</div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Terminé";
-  const bind = () => f.querySelectorAll("[data-bdx]").forEach(b => b.onclick = () => { const [n, d] = b.dataset.bdx.split("|"); settings.bdays = (settings.bdays || []).filter(x => !(x.name === n && x.d === d)); saveSettings(); f.querySelector("#bdList").innerHTML = draw(); bind(); render(); });
+  const bind = () => f.querySelectorAll("[data-bdx]").forEach(b => b.onclick = () => {
+    const x = (settings.bdays || []).find(y => key(y) === b.dataset.bdx);
+    if (x && x.src === "tag") { settings.bdHide = settings.bdHide || {}; settings.bdHide[x.tag] = 1; }
+    settings.bdays = (settings.bdays || []).filter(y => key(y) !== b.dataset.bdx); saveSettings(); f.querySelector("#bdList").innerHTML = draw(); bind(); render(); });
   bind();
   f.querySelector("#bdAdd").onclick = () => { const n = f.querySelector("#bdN").value.trim(), v = f.querySelector("#bdD").value; if (!n || !v) { toast("Indique le prénom et la date."); return; }
     (settings.bdays = settings.bdays || []).push({ name: n, d: v.slice(5) }); saveSettings(); f.querySelector("#bdN").value = ""; f.querySelector("#bdD").value = ""; f.querySelector("#bdList").innerHTML = draw(); bind(); render(); };
+  const vf = f.querySelector("#bdVcf"); vf.onchange = () => { const file = vf.files && vf.files[0]; if (!file) return; closeForm(); setTimeout(() => bdImportVcf(file, funBdays), 220); };
 }
 
 // Anniversaire d'un proche dans les 7 jours : une carte dans « Entre proches », avec deux choix

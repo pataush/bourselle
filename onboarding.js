@@ -76,6 +76,7 @@ function obDraw() {
   if (k === "invite") { const tag = (typeof SOC !== "undefined" && SOC.tag) || "";
     body = `<div class="ob-ic">🤝</div><h2>Invite un premier proche</h2><p class="ob-sub">Bourselle prend tout son sens à plusieurs : dépenses partagées, cagnottes, tontines, remboursements.</p>
     ${tag ? `<div class="ob-tag"><small>Ton tag</small><b>@${esc(tag)}</b></div>` : ""}
+    ${typeof bdObHTML === "function" ? bdObHTML() : ""}
     <button type="button" class="btn primary ob-wide" id="obShare">Envoyer une invitation</button>
     <button type="button" class="btn ob-wide" id="obAdd">Ajouter par son @tag</button>`; }
   el.innerHTML = `<div class="ob-brand"><img src="icons/icon-192.png" alt=""><b>Bourselle</b><small>${OB.step + 1} / ${S.length}</small></div><div class="ob-card"><div class="ob-top"><div class="ob-dots">${dots}</div>${last ? "" : `<button type="button" class="linkbtn" id="obSkip">Passer</button>`}</div>
@@ -89,6 +90,7 @@ function obDraw() {
     const tag = (typeof SOC !== "undefined" && SOC.tag) || "", msg = `Rejoins-moi sur Bourselle pour partager nos dépenses simplement${tag ? ` : mon tag est @${tag}` : ""}.\n${appBase()}`;
     if (navigator.share) navigator.share({ text: msg }).catch(() => {}); else navigator.clipboard?.writeText(msg).then(() => toast("Invitation copiée")).catch(() => toast(msg));
   };
+  if (k === "invite" && typeof bdObBind === "function") bdObBind(el);
   if (q("#obAdd")) q("#obAdd").onclick = () => typeof favAddContact === "function" && favAddContact();
   if (q("#obBack")) q("#obBack").onclick = () => { obSaveStep(); OB.step--; obDraw(); };
   q("#obNext").onclick = () => { obSaveStep(); if (k === "money") obApplyMoney(); if (last) return obClose(true); OB.step++; obDraw(); };

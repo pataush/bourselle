@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "157";
+const APP_VERSION = "158";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -2568,7 +2568,7 @@ function renderPartage() {
   let html = banner + `<div class="ep-sum">
     <div class="ep-card"><small>On te doit</small><b class="num ${epIn > 0.004 ? "good" : ""}">${esc(eur(epIn))}</b>${epIn > 0.004 ? `<button type="button" class="ep-btn good" id="epRemind">🔔 Relancer</button>` : `<span class="ep-none">Personne</span>`}</div>
     <div class="ep-card"><small>Tu dois</small><b class="num ${epOut > 0.004 ? "bad" : ""}">${esc(eur(epOut))}</b>${epOut > 0.004 ? `<button type="button" class="ep-btn bad" id="epSettle">💸 Régler</button>` : `<span class="ep-none">Rien à régler</span>`}</div></div>
-    ${typeof favRowHTML === "function" ? favRowHTML() : ""}${typeof bdayCardHTML === "function" ? bdayCardHTML() : ""}
+    ${typeof favRowHTML === "function" ? favRowHTML() : ""}${typeof bdayCardHTML === "function" ? bdayCardHTML() : ""}${typeof bdAskCardHTML === "function" ? bdAskCardHTML() : ""}
     <div class="hub-acts">
     <button type="button" data-hub="proj">${hubIcon("bill")}<span>Payer</span></button>
     <button type="button" data-hub="pay">${hubIcon("pay")}<span>Me faire payer</span></button>
@@ -2628,7 +2628,7 @@ function renderPartage() {
   view.querySelectorAll(".chal-invc[data-chal]").forEach(b => b.onclick = () => chalOpen(b.dataset.chal));
   { const n = document.getElementById("grNew"); if (n) n.onclick = () => editGroup(null); }
   actBind(view); if (typeof projBindHub === "function") projBindHub();
-  if (typeof bdayBind === "function") bdayBind(view);
+  if (typeof bdayBind === "function") bdayBind(view); if (typeof bdAskBind === "function") bdAskBind(view);
   if (typeof favBind === "function") { favBind(view); feedBind(view); chalBind(view); if (typeof ensBind === "function") ensBind(view); }
   if (typeof offHubBind === "function") offHubBind(view);
   view.querySelectorAll("[data-grem]").forEach(b => b.onclick = e => { e.stopPropagation(); const g = groups[b.dataset.grem]; groupRemind(b.dataset.grem, settle(groupBalances(g)).filter(x => x.to === g.me)); });
