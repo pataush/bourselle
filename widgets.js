@@ -2,7 +2,7 @@
  * La disposition est gardée dans les réglages (donc dans le compte, sur tous les appareils) : settings.widgets = [{ k, w }]
  * k : le widget, w : 1 (demi-largeur) ou 2 (toute la largeur). Chaque widget mène à la rubrique concernée. */
 const WG_SERVICES = [["budget", "Budget"], ["proches", "Entre proches"], ["suivis", "Suivis"], ["bons", "Bons plans"]];
-const WG_DEFAULT = [["reste", 2], ["meteo", 0], ["serie", 0], ["objectif", 0], ["prelev", 1], ["saved", 1], ["deal", 2], ["jour", 0], ["epargne", 0], ["bilan", 0], ["owed", 0], ["owe", 0], ["proches", 2], ["anniv", 0], ["msgs", 2], ["projet", 2]];
+const WG_DEFAULT = [["reste", 2], ["meteo", 0], ["serie", 0], ["objectif", 0], ["prelev", 1], ["saved", 1], ["deal", 2], ["jour", 0], ["epargne", 0], ["bilan", 0], ["owed", 0], ["owe", 0], ["anniv", 0], ["proches", 2], ["msgs", 2], ["projet", 2]];
 let wgEdit = false;
 // Couleurs au choix pour chaque widget (🎨 en mode Personnaliser) : fond, texte, texte secondaire
 const WG_COLORS = {
@@ -101,6 +101,9 @@ function wgList() {
   // Nouveau widget « Mes proches » (pastilles) : ajouté une fois, juste après « On te doit / Tu dois »
   if (!settings.wgFav0) { settings.wgFav0 = 1; if (!settings.widgets.some(x => x.k === "proches")) { const i = settings.widgets.map(x => x.k).lastIndexOf("owe"), it = { k: "proches", w: 2, p: 1 }; if (i >= 0) settings.widgets.splice(i + 1, 0, it); else settings.widgets.push(it); } }
   if (!settings.wgBd0) { settings.wgBd0 = 1; if (!settings.widgets.some(x => x.k === "anniv")) { const i = settings.widgets.map(x => x.k).lastIndexOf("proches"), it = { k: "anniv", w: 0, p: 1, c: "or" }; if (i >= 0) settings.widgets.splice(i + 1, 0, it); else settings.widgets.push(it); } }
+  // La pastille anniversaire reprend sa place : en haut, à droite de « On te doit / Tu dois », avant les pastilles des proches
+  if (!settings.wgBd1) { settings.wgBd1 = 1; const W = settings.widgets, ia = W.findIndex(x => x.k === "anniv"), ip = W.findIndex(x => x.k === "proches");
+    if (ia > ip && ip >= 0) { const a = W.splice(ia, 1)[0]; a.p = 1; W.splice(ip, 0, a); } }
   if (!settings.wgCol0) { settings.wgCol0 = 1; for (const x of settings.widgets) if (!x.c && WG_DEF_COL[x.k]) x.c = WG_DEF_COL[x.k]; }
   return settings.widgets.filter(x => WG[x.k]);
 }
