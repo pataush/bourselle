@@ -89,8 +89,12 @@ Object.assign(WG, {
 // ---------- Anniversaires ----------
 function funBdays() {
   const key = b => b.name + "|" + b.d;
-  const draw = () => (settings.bdays || []).slice().sort((a, b) => a.d.localeCompare(b.d)).map(b => `<div class="bd-row"><span>🎂 <b>${esc(b.name)}</b> · ${esc(Number(b.d.slice(3)))} ${esc(MOIS[Number(b.d.slice(0, 2)) - 1])}${b.src === "tag" ? ` <small class="hint">via @${esc(b.tag)}</small>` : ""}</span><button type="button" class="hbtn" data-bdx="${esc(key(b))}" aria-label="Retirer">✕</button></div>`).join("") || `<p class="hint">Aucun anniversaire pour l'instant.</p>`;
-  const f = openForm(`<div class="f2"><h3>🎂 Anniversaires</h3><div id="bdList">${draw()}</div>
+  // Les prochains d'abord, avec le compte à rebours ; dans les 30 jours : cagnotte cadeau ou fête en un toucher
+  const up = () => { const t = todayISO(), y = Number(t.slice(0, 4)); return (settings.bdays || []).map(b => { let n = `${y}-${b.d}`; if (n < t) n = `${y + 1}-${b.d}`; return { ...b, next: n, in: daysUntil(n) }; }).sort((a, b) => a.in - b.in); };
+  const when = n => n === 0 ? "aujourd'hui 🎉" : n === 1 ? "demain" : `dans ${n} jours`;
+  const draw = () => { const L = up(); return L.length ? L.map((b, i) => `<div class="bd-row${b.in <= 7 ? " soon" : ""}"><span>🎂 <b>${esc(b.name)}</b> · ${esc(Number(b.d.slice(3)))} ${esc(MOIS[Number(b.d.slice(0, 2)) - 1])}${b.src === "tag" ? ` <small class="hint">via @${esc(b.tag)}</small>` : ""}<small class="bd-in">${esc(when(b.in))}</small>
+      ${b.in <= 30 && typeof socOn === "function" && socOn() ? `<span class="bd-go"><button type="button" class="linkbtn" data-bdg="cag" data-bi="${i}">🎁 Cagnotte</button><button type="button" class="linkbtn" data-bdg="ev" data-bi="${i}">🎉 Fête</button></span>` : ""}</span><button type="button" class="hbtn" data-bdx="${esc(key(b))}" aria-label="Retirer">✕</button></div>`).join("") : `<p class="hint">Aucun anniversaire pour l'instant.</p>`; };
+  const f = openForm(`<div class="f2"><h3>🎂 Anniversaires à venir</h3><div id="bdList">${draw()}</div>
     <div class="two" style="margin-top:12px"><div><label class="lbl" for="bdN">Prénom</label><input class="field" id="bdN" placeholder="ex. Léa"></div>
     <div><label class="lbl" for="bdD">Date</label><input class="field" id="bdD" type="date"></div></div>
     <button type="button" class="btn primary" id="bdAdd" style="margin-top:10px">＋ Ajouter</button>
@@ -103,10 +107,11 @@ function funBdays() {
         <p class="hint">Le fichier est lu sur ton téléphone : seuls les prénoms et les dates d'anniversaire sont gardés, rien n'est envoyé.</p></details></div>
     ${typeof socOn === "function" && socOn() ? `<p class="hint" style="margin:10px 0 0">Les proches qui ont rendu leur anniversaire visible s'ajoutent tout seuls.</p>` : ""}</div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Terminé";
-  const bind = () => f.querySelectorAll("[data-bdx]").forEach(b => b.onclick = () => {
+  const bind = () => { f.querySelectorAll("[data-bdg]").forEach(b => b.onclick = () => { const x = up()[+b.dataset.bi]; closeForm(); setTimeout(() => bdayGo(x, b.dataset.bdg), 220); });
+    f.querySelectorAll("[data-bdx]").forEach(b => b.onclick = () => {
     const x = (settings.bdays || []).find(y => key(y) === b.dataset.bdx);
     if (x && x.src === "tag") { settings.bdHide = settings.bdHide || {}; settings.bdHide[x.tag] = 1; }
-    settings.bdays = (settings.bdays || []).filter(y => key(y) !== b.dataset.bdx); saveSettings(); f.querySelector("#bdList").innerHTML = draw(); bind(); render(); });
+    settings.bdays = (settings.bdays || []).filter(y => key(y) !== b.dataset.bdx); saveSettings(); f.querySelector("#bdList").innerHTML = draw(); bind(); render(); }); };
   bind();
   f.querySelector("#bdAdd").onclick = () => { const n = f.querySelector("#bdN").value.trim(), v = f.querySelector("#bdD").value; if (!n || !v) { toast("Indique le prénom et la date."); return; }
     (settings.bdays = settings.bdays || []).push({ name: n, d: v.slice(5) }); saveSettings(); f.querySelector("#bdN").value = ""; f.querySelector("#bdD").value = ""; f.querySelector("#bdList").innerHTML = draw(); bind(); render(); };
@@ -134,15 +139,21 @@ function bdayCardHTML() {
     <div class="bd-acts"><button type="button" class="btn primary" id="bdCag">🎁 Cagnotte cadeau</button><button type="button" class="btn" id="bdEv">🎉 Organiser un événement</button></div>
     <p class="hint bd-sec">🤫 Surprise : ${esc(first)} ne voit rien et ne fait pas partie des invités.</p></div>`;
 }
+// Cagnotte cadeau ou événement pour un anniversaire (la personne fêtée n'est pas proposée parmi les invités)
+function bdayGo(b, kind) {
+  const first = favFirst(b.name), tag = bdayTagOf(b), fr = d => { const x = new Date(d + "T12:00:00"); return `${x.getDate()} ${MOIS[x.getMonth()]}`; };
+  if (kind === "cag") return editDeal(null, "cagnotte", { simple: true, title: `Cadeau pour ${first} 🎁`, deadline: b.next,
+    desc: `Cagnotte surprise pour l'anniversaire de ${first} le ${fr(b.next)}. 🤫 Chut : ${first} n'est pas au courant, ne lui transmets pas le lien !`, exclude: tag ? [tag] : [] });
+  return actNew({ head: `🎉 Fêter l'anniversaire de ${first}`, title: `Anniversaire de ${first}`, emoji: "🎂", when: b.next, exclude: tag ? [tag] : [],
+    note: `🤫 Surprise : ${first} n'apparaît pas dans la liste, invite seulement les autres.`, desc: `Surprise pour l'anniversaire de ${first} : chut !` });
+}
 function bdayBind(root) {
   const c = root.querySelector(".bd-card"); if (!c) return;
   const b = bdayNext(); if (!b) return;
   const first = favFirst(b.name), tag = bdayTagOf(b), fr = d => { const x = new Date(d + "T12:00:00"); return `${x.getDate()} ${MOIS[x.getMonth()]}`; };
   c.querySelector("#bdX").onclick = () => { settings.bdayOff = settings.bdayOff || {}; settings.bdayOff[b.name + "|" + b.next] = 1; saveSettings(); render(); };
-  c.querySelector("#bdCag").onclick = () => editDeal(null, "cagnotte", { simple: true, title: `Cadeau pour ${first} 🎁`, deadline: b.next,
-    desc: `Cagnotte surprise pour l'anniversaire de ${first} le ${fr(b.next)}. 🤫 Chut : ${first} n'est pas au courant, ne lui transmets pas le lien !`, exclude: tag ? [tag] : [] });
-  c.querySelector("#bdEv").onclick = () => actNew({ head: `🎉 Fêter l'anniversaire de ${first}`, title: `Anniversaire de ${first}`, emoji: "🎂", when: b.next, exclude: tag ? [tag] : [],
-    note: `🤫 Surprise : ${first} n'apparaît pas dans la liste, invite seulement les autres.`, desc: `Surprise pour l'anniversaire de ${first} : chut !` });
+  c.querySelector("#bdCag").onclick = () => bdayGo(b, "cag");
+  c.querySelector("#bdEv").onclick = () => bdayGo(b, "ev");
 }
 
 // ---------- Célébrations ----------

@@ -100,6 +100,7 @@ function wgList() {
   if (!settings.wgPg0) { settings.wgPg0 = 1; for (const x of settings.widgets) if (WG[x.k] && WG[x.k].s === "proches" && x.p === undefined) x.p = 1; }
   // Nouveau widget « Mes proches » (pastilles) : ajouté une fois, juste après « On te doit / Tu dois »
   if (!settings.wgFav0) { settings.wgFav0 = 1; if (!settings.widgets.some(x => x.k === "proches")) { const i = settings.widgets.map(x => x.k).lastIndexOf("owe"), it = { k: "proches", w: 2, p: 1 }; if (i >= 0) settings.widgets.splice(i + 1, 0, it); else settings.widgets.push(it); } }
+  if (!settings.wgBd0) { settings.wgBd0 = 1; if (!settings.widgets.some(x => x.k === "anniv")) { const i = settings.widgets.map(x => x.k).lastIndexOf("proches"), it = { k: "anniv", w: 0, p: 1, c: "or" }; if (i >= 0) settings.widgets.splice(i + 1, 0, it); else settings.widgets.push(it); } }
   if (!settings.wgCol0) { settings.wgCol0 = 1; for (const x of settings.widgets) if (!x.c && WG_DEF_COL[x.k]) x.c = WG_DEF_COL[x.k]; }
   return settings.widgets.filter(x => WG[x.k]);
 }
