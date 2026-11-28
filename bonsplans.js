@@ -162,10 +162,7 @@ function offBindActs(root, focus, filter) {
     offApi("/offers/" + o.id, { action: "click" }).catch(() => {});
     if (o.code) toast("Code copié : colle-le au moment de payer");
   });
-  f.querySelectorAll("[data-oshare]").forEach(b => b.onclick = () => {
-    const o = find(b.dataset.oshare), url = appBase() + "?offre=" + o.id;
-    shareText(o.kind === "group" ? `${o.emoji} ${o.partner} : ${o.title}. ${offPct(o)} si on est assez nombreux, tu es partant ? Rejoins-moi sur Bourselle :` : `${o.emoji} ${o.partner} : ${o.title}${o.code ? ` (code ${o.code})` : ""}`, url, "Lien copié");
-  });
+  f.querySelectorAll("[data-oshare]").forEach(b => b.onclick = () => { const o = find(b.dataset.oshare); if (o) offShareOpen(o, () => offersOpen(o.id, filter)); });
   f.querySelectorAll("[data-oused]").forEach(b => b.onclick = () => { closeForm(); setTimeout(() => offUsed(find(b.dataset.oused), () => offersOpen(b.dataset.oused, filter)), 220); });
   f.querySelectorAll("[data-obook]").forEach(b => b.onclick = () => { if (!(typeof socOn === "function" && socOn())) { toast("Connecte-toi avec Google ou Microsoft pour réserver"); return; } closeForm(); setTimeout(() => offBook(find(b.dataset.obook), () => offersOpen(b.dataset.obook, filter)), 220); });
   f.querySelectorAll("[data-obkx]").forEach(b => b.onclick = async () => { try { const r = await offApi("/offers/" + b.dataset.obkx, { action: "unbook", bid: b.dataset.bid }); const o = find(b.dataset.obkx); o.mybk = r.mybk; focus = o.id; toast("Réservation annulée"); reopen(); } catch (e) { toast(e.message); } });
@@ -600,4 +597,39 @@ function offMerchantSend(o, email) {
     <div class="dm-cta">${email ? `<a class="btn primary" href="mailto:${esc(email)}?subject=${encodeURIComponent("Votre espace Bourselle")}&body=${encodeURIComponent(txt)}">✉️ Par e-mail</a>` : ""}<button type="button" class="btn" id="omShare">Partager</button></div></div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
   f.querySelector("#omShare").onclick = () => shareText(txt.replace(url, "").trim(), url, "Lien copié");
+}
+
+// Partager un bon plan ou un code promo : à un proche dans Bourselle (il arrive dans votre discussion),
+// ou par WhatsApp, SMS… avec le partage du téléphone (le lien ouvre le bon plan, et fait découvrir Bourselle)
+function offShareText(o) {
+  return o.kind === "group" ? `${o.emoji} ${o.partner} : ${o.title}. ${offPct(o)} si on est assez nombreux, tu es partant ? Rejoins-moi sur Bourselle :`
+    : `${o.emoji || "🎁"} ${o.partner} : ${o.title}${o.code ? ` (code ${o.code})` : ""}`;
+}
+function offShareOpen(o, back) {
+  const url = appBase() + "?offre=" + o.id, soc = typeof socOn === "function" && socOn();
+  const people = soc && typeof prochesTagged === "function" ? prochesTagged().slice(0, 12) : [];
+  const pick = new Set();
+  closeForm();
+  setTimeout(() => {
+    const f = openForm(`<div class="f2 osh"><h3>Partager</h3>
+      <div class="osh-o"><span class="act-emo">${esc(o.emoji || "🎁")}</span><span><b>${esc(o.partner)}</b><small>${esc(o.title)}</small>${o.code ? `<small class="osh-code">Code <b>${esc(o.code)}</b></small>` : ""}</span></div>
+      ${people.length ? `<span class="lbl">À un proche, dans Bourselle</span><div class="fav-row bub osh-row">${people.map(p => `<button type="button" class="fav" data-osp="${esc(p.tag)}" aria-pressed="false"><span class="fav-ring"><span class="fav-av" data-avtag="${esc(p.tag)}" style="background:${favColor("@" + p.tag)}">${esc(favFirst(p.name || p.tag).charAt(0))}</span></span><b>${esc(favFirst(p.name || "@" + p.tag))}</b></button>`).join("")}</div>
+        <input class="field" id="oshMsg" maxlength="160" placeholder="Un petit mot ? (ex. On y va samedi ?)">
+        <button type="button" class="btn primary" id="oshSend" disabled style="width:100%;margin-top:8px">Envoyer dans Bourselle</button>` : soc ? `<p class="hint">Ajoute des proches pour leur envoyer des bons plans directement dans Bourselle.</p>` : ""}
+      <span class="lbl" style="margin-top:14px">Ailleurs</span>
+      <button type="button" class="btn osh-ext" id="oshExt">📲 WhatsApp, SMS, e-mail…</button>
+      ${o.code ? `<button type="button" class="linkbtn" id="oshCopy" style="margin-top:8px">📋 Copier le code ${esc(o.code)}</button>` : ""}</div>`, () => true);
+    f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
+    if (back) f.querySelector("#f2Cancel").addEventListener("click", () => setTimeout(back, 220));
+    const send = f.querySelector("#oshSend");
+    f.querySelectorAll("[data-osp]").forEach(b => b.onclick = () => { const t = b.dataset.osp; pick.has(t) ? pick.delete(t) : pick.add(t); b.setAttribute("aria-pressed", pick.has(t)); send.disabled = !pick.size; send.textContent = pick.size > 1 ? `Envoyer à ${pick.size} proches` : "Envoyer dans Bourselle"; });
+    if (send) send.onclick = async () => {
+      send.disabled = true; const text = f.querySelector("#oshMsg").value.trim(); let ok = 0;
+      for (const t of pick) { try { await socApi("/dm/" + encodeURIComponent(t), { method: "POST", body: JSON.stringify({ name: typeof ensName === "function" ? ensName() : "", offerRef: o.id, text }) }); ok++; } catch (e) { toast(e.message); } }
+      if (ok) { if (typeof statHit === "function") statHit("bonplan"); toast(ok > 1 ? `🎁 Envoyé à ${ok} proches` : "🎁 Envoyé dans votre discussion"); if (typeof ensRefresh === "function") ensRefresh(); closeForm(); }
+      else send.disabled = false;
+    };
+    f.querySelector("#oshExt").onclick = () => shareText(offShareText(o), url, "Lien copié");
+    const cp = f.querySelector("#oshCopy"); if (cp) cp.onclick = () => { try { navigator.clipboard.writeText(o.code); toast("Code copié"); } catch (e) { toast(o.code); } };
+  }, 220);
 }

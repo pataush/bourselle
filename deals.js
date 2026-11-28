@@ -170,11 +170,11 @@ function renderDeal() {
   DEALUI.render(document.getElementById("dealRoot"), S, ctx);
 }
 // Créer ou modifier
-function editDeal(id, kind) {
+function editDeal(id, kind, pre) {
   if (typeof socOn !== "function" || !socOn()) { toast("Connecte-toi avec Google ou Microsoft pour créer un achat groupé ou une cagnotte"); return; }
   const d = id ? (dealState && dealState.deal && dealState.deal.id === id ? dealState.deal : DEALS.find(x => x.id === id)) : null;
   kind = d ? d.kind : kind || "achat";
-  let file = null, tfreq = (d && d.freq) || "mois", cmode = "ton";
+  let file = null, tfreq = (d && d.freq) || "mois", cmode = pre && pre.simple ? "simple" : "ton";
   const num = v => v == null || v === "" || v === 0 ? "" : esc(String(v).replace(".", ","));
   const f = openForm(`<div class="f2"><h3>${d ? "Modifier" : kind === "achat" ? "Nouvel achat groupé" : "Nouvelle cagnotte"}</h3>
     ${fld("dlTitle", "Titre", `maxlength="80" placeholder="${kind === "achat" ? "ex. Meule de comté direct producteur" : "ex. Tontine de la famille"}" value="${esc(d ? d.title : "")}"`)}
@@ -230,5 +230,7 @@ function editDeal(id, kind) {
     chipsPick("dlMode", [["ton", "🔄 Tontine"], ["simple", "🎁 Cagnotte simple"]], cmode, setM); setM(cmode);
   }
   if (f.querySelector("#dlFreq")) chipsPick("dlFreq", [["semaine", "Chaque semaine"], ["mois", "Chaque mois"], ["an", "Chaque année"]], tfreq, v => tfreq = v);
+  // Pré-rempli (ex. cagnotte cadeau d'anniversaire)
+  if (pre && !d) { const set = (i, v) => { const e = f.querySelector("#" + i); if (e && v) e.value = v; }; set("dlTitle", pre.title); set("dlDesc", pre.desc); set("dlDate2", pre.deadline); set("dlTarget", pre.target ? String(pre.target).replace(".", ",") : ""); }
   const ph = f.querySelector("#dlPh"); if (ph) ph.onchange = () => { file = ph.files && ph.files[0]; if (file) f.querySelector("#dlPhL").textContent = file.name.slice(0, 24); };
 }

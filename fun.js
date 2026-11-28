@@ -100,6 +100,38 @@ function funBdays() {
     (settings.bdays = settings.bdays || []).push({ name: n, d: v.slice(5) }); saveSettings(); f.querySelector("#bdN").value = ""; f.querySelector("#bdD").value = ""; f.querySelector("#bdList").innerHTML = draw(); bind(); render(); };
 }
 
+// Anniversaire d'un proche dans les 7 jours : une carte dans « Entre proches », avec deux choix
+// (cagnotte cadeau ou événement). La personne fêtée n'est jamais proposée parmi les invités : c'est une surprise.
+function bdayTagOf(b) {
+  if (b.tag) return b.tag;
+  const n = norm(b.name || ""), l = typeof prochesTagged === "function" ? prochesTagged() : [];
+  const p = l.find(x => norm(favFirst(x.name || "")) === n || norm(x.name || "") === n || norm(x.tag) === n.replace(/^@/, ""));
+  return p ? p.tag : "";
+}
+function bdayNext() {
+  const b = funNextBday(); if (!b || b.in > 7) return null;
+  const off = (settings.bdayOff || {})[b.name + "|" + b.next]; return off ? null : b;
+}
+function bdayCardHTML() {
+  const b = bdayNext(); if (!b) return "";
+  const first = favFirst(b.name), day = new Date(b.next + "T12:00:00"), when = b.in === 0 ? "aujourd'hui" : b.in === 1 ? "demain" : `dans ${b.in} jours`;
+  const dstr = `${["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"][day.getDay()]} ${day.getDate()} ${MOIS[day.getMonth()]}`;
+  return `<div class="card bd-card" data-bd="${esc(b.name + "|" + b.next)}"><button type="button" class="hbtn bd-x" id="bdX" aria-label="Masquer">✕</button>
+    <div class="bd-top"><span class="bd-emo">🎂</span><div><b>Anniversaire de ${esc(first)} ${esc(when)}</b><small>${esc(dstr)} · on lui prépare quelque chose ?</small></div></div>
+    <div class="bd-acts"><button type="button" class="btn primary" id="bdCag">🎁 Cagnotte cadeau</button><button type="button" class="btn" id="bdEv">🎉 Organiser un événement</button></div>
+    <p class="hint bd-sec">🤫 Surprise : ${esc(first)} ne voit rien et ne fait pas partie des invités.</p></div>`;
+}
+function bdayBind(root) {
+  const c = root.querySelector(".bd-card"); if (!c) return;
+  const b = bdayNext(); if (!b) return;
+  const first = favFirst(b.name), tag = bdayTagOf(b), fr = d => { const x = new Date(d + "T12:00:00"); return `${x.getDate()} ${MOIS[x.getMonth()]}`; };
+  c.querySelector("#bdX").onclick = () => { settings.bdayOff = settings.bdayOff || {}; settings.bdayOff[b.name + "|" + b.next] = 1; saveSettings(); render(); };
+  c.querySelector("#bdCag").onclick = () => editDeal(null, "cagnotte", { simple: true, title: `Cadeau pour ${first} 🎁`, deadline: b.next,
+    desc: `Cagnotte surprise pour l'anniversaire de ${first} le ${fr(b.next)}. 🤫 Chut : ${first} n'est pas au courant, ne lui transmets pas le lien !`, exclude: tag ? [tag] : [] });
+  c.querySelector("#bdEv").onclick = () => actNew({ head: `🎉 Fêter l'anniversaire de ${first}`, title: `Anniversaire de ${first}`, emoji: "🎂", when: b.next, exclude: tag ? [tag] : [],
+    note: `🤫 Surprise : ${first} n'apparaît pas dans la liste, invite seulement les autres.`, desc: `Surprise pour l'anniversaire de ${first} : chut !` });
+}
+
 // ---------- Célébrations ----------
 function funConfetti() {
   if (window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;

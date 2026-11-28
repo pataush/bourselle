@@ -42,7 +42,7 @@ async function ensRefresh() {
 }
 
 // ---------- Entre proches : onglets « Discussions » et « Projets » ----------
-const ensSnip = t => `${t.last.from === "sys" ? "" : t.last.mine ? "Toi : " : t.gid ? favFirst(t.last.name || t.last.from) + " : " : ""}${t.last.kind === "idea" ? "💡 " + t.last.idea.title : t.last.kind === "act" ? "📅 " + (t.last.text || "Projet") : t.last.kind === "place" ? "📍 " + t.last.place.name : t.last.kind === "dates" ? "📅 Dates proposées · vote !" : t.last.del ? "Message supprimé" : t.last.text || ""}`;
+const ensSnip = t => `${t.last.from === "sys" ? "" : t.last.mine ? "Toi : " : t.gid ? favFirst(t.last.name || t.last.from) + " : " : ""}${t.last.kind === "idea" ? "💡 " + t.last.idea.title : t.last.kind === "act" ? "📅 " + (t.last.text || "Projet") : t.last.kind === "place" ? "📍 " + t.last.place.name : t.last.kind === "dates" ? "📅 Dates proposées · vote !" : t.last.kind === "poll" ? "📊 " + t.last.poll.q : t.last.del ? "Message supprimé" : t.last.text || ""}`;
 // Discussions archivées ou supprimées (pour moi seulement, gardé dans mes réglages, donc sur tous mes appareils)
 // Supprimée : disparaît de la liste jusqu'au prochain message. Archivée : rangée dans « Archivées ».
 const chatHid = () => (settings.chatHid = settings.chatHid && typeof settings.chatHid === "object" ? settings.chatHid : {});
@@ -57,7 +57,7 @@ function ensThreadsHTML() {
     const av = t.gid ? `<span class="ep-av g" style="background:${act ? "#c9a24a" : "#1f6b4b"}">${esc(act ? act.emoji || "📅" : "👥")}</span>`
       : `<span class="ep-av" data-avtag="${esc(t.tag)}" style="background:${favColor("@" + t.tag)}">${esc(favFirst(chatTitle(t)).charAt(0).toUpperCase())}</span>`;
     const other = t.unread && !t.last.mine && t.last.from !== "sys";
-    const q = other ? `<span class="ep-q">${t.last.kind === "dates" ? `<i data-open="1">📅 Voter</i>` : t.last.kind === "place" ? `<i class="p" data-qr="👍 Ça me va !">👍 Ça me va</i><i data-open="1">Répondre</i>` : `<i class="p" data-qr="👍 Partant !">👍 Partant</i><i data-open="1">Répondre</i>`}</span>` : "";
+    const q = other ? `<span class="ep-q">${t.last.kind === "dates" ? `<i data-open="1">📅 Voter</i>` : t.last.kind === "poll" ? `<i data-open="1">📊 Répondre</i>` : t.last.kind === "place" ? `<i class="p" data-qr="👍 Ça me va !">👍 Ça me va</i><i data-open="1">Répondre</i>` : `<i class="p" data-qr="👍 Partant !">👍 Partant</i><i data-open="1">Répondre</i>`}</span>` : "";
     const k = esc(chatKey(t));
     return `<div class="ep-sw"><div class="ep-acts"><button type="button" class="ep-a-arch" data-carch="${k}">${isArch ? "📤<span>Sortir</span>" : "📦<span>Archiver</span>"}</button><button type="button" class="ep-a-del" data-cdel="${k}">🗑<span>Supprimer</span></button></div>
       <div class="ep-th${t.unread ? " unread" : ""}" role="button" tabindex="0" ${t.gid ? `data-gc="${esc(t.gid)}"` : `data-dm="${esc(t.tag)}"`}>${av}
@@ -132,7 +132,7 @@ function ensActCard(a) {
   const days = a.when ? Math.round((new Date(a.when) - new Date(todayISO())) / 864e5) : null;
   const when = days == null ? "" : days < 0 ? frDate(a.when) : days === 0 ? "aujourd'hui" : days === 1 ? "demain" : days < 15 ? `dans ${days} j` : frDate(a.when).slice(0, 5);
   const last = (a.msgs || []).filter(m => m.from !== "sys" && (m.text || m.kind)).pop();
-  const lastTxt = last ? `${last.mine || last.from === SOC.tag ? "Toi" : favFirst(last.name || last.from)} : ${last.kind === "place" && last.place ? "📍 " + last.place.name : last.kind === "dates" ? "📅 Dates proposées" : last.text || ""}` : "";
+  const lastTxt = last ? `${last.mine || last.from === SOC.tag ? "Toi" : favFirst(last.name || last.from)} : ${last.kind === "place" && last.place ? "📍 " + last.place.name : last.kind === "dates" ? "📅 Dates proposées" : last.kind === "poll" && last.poll ? "📊 " + last.poll.q : last.text || ""}` : "";
   const avs = a.members.slice(0, 6).map(m => `<span class="${m.st === "ok" ? "ok" : ""}" style="background:${favColor("@" + (m.tag || m.name))}" title="${esc(m.name || m.tag)}">${esc(favFirst(m.name || m.tag || "?").charAt(0).toUpperCase())}</span>`).join("");
   return `<div class="card act-card ep-pj" data-act="${esc(a.id)}" role="button" tabindex="0"><div class="act-top"><span class="act-emo">${esc(a.emoji || "📅")}</span><span class="act-tt"><b>${esc(a.title)}</b><small>On cotise ${esc(ensMoney(a.budget, a.cur))} à ${n}${a.place ? " · " + esc(a.place) : ""}</small></span>${when ? `<span class="ep-when">${esc(when)}</span>` : ""}</div>
     <div class="act-bar"><i style="width:${Math.min(100, Math.round(a.got / a.budget * 100))}%"></i></div>
@@ -285,10 +285,10 @@ async function chatOpen(ref) {
   const av = group ? `<span class="fav-av grp">👥</span>` : `<span class="fav-av" data-avtag="${esc(ref.tag)}" data-avwave="1" style="background:${favColor("@" + ref.tag)}">${esc(favFirst(name).charAt(0))}</span>`;
   const f = openForm(`<div class="f2 dm-sheet" data-chat="${esc(chatKey(ref))}"><div class="dm-head"><button type="button" class="dm-back" id="dmBack" aria-label="Retour">‹</button>${av}<div class="dm-hd"><h3 style="margin:0">${esc(name)}</h3><small class="hint">${group ? `${d.members.length} personnes` : "@" + esc(ref.tag)}</small></div>
       <button type="button" class="btn dm-add" id="dmAdd" title="Ajouter des personnes">👥 +</button></div>
-    <div class="dm-bar"><button type="button" class="btn" id="dmInvite">🔗 Inviter (WhatsApp, SMS)</button>${group ? `<button type="button" class="btn${(d.rsvp || {})[SOC.tag] === "yes" ? " primary" : ""}" id="dmGo">${(d.rsvp || {})[SOC.tag] === "yes" ? "✓ J'y vais" : "J'y vais ?"}<small>${Object.values(d.rsvp || {}).filter(v => v === "yes").length || ""}</small></button>` : ""}</div>
+    <div class="dm-bar">${group ? `<button type="button" class="btn" id="dmInvite">🔗 Inviter (WhatsApp, SMS)</button>` : `<button type="button" class="btn" id="dmAsk">🙋 Demander de l'argent</button><button type="button" class="btn" id="dmRepay">💸 Rembourser</button><button type="button" class="btn dm-ic" id="dmInvite" aria-label="Inviter par WhatsApp ou SMS">🔗</button>`}${group ? `<button type="button" class="btn${(d.rsvp || {})[SOC.tag] === "yes" ? " primary" : ""}" id="dmGo">${(d.rsvp || {})[SOC.tag] === "yes" ? "✓ J'y vais" : "J'y vais ?"}<small>${Object.values(d.rsvp || {}).filter(v => v === "yes").length || ""}</small></button>` : ""}</div>
     ${group && d.guests && d.guests.length ? `<p class="hint dm-guests">Sans l'appli : ${d.guests.map(x => esc(x.name)).join(", ")}</p>` : ""}
     <div class="dm-box" id="dmBox"></div>
-    <div class="dm-tools"><button type="button" class="btn" id="dmPlace">📍 Lieu</button><button type="button" class="btn" id="dmDates">📅 Dates</button><button type="button" class="btn" id="dmIdea">💡 Financer</button></div>
+    <div class="dm-tools"><button type="button" class="btn" id="dmPlace">📍 Lieu</button><button type="button" class="btn" id="dmDates">📅 Dates</button><button type="button" class="btn" id="dmPoll">📊 Sondage</button><button type="button" class="btn" id="dmIdea">💡 Financer</button></div>
     <div class="dm-in"><textarea class="field" id="dmText" rows="1" maxlength="1000" placeholder="Écris un message…"></textarea><button type="button" class="btn primary" id="dmSend" aria-label="Envoyer">➤</button></div>
     ${group ? `<button type="button" class="linkbtn" id="dmLeave" style="margin-top:10px;color:var(--bad)">Quitter la discussion</button>` : ""}</div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
@@ -319,6 +319,13 @@ async function chatOpen(ref) {
   f.querySelector("#dmPlace").onclick = () => placeSearch(pl => post({ place: pl }).catch(e => toast(e.message)));
   f.querySelector("#dmDates").onclick = () => datesForm(f, post);
   f.querySelector("#dmInvite").onclick = () => chatInvite(ctx);
+  f.querySelector("#dmPoll").onclick = () => pollForm(f, post);
+  { const ask = f.querySelector("#dmAsk"), rp = f.querySelector("#dmRepay"), pr = () => (typeof prochesList === "function" ? prochesList() : []).find(x => x.tag === ref.tag);
+    if (ask) ask.onclick = () => { closeForm(); setTimeout(() => editPay({ to: ref.tag }), 220); };
+    if (rp) { const p = pr(), due = p && p.items.some(x => x.dir === "out"); if (due) rp.classList.add("primary");
+      rp.onclick = () => { const q = pr(); if (!q || !q.items.some(x => x.dir === "out")) { toast(`Tu ne dois rien à ${favFirst(name)} 👍`); return; } closeForm(); setTimeout(() => favPayNow(q), 220); }; }
+    // Toucher le nom ou l'avatar : la fiche du proche (ce qu'il y a entre vous, groupes en commun)
+    const hd = f.querySelector(".dm-hd"); if (hd && !group) { hd.style.cursor = "pointer"; hd.onclick = () => { const q = pr(); if (q && typeof favOpen === "function") { closeForm(); setTimeout(() => favOpen(q.key), 220); } }; } }
   f.querySelector("#dmBack").onclick = () => closeForm();
   if (chatOpen.intent) { const it = chatOpen.intent; chatOpen.intent = null; setTimeout(() => { const b = f.querySelector({ place: "#dmPlace", dates: "#dmDates", invite: "#dmInvite" }[it]); if (b) b.click(); }, 350); }
   { const g = f.querySelector("#dmGo"); if (g) g.onclick = async () => { const yes = (ctx.d.rsvp || {})[SOC.tag] === "yes"; try { await post({ action: "rsvp", v: yes ? "no" : "yes" }); closeForm(); setTimeout(() => gcOpen(ref.gid), 200); } catch (e) { toast(e.message); } }; }
@@ -394,7 +401,15 @@ function chatMsgHTML(m, ctx) {
       ${D.opts.map((x, i) => `<div class="dd-row${m.chosen === i ? " chosen" : cnt[i] && cnt[i] === best && m.chosen < 0 ? " best" : ""}"><button type="button" class="dd-ck" data-dpick="${esc(m.id)}" data-i="${i}" aria-pressed="${myP.has(i)}">${myP.has(i) ? "☑" : "☐"}</button><span>${esc(ddFmt(x))}${cnt[i] && cnt[i] === best && m.chosen < 0 ? " ⭐" : ""}</span><small>${cnt[i]} ✓</small>${m.mine && m.chosen < 0 ? `<button type="button" class="linkbtn" data-dchoose="${esc(m.id)}" data-i="${i}">Choisir</button>` : ""}</div>`).join("")}
       ${m.chosen >= 0 ? `<div class="dm-cta"><a class="btn primary" href="${esc(gcalUrl(D.title || ctx.name, D.opts[m.chosen], ctx))}" target="_blank" rel="noopener">🗓️ Google Agenda</a><button type="button" class="btn" data-dics="${esc(m.id)}">📲 Mon agenda</button></div><small class="hint">Rappels la veille et 2 h avant.</small>` : ""}</div><small class="dm-t">${esc(dmTime(m.at))}</small></div>`;
   }
-  if (m.kind === "offer") { const o = typeof BPLANS !== "undefined" ? BPLANS.find(x => x.id === m.offer) : null; return `<div class="dm-m ${m.mine ? "me" : ""}" data-from="${esc(m.from || "")}">${whoTag}<button type="button" class="dm-card dm-actlink" data-dmoffer="${esc(m.offer)}"><small>🎁 Bon plan</small><b>${esc(o ? `${o.emoji} ${o.partner}` : "Bon plan")}</b>${o ? `<span class="hint">${esc(o.title)}</span>` : ""}<span class="linkbtn">Voir ›</span></button><small class="dm-t">${esc(dmTime(m.at))}</small></div>`; }
+  if (m.kind === "poll") {
+    const P = m.poll, A = m.answers || {}, mine = new Set(A[SOC.tag] || []), cnt = P.opts.map((_, i) => Object.values(A).filter(l => (l || []).includes(i)).length);
+    const voters = Object.keys(A).length, best = Math.max(0, ...cnt);
+    return `<div class="dm-m ${m.mine ? "me" : ""}" data-from="${esc(m.from || "")}">${whoTag}<div class="dm-card dm-poll${m.closed ? " closed" : ""}"><small>📊 ${m.mine ? "Ton sondage" : `Sondage de ${esc(who)}`}${P.multi ? " · plusieurs choix" : ""}</small><b>${esc(P.q)}</b>
+      ${P.opts.map((x, i) => `<button type="button" class="pl-row${mine.has(i) ? " on" : ""}${m.closed && cnt[i] && cnt[i] === best ? " best" : ""}" data-poll="${esc(m.id)}" data-i="${i}"${m.closed ? " disabled" : ""}><i style="width:${voters ? Math.round(cnt[i] / voters * 100) : 0}%"></i><span>${mine.has(i) ? "✓ " : ""}${esc(x)}</span><small>${cnt[i] || ""}</small></button>`).join("")}
+      <small class="hint">${m.closed ? `Sondage terminé · ${voters} réponse${voters > 1 ? "s" : ""}` : voters ? `${voters} réponse${voters > 1 ? "s" : ""}${mine.size ? " · touche pour changer" : ""}` : "Personne n'a encore répondu"}</small>
+      ${m.mine && !m.closed && voters ? `<button type="button" class="linkbtn" data-pclose="${esc(m.id)}">Clore le sondage</button>` : ""}</div><small class="dm-t">${esc(dmTime(m.at))}</small></div>`;
+  }
+  if (m.kind === "offer") { const o = typeof BPLANS !== "undefined" ? BPLANS.find(x => x.id === m.offer) : null; return `<div class="dm-m ${m.mine ? "me" : ""}" data-from="${esc(m.from || "")}">${whoTag}<button type="button" class="dm-card dm-actlink" data-dmoffer="${esc(m.offer)}"><small>🎁 Bon plan</small><b>${esc(o ? `${o.emoji} ${o.partner}` : "Bon plan")}</b>${o ? `<span class="hint">${esc(o.title)}</span>` : ""}${o && o.code ? `<span class="osh-code">Code <b>${esc(o.code)}</b></span>` : ""}${m.text ? `<span class="dm-otxt">${esc(m.text)}</span>` : ""}<span class="linkbtn">Voir ›</span></button><small class="dm-t">${esc(dmTime(m.at))}</small></div>`; }
   if (m.kind === "act") { const a = ACTS.find(x => x.id === m.act); return `<div class="dm-m ${m.mine ? "me" : ""}" data-from="${esc(m.from || "")}">${whoTag}<button type="button" class="dm-card dm-actlink" data-dmact="${esc(m.act)}"><small>📅 Activité</small><b>${esc(a ? `${a.emoji} ${a.title}` : m.text || "Activité")}</b><span class="linkbtn">Ouvrir ›</span></button><small class="dm-t">${esc(dmTime(m.at))}</small></div>`; }
   return `<div class="dm-m ${m.mine ? "me" : ""}" data-from="${esc(m.from || "")}">${whoTag}<div class="dm-b">${linkify(m.text || "")}</div><small class="dm-t">${esc(dmTime(m.at))}</small></div>`;
 }
@@ -405,6 +420,8 @@ function chatMsgBind(box, ctx, upd) {
     closeForm(); setTimeout(() => actNew({ title: `Sortie : ${m.place.name}`, place: m.place.name, when: dm ? dm.dates.opts[dm.chosen].slice(0, 10) : "", with: ctx.group ? ctx.d.members.filter(x => !x.me && (ctx.d.rsvp || {})[x.tag] === "yes").map(x => x.tag) : [], invite: ctx.group ? ctx.d.members.filter(x => !x.me && (ctx.d.rsvp || {})[x.tag] !== "yes").map(x => x.tag) : [ctx.ref.tag], fromChat: { ref: ctx.ref, mid: "" } }), 220); });
   box.querySelectorAll("[data-dpick]").forEach(b => b.onclick = async () => { const m = ctx.d.msgs.find(x => x.id === b.dataset.dpick), cur = new Set((m.picks || {})[SOC.tag] || []), i = +b.dataset.i; cur.has(i) ? cur.delete(i) : cur.add(i); try { await ctx.post({ action: "pick", mid: m.id, picks: [...cur] }); } catch (e) { toast(e.message); } });
   box.querySelectorAll("[data-dchoose]").forEach(b => b.onclick = async () => { try { await ctx.post({ action: "choose", mid: b.dataset.dchoose, i: +b.dataset.i, tzOff: new Date().getTimezoneOffset() }); toast("Date choisie : tout le monde est prévenu 📅"); } catch (e) { toast(e.message); } });
+  box.querySelectorAll("[data-poll]").forEach(b => b.onclick = async () => { b.disabled = true; try { await ctx.post({ action: "answer", mid: b.dataset.poll, i: +b.dataset.i }); } catch (e) { toast(e.message); b.disabled = false; } });
+  box.querySelectorAll("[data-pclose]").forEach(b => b.onclick = async () => { try { await ctx.post({ action: "close", mid: b.dataset.pclose }); toast("Sondage terminé"); } catch (e) { toast(e.message); } });
   box.querySelectorAll("[data-dics]").forEach(b => b.onclick = () => { const m = ctx.d.msgs.find(x => x.id === b.dataset.dics); icsDownload(m.dates.title || ctx.name, m.dates.opts[m.chosen], ctx); });
   box.querySelectorAll("[data-dmoffer]").forEach(b => b.onclick = () => { closeForm(); setTimeout(() => offersOpen(b.dataset.dmoffer), 200); });
   box.querySelectorAll("[data-dmact]").forEach(b => b.onclick = () => { closeForm(); setTimeout(() => actOpen(b.dataset.dmact), 220); });
@@ -414,6 +431,27 @@ function chatMsgBind(box, ctx, upd) {
     const withT = Object.keys(v).filter(t => v[t] === "yes" && t !== SOC.tag), inv = people.filter(t => t !== SOC.tag && !v[t]);
     closeForm(); setTimeout(() => actNew({ title: m.idea.title, budget: m.idea.budget, when: m.idea.when, desc: m.idea.note, with: withT, invite: inv, fromChat: { ref: ctx.ref, mid: m.id } }), 220);
   });
+}
+// Sondage : « On mange où samedi ? » avec 2 à 6 réponses
+function pollForm(f, post) {
+  const box = f.querySelector(".dm-sheet"); if (!box || box.querySelector(".dm-pollform")) return;
+  const wrap = document.createElement("div"); wrap.className = "dm-pollform card";
+  const optF = i => `<input class="field pl-opt" maxlength="60" placeholder="Réponse ${i + 1}${i === 0 ? " (ex. Pizza)" : i === 1 ? " (ex. Sushi)" : ""}">`;
+  wrap.innerHTML = `<b>📊 Nouveau sondage</b><input class="field" id="plQ" maxlength="120" placeholder="ex. On mange où samedi ?">
+    <div id="plOpts">${[0, 1, 2].map(optF).join("")}</div><button type="button" class="linkbtn" id="plMore">+ Ajouter une réponse</button>
+    <label class="pl-multi"><input type="checkbox" id="plMulti"> Plusieurs réponses possibles</label>
+    <div class="dm-cta"><button type="button" class="btn primary" id="plGo">Envoyer</button><button type="button" class="btn" id="plNo">Annuler</button></div>`;
+  box.querySelector(".dm-in").before(wrap); box.querySelector(".dm-tools").hidden = true; wrap.querySelector("#plQ").focus();
+  const close = () => { wrap.remove(); box.querySelector(".dm-tools").hidden = false; };
+  wrap.querySelector("#plNo").onclick = close;
+  wrap.querySelector("#plMore").onclick = e => { const o = wrap.querySelector("#plOpts"), n = o.children.length; if (n >= 6) return; o.insertAdjacentHTML("beforeend", optF(n)); o.lastElementChild.focus(); if (n + 1 >= 6) e.currentTarget.hidden = true; };
+  wrap.querySelector("#plGo").onclick = async () => {
+    const q = wrap.querySelector("#plQ").value.trim(), opts = [...wrap.querySelectorAll(".pl-opt")].map(x => x.value.trim()).filter(Boolean);
+    if (!q) { toast("Pose ta question"); return; }
+    if (opts.length < 2) { toast("Propose au moins 2 réponses"); return; }
+    try { await post({ poll: { q, opts, multi: wrap.querySelector("#plMulti").checked } }); close(); const b = box.querySelector("#dmBox"); b.scrollTop = b.scrollHeight; }
+    catch (e) { toast(e.message); }
+  };
 }
 function chatIdea(f, post) {
   const box = f.querySelector(".dm-sheet"); if (!box || box.querySelector(".dm-ideaform")) return;
@@ -436,12 +474,12 @@ const ACT_EMO = ["🎉", "🍽️", "🏖️", "🎁", "🎬", "🎳", "⚽", "�
 function actNew(pre) {
   pre = pre || {};
   if (!(typeof socOn === "function" && socOn())) { toast("Connecte-toi avec Google ou Microsoft pour créer une activité"); return; }
-  const pick = new Set(pre.with || []), people = prochesTagged().slice(0, 14);
+  const pick = new Set(pre.with || []), people = prochesTagged().filter(p => !(pre.exclude || []).includes(p.tag)).slice(0, 14);
   if (pre.preInvite) pick.add(pre.preInvite);
   for (const t of pre.invite || []) pick.add(t);
   for (const t of pick) if (!people.some(p => p.tag === t)) people.unshift({ tag: t, name: "" });
   let emo = pre.emoji || ACT_EMO[0];
-  const f = openForm(`<div class="f2"><h3>Créer une activité ensemble</h3>
+  const f = openForm(`<div class="f2"><h3>${esc(pre.head || "Créer une activité ensemble")}</h3>${pre.note ? `<p class="hint act-note">${esc(pre.note)}</p>` : ""}
     <div class="act-emos" id="acEmo">${ACT_EMO.map(e => `<button type="button" data-e="${e}" aria-pressed="${e === emo}">${e}</button>`).join("")}</div>
     ${fld("acTitle", "Quoi ?", `maxlength="80" placeholder="ex. Week-end à la mer, resto d'anniversaire" value="${esc(pre.title || "")}"`)}
     <div class="two"><div>${fld("acWhen", "Quand", `type="date" value="${esc(pre.when || "")}"`)}</div><div>${fld("acPlace", "Où (facultatif)", `maxlength="80" placeholder="ex. Biarritz" value="${esc(pre.place || "")}"`)}</div></div>

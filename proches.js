@@ -79,16 +79,31 @@ function favRowHTML() {
   const list = prochesList().slice(0, 14);
   if (!list.length && !(typeof socOn === "function" && socOn())) return "";
   // Bulles : anneau vert (on te doit), rouge (tu dois), gris (quittes) ; point orange = message non lu
-  return `<div class="hub-sec"><span>Mes proches</span>${list.length > 5 ? `<button type="button" class="linkbtn" id="favAll">Tout voir</button>` : ""}</div>
-    <div class="fav-row bub">${list.map(p => { const net = Math.round((p.owe - p.due) * 100) / 100, cls = net > 0.004 ? "good" : net < -0.004 ? "bad" : "";
+  // Sans titre, juste sous « On te doit / Tu dois » : un toucher ouvre directement la discussion avec ce proche
+  return `<div class="fav-row bub fav-top">${list.map(p => { const net = Math.round((p.owe - p.due) * 100) / 100, cls = net > 0.004 ? "good" : net < -0.004 ? "bad" : "";
       const un = p.tag && typeof dmUnread === "function" && dmUnread(p.tag);
       return `<button type="button" class="fav" data-fav="${esc(p.key)}"><span class="fav-ring ${cls}"><span class="fav-av" data-avtag="${esc(p.tag || "")}" style="background:${favColor(p.key)}">${esc(favFirst(p.name).charAt(0))}${p.pinned ? `<i>⭐</i>` : ""}${un ? `<em class="fav-un" aria-label="${un} message(s) non lu(s)"></em>` : ""}</span></span><b>${esc(favFirst(p.name))}</b><small class="${cls}">${cls ? `${net > 0 ? "+" : "−"}${esc(eur(Math.abs(net), true))}` : "quitte"}</small></button>`; }).join("")}
+      ${prochesList().length > list.length ? `<button type="button" class="fav fav-add" id="favAll"><span class="fav-ring"><span class="fav-av">⋯</span></span><b>Tous</b><small>${prochesList().length}</small></button>` : ""}
       ${typeof socOn === "function" && socOn() ? `<button type="button" class="fav fav-add" id="favAdd"><span class="fav-ring"><span class="fav-av">+</span></span><b>Ajouter</b><small>@tag, QR</small></button>` : ""}</div>`;
 }
 function favBind(root) {
-  root.querySelectorAll("[data-fav]").forEach(b => b.onclick = () => favOpen(b.dataset.fav));
+  root.querySelectorAll("[data-fav]").forEach(b => b.onclick = () => favTap(b.dataset.fav));
   const a = root.querySelector("#favAdd"); if (a) a.onclick = () => favAddContact();
   const all = root.querySelector("#favAll"); if (all) all.onclick = () => favAllOpen();
+}
+// Rembourser un proche : ce que je lui dois (dette, demande reçue, part dans un groupe)
+function favPayNow(p) {
+  const it = p.items.find(x => x.dir === "out"); if (!it) { toast(`Tu ne dois rien à ${favFirst(p.name)} 👍`); return; }
+
+        if (it.k === "rin") { switchTab("dettes"); return setTimeout(() => reqPay(it.id), 200); }
+        if (it.k === "d") { const d = debts[it.id], c = d && d.claim && SOC.in.find(y => y.id === d.claim); if (c && c.pay) return showPay(c.pay, debtCalc(d).remaining, d.name, p.name, () => setTimeout(() => addPayment({ ...d, id: it.id }), 250)); return addPayment({ ...d, id: it.id }); }
+        if (it.k === "g") { const g = groups[it.gid]; if (g.pays && g.pays[it.s.to]) return showPay(g.pays[it.s.to], it.amount, g.name, p.name, () => { g.expenses = g.expenses || {}; g.expenses[newId()] = { kind: "transfer", from: it.s.from, to: it.s.to, amount: it.amount, date: todayISO(), created: Date.now(), updated: Date.now() }; saveGroups(); render(); toast("Remboursement enregistré"); }); openGroup = it.gid; switchTab("partage"); }
+}
+// Toucher un proche : la discussion s'il a l'appli (avec Demander / Rembourser en haut), sinon sa fiche
+function favTap(key) {
+  const p = prochesList().find(x => x.key === key); if (!p) return;
+  if (p.tag && typeof dmOpen === "function" && typeof socOn === "function" && socOn()) return dmOpen(p.tag, p.name);
+  favOpen(key);
 }
 // Tous mes proches, en liste
 function favAllOpen() {
@@ -131,6 +146,7 @@ function favOpen(key) {
     ${p.tag && typeof dmOpen === "function" ? `<div class="fav-btns" style="margin:-4px 0 12px"><button type="button" class="btn primary" data-fa="dm">💬 Écrire à ${esc(favFirst(p.name))}${typeof dmUnread === "function" && dmUnread(p.tag) ? ` <i class="badge">${dmUnread(p.tag)}</i>` : ""}</button><button type="button" class="btn" data-fa="act">📅 Une activité ensemble</button></div>` : ""}
     ${p.items.length ? `<span class="lbl">Entre vous</span>${p.items.map((it, i) => `<button type="button" class="fav-it ${it.dir}" data-fi="${i}"><span>${esc(it.label)}<small>${esc(it.k === "g" ? "groupe" : it.k === "d" ? "dette" : it.pend ? "dit avoir payé : à confirmer" : "demande de paiement")}</small></span><b class="num">${it.dir === "in" ? "+" : "−"}${esc(money(it.amount, it.cur))}</b></button>`).join("")}` : `<p class="hint">Rien en cours entre vous.</p>`}
     ${groupsIn.length ? `<span class="lbl">Groupes en commun</span><div class="chips">${groupsIn.map(g => `<button type="button" class="chip" data-fg="${esc(g)}">${esc(groups[g].name)}</button>`).join("")}</div>` : ""}
+    ${(() => { const bd = (settings.bdays || []).find(x => (p.tag && x.tag === p.tag) || norm(x.name) === norm(favFirst(p.name)) || norm(x.name) === norm(p.name)); return `<div class="fav-bd" id="favBdW"><button type="button" class="linkbtn" id="favBd">${bd ? `🎂 Anniversaire : ${Number(bd.d.slice(3))} ${MOIS[Number(bd.d.slice(0, 2)) - 1]} · modifier` : "🎂 Ajouter son anniversaire"}</button></div>`; })()}
     <button type="button" class="linkbtn" id="favPin" style="margin-top:12px">${p.pinned ? "Retirer des favoris" : "⭐ Épingler en favori"}</button>
     <button type="button" class="linkbtn" id="favDel" style="margin-top:4px;color:var(--bad)">Retirer de mes proches</button></div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
@@ -151,6 +167,12 @@ function favOpen(key) {
     saveSettings(); closeForm(); render();
     toast(p.owe || p.due ? `${favFirst(p.name)} reste affiché tant qu'il y a de l'argent en cours entre vous` : `${favFirst(p.name)} est retiré de tes proches`);
   };
+  f.querySelector("#favBd").onclick = () => {
+    const w = f.querySelector("#favBdW"); w.innerHTML = `<div class="two" style="align-items:end"><div><label class="lbl" for="favBdD">Anniversaire de ${esc(favFirst(p.name))}</label><input class="field" id="favBdD" type="date"></div><button type="button" class="btn primary" id="favBdOk">OK</button></div><p class="hint" style="margin:4px 0 0">L'année ne compte pas. Bourselle te prévient une semaine avant.</p>`;
+    w.querySelector("#favBdOk").onclick = () => { const v = w.querySelector("#favBdD").value; if (!v) { toast("Choisis la date"); return; }
+      settings.bdays = (settings.bdays || []).filter(x => !((p.tag && x.tag === p.tag) || norm(x.name) === norm(favFirst(p.name)) || norm(x.name) === norm(p.name)));
+      settings.bdays.push({ name: favFirst(p.name), d: v.slice(5), tag: p.tag || "" }); saveSettings(); closeForm(); render(); toast(`🎂 Noté : tu seras prévenu avant l'anniversaire de ${favFirst(p.name)}`); };
+  };
   f.querySelector("#favPin").onclick = () => { const pins = favPins(), i = pins.indexOf(p.key); if (i >= 0) pins.splice(i, 1); else pins.unshift(p.key); saveSettings(); closeForm(); render(); toast(i >= 0 ? "Retiré des favoris" : `${favFirst(p.name)} est en favori ⭐`); };
   f.querySelectorAll("[data-fa]").forEach(b => b.onclick = () => {
     const a = b.dataset.fa;
@@ -158,14 +180,7 @@ function favOpen(key) {
     if (a === "act") return go(() => actNew({ with: [], invite: [p.tag], preInvite: p.tag }));
     if (a === "ask") return go(() => p.tag ? editPay({ to: p.tag }) : editPay());
     if (a === "share") return go(() => favShareExpense(p));
-    if (a === "pay") {
-      const it = p.items.find(x => x.dir === "out"); if (!it) return;
-      return go(() => {
-        if (it.k === "rin") { switchTab("dettes"); return setTimeout(() => reqPay(it.id), 200); }
-        if (it.k === "d") { const d = debts[it.id], c = d && d.claim && SOC.in.find(y => y.id === d.claim); if (c && c.pay) return showPay(c.pay, debtCalc(d).remaining, d.name, p.name, () => setTimeout(() => addPayment({ ...d, id: it.id }), 250)); return addPayment({ ...d, id: it.id }); }
-        if (it.k === "g") { const g = groups[it.gid]; if (g.pays && g.pays[it.s.to]) return showPay(g.pays[it.s.to], it.amount, g.name, p.name, () => { g.expenses = g.expenses || {}; g.expenses[newId()] = { kind: "transfer", from: it.s.from, to: it.s.to, amount: it.amount, date: todayISO(), created: Date.now(), updated: Date.now() }; saveGroups(); render(); toast("Remboursement enregistré"); }); openGroup = it.gid; switchTab("partage"); }
-      });
-    }
+    if (a === "pay") { if (!p.items.some(x => x.dir === "out")) return; return go(() => favPayNow(p)); }
     if (a === "remind") {
       const it = p.items.find(x => x.dir === "in"); if (!it) return;
       return go(async () => {
@@ -328,9 +343,19 @@ function chalHTML() {
         ${c.invited ? `<p class="chal-inv">@${esc(c.ownerTag)} te lance le défi · ${c.members.length} participant${c.members.length > 1 ? "s" : ""}</p><span class="btn primary chal-go">Voir le défi</span>` : chalBars(c)}</button>`; }).join("")
     : `<button type="button" class="card chal chal-empty" id="chalNew2"><b>Épargnez ensemble, chacun à son rythme</b><small>« 500 € chacun d'ici l'été » : on voit qui avance, en % seulement. Personne ne voit tes montants.</small></button>`}`;
 }
+// Défis d'épargne mis en avant dans « Entre proches » (même sans activer la fonction) : une rangée de cartes avec ta place
+function chalStripHTML() {
+  if (!(typeof socOn === "function" && socOn())) return "";
+  const list = CHALS.filter(c => !c.invited && !c.deleted && (chalDaysLeft(c) == null || chalDaysLeft(c) > -7)).sort((a, b) => (b.updated || 0) - (a.updated || 0)).slice(0, 6);
+  if (!list.length) return `<button type="button" class="card chs-teaser" id="chalNew3"><span class="chs-emo">🏁</span><span><b>Un défi d'épargne entre amis ?</b><small>« 500 € chacun d'ici l'été » : un classement en %, personne ne voit tes montants.</small></span><i>›</i></button>`;
+  return `<div class="ep-cap"><span>🏁 Défis d'épargne</span><button class="linkbtn" id="chalNew4">+ Lancer</button></div><div class="chs-row">${list.map(c => {
+    const sorted = c.members.slice().sort((a, b) => b.pct - a.pct), rank = sorted.findIndex(m => m.tag === SOC.tag) + 1, me = c.members.find(m => m.tag === SOC.tag) || { pct: 0 }, dl = chalDaysLeft(c);
+    return `<button type="button" class="chs" data-chal="${esc(c.id)}"><b>${esc(c.title)}</b><span class="chs-pct num">${me.pct >= 100 ? "🏆" : me.pct + " %"}</span><i><b style="width:${Math.min(100, me.pct)}%"></b></i>
+      <small>${rank ? `${rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : rank + "e"} sur ${c.members.length}` : ""}${dl != null ? ` · ${dl > 0 ? `J-${dl}` : "terminé"}` : ""}</small></button>`; }).join("")}</div>`;
+}
 function chalBind(root) {
   root.querySelectorAll("[data-chal]").forEach(b => b.onclick = () => chalOpen(b.dataset.chal));
-  ["#chalNew", "#chalNew2"].forEach(s => { const b = root.querySelector(s); if (b) b.onclick = () => chalNew(); });
+  ["#chalNew", "#chalNew2", "#chalNew3", "#chalNew4"].forEach(s => { const b = root.querySelector(s); if (b) b.onclick = () => chalNew(); });
 }
 function chalNew() {
   const pick = new Set(), people = prochesTagged().slice(0, 12);

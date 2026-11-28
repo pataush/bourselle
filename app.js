@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "156";
+const APP_VERSION = "157";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -2568,12 +2568,12 @@ function renderPartage() {
   let html = banner + `<div class="ep-sum">
     <div class="ep-card"><small>On te doit</small><b class="num ${epIn > 0.004 ? "good" : ""}">${esc(eur(epIn))}</b>${epIn > 0.004 ? `<button type="button" class="ep-btn good" id="epRemind">🔔 Relancer</button>` : `<span class="ep-none">Personne</span>`}</div>
     <div class="ep-card"><small>Tu dois</small><b class="num ${epOut > 0.004 ? "bad" : ""}">${esc(eur(epOut))}</b>${epOut > 0.004 ? `<button type="button" class="ep-btn bad" id="epSettle">💸 Régler</button>` : `<span class="ep-none">Rien à régler</span>`}</div></div>
+    ${typeof favRowHTML === "function" ? favRowHTML() : ""}${typeof bdayCardHTML === "function" ? bdayCardHTML() : ""}
     <div class="hub-acts">
     <button type="button" data-hub="proj">${hubIcon("bill")}<span>Payer</span></button>
     <button type="button" data-hub="pay">${hubIcon("pay")}<span>Me faire payer</span></button>
     <button type="button" data-hub="note">${hubIcon("note")}<span>Partager une note</span></button>
     <button type="button" data-hub="cagnotte">${hubIcon("cagnotte")}<span>Cagnotte</span></button></div>`;   // achat groupé masqué pour l'instant
-  if (typeof favRowHTML === "function") html += favRowHTML();
   if (typeof offTeaserHTML === "function") html += offTeaserHTML();
   // Les projets et cagnottes vivent avec les discussions (rangée « Argent en cours ») : deux onglets seulement
   const SUBT = [["discussions", "Discussions"], ["groupes", "Groupes"]];
@@ -2586,7 +2586,7 @@ function renderPartage() {
     if ((invD.length || invC.length) && epSub === "discussions") html += `<div class="ep-cap"><span>Invitations</span><small>${invD.length + invC.length} à accepter</small></div>`
       + (invD.length ? `<div class="hub-deals">${invD.map(d => DEALUI.card(d, dealCtxBase())).join("")}</div>` : "")
       + invC.map(c => `<button type="button" class="card chal-invc" data-chal="${esc(c.id)}"><span>🏁</span><span><b>${esc(c.title)}</b><small>@${esc(c.ownerTag)} te lance le défi</small></span><i>›</i></button>`).join(""); }
-  if (epSub === "discussions") html += typeof ensThreadsHTML === "function" ? ensThreadsHTML() : "";
+  if (epSub === "discussions") html += (typeof chalStripHTML === "function" ? chalStripHTML() : "") + (typeof ensThreadsHTML === "function" ? ensThreadsHTML() : "");
   else if (epSub === "projets") {
     html += typeof ensActsHTML === "function" ? ensActsHTML() : "";
     if (typeof projHubHTML === "function") html += projHubHTML();
@@ -2628,6 +2628,7 @@ function renderPartage() {
   view.querySelectorAll(".chal-invc[data-chal]").forEach(b => b.onclick = () => chalOpen(b.dataset.chal));
   { const n = document.getElementById("grNew"); if (n) n.onclick = () => editGroup(null); }
   actBind(view); if (typeof projBindHub === "function") projBindHub();
+  if (typeof bdayBind === "function") bdayBind(view);
   if (typeof favBind === "function") { favBind(view); feedBind(view); chalBind(view); if (typeof ensBind === "function") ensBind(view); }
   if (typeof offHubBind === "function") offHubBind(view);
   view.querySelectorAll("[data-grem]").forEach(b => b.onclick = e => { e.stopPropagation(); const g = groups[b.dataset.grem]; groupRemind(b.dataset.grem, settle(groupBalances(g)).filter(x => x.to === g.me)); });
