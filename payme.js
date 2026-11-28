@@ -59,23 +59,25 @@ async function editPay(opts) {
     return `<div class="rq-row ${st}"><div class="rq-l"><b>${esc(c.name || "Paiement")}</b><small>${esc(reqWho(c))} · ${esc(frDate(new Date(c.created).toISOString().slice(0, 10)))}</small></div>
       <div class="rq-r"><b class="num">${esc(reqMoney(c))}</b><span class="pj-st ${st === "off" ? "" : st}">${esc(st === "ok" ? "Reçu ✓" : st === "sent" ? (c.to ? "@" + c.to : c.guest || "Quelqu'un") + " dit avoir payé" : st === "off" ? (c.status === "declined" ? "Refusée" : "Annulée") : "En attente")}</span></div>
       ${st === "sent" || st === "due" ? `<div class="rq-acts">${st === "sent" ? `<button type="button" class="btn primary" data-rqok="${esc(c.id)}" data-pid="${esc(pend.id)}">J'ai bien reçu</button>` : ""}${c.open ? `<button type="button" class="btn" data-rqqr="${esc(c.id)}">QR code</button>` : `<button type="button" class="linkbtn" data-rqrem="${esc(c.id)}">🔔 Relancer</button>`}${st === "due" ? `<button type="button" class="linkbtn danger" data-rqx="${esc(c.id)}">Annuler</button>` : ""}</div>` : ""}</div>`; };
-  const f = openForm(`<div class="f2 pm2"><h3>Me faire payer</h3>${pushNudgeHTML()}
-    <div class="pm-sec"><b>Demander un paiement</b></div>
+  // Depuis le menu de la photo : seulement mes moyens de paiement (rien à envoyer, pas de demandes)
+  const mo = !!opts.methods;
+  const f = openForm(`<div class="f2 pm2"><h3>${mo ? "Moyens de paiement" : "Me faire payer"}</h3>${mo ? `<p class="hint" style="margin:0 0 6px">Ce que tes proches voient pour te rembourser. Touche un moyen pour l'ajouter ou le modifier ; le premier est proposé en premier.</p>` : pushNudgeHTML()}
+    <div id="rqSec"${mo ? " hidden" : ""}><div class="pm-sec"><b>Demander un paiement</b></div>
     <div class="two"><div>${fld("rqAmt", `Montant (${esc(curSym())})`, `inputmode="decimal" placeholder="ex. 25" value="${opts.amount ? esc(String(opts.amount).replace(".", ",")) : ""}"`)}</div><div>${fld("rqNote", "Pour quoi ? (facultatif)", `maxlength="60" placeholder="ex. Resto samedi" value="${esc(opts.note || "")}"`)}</div></div>
     <span class="lbl">À qui ?</span>
     <div class="chips" id="rqTo"><button type="button" class="chip" data-to="" aria-pressed="${!to}">📷 QR code / lien</button>${contacts.map(c => `<button type="button" class="chip" data-to="${esc(c.tag)}" aria-pressed="${to === c.tag}">${esc(c.name || "@" + c.tag)}</button>`).join("")}</div>
     <input class="field" id="rqFind" placeholder="Chercher un @tag Bourselle…" autocapitalize="off" spellcheck="false" autocomplete="off" style="margin-top:8px"><div id="rqRes" class="soc-contacts"></div>
     <p class="hint" id="rqHint" style="margin:6px 0 0"></p>
-    <button type="button" class="btn primary" id="rqGo" style="width:100%;margin-top:10px"></button>
-    <div class="pm-sec"><b>Mes moyens de paiement</b><small>Touche un moyen pour le régler. Le premier est proposé en premier.</small></div>
+    <button type="button" class="btn primary" id="rqGo" style="width:100%;margin-top:10px"></button></div>
+    ${mo ? "" : `<div class="pm-sec"><b>Mes moyens de paiement</b><small>Touche un moyen pour le régler. Le premier est proposé en premier.</small></div>`}
     <div class="pm-tiles">${tiles}</div>
     <div class="pm-paste"><input class="field" id="pmPaste" placeholder="Colle un lien Revolut, PayPal… ou ton IBAN" autocapitalize="off" spellcheck="false"><button type="button" class="btn" id="pmPasteGo">OK</button></div>
-    <div class="pm-links">${PAY.methods(p, 0, baseCurrency()).length ? `<button type="button" class="linkbtn" id="pmPreview">👁 Ce que verra la personne</button>` : ""}${SOC.payToken ? `<button type="button" class="linkbtn" id="pyShare">Partager mon lien de paiement (sans montant)</button>` : ""}</div>
-    ${reqs.length ? `<div class="pm-sec"><b>Mes demandes</b><small>${reqs.filter(c => reqState(c) !== "ok" && reqState(c) !== "off").length} en cours</small></div>${reqs.slice(0, 12).map(reqRow).join("")}` : ""}</div>`, () => true);
+    <div class="pm-links">${PAY.methods(p, 0, baseCurrency()).length ? `<button type="button" class="linkbtn" id="pmPreview">👁 Ce que verra la personne</button>` : ""}${SOC.payToken && !mo ? `<button type="button" class="linkbtn" id="pyShare">Partager mon lien de paiement (sans montant)</button>` : ""}</div>
+    ${reqs.length && !mo ? `<div class="pm-sec"><b>Mes demandes</b><small>${reqs.filter(c => reqState(c) !== "ok" && reqState(c) !== "off").length} en cours</small></div>${reqs.slice(0, 12).map(reqRow).join("")}` : ""}</div>`, () => true);
   f.querySelector("button[type=submit]").hidden = true; f.querySelector("#f2Cancel").textContent = "Fermer";
   pushNudgeBind(f);
   const reopen = o => { closeForm(); setTimeout(() => editPay(o), 200); };
-  const cur = () => ({ amount: parseAmount(val("rqAmt")) || 0, note: val("rqNote").trim(), to });
+  const cur = () => ({ amount: parseAmount(val("rqAmt")) || 0, note: val("rqNote").trim(), to, methods: mo });
   // À qui : QR code ou une personne
   const drawTo = () => {
     f.querySelectorAll("#rqTo [data-to]").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.to === to)));

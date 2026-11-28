@@ -6,7 +6,7 @@ const TYPES = [
   { id: "epargne", label: "Épargne", sign: -1 },
   { id: "invest", label: "Invest.", sign: -1 },
 ];
-const APP_VERSION = "164";
+const APP_VERSION = "165";
 // Vide le cache de l'app et recharge : utile si le téléphone affiche encore une ancienne version.
 async function forceUpdate() {
   try { saveNow(); keepPending(); } catch (e) {}
@@ -357,7 +357,7 @@ function showProfileMenu0() {
   on("pmDark", () => { const d = f.querySelector("#pmDark").getAttribute("aria-checked") !== "true"; try { localStorage.setItem("bourselle-theme", d ? "dark" : "light"); } catch (e) {} applyTheme.cur = applyTheme(d ? "dark" : "light"); setSw("pmDark", d); render(); });
   on("pmPush", async () => { const want = !pushOn(); setSw("pmPush", want); await (want ? enablePush() : disablePush()); setSw("pmPush", pushOn()); });
   on("pmFull", () => { const full = isSimple(); setMode(full ? "complete" : "simple"); setSw("pmFull", !isSimple()); });
-  on("pmPay", () => { closeForm(); setTimeout(editPay, 250); });
+  on("pmPay", () => { closeForm(); setTimeout(() => editPay({ methods: true }), 250); });
   on("pmCopy", () => { const done = () => { toast(`@${SOC.tag} copié`); const h = f.querySelector(".pm-copyhint"); if (h) { h.textContent = "Copié ✓"; setTimeout(() => { h.textContent = "Copier"; }, 1800); } };
     try { navigator.clipboard.writeText("@" + SOC.tag).then(done).catch(() => toast("@" + SOC.tag)); } catch (e) { toast("@" + SOC.tag); } });
   on("pmQr", () => { closeForm(); socShowQr(); });
