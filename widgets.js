@@ -109,7 +109,7 @@ function wgList() {
   return settings.widgets.filter(x => WG[x.k]);
 }
 const WG_PAGES = ["Mon argent", "Mes proches"];
-let wgPage = 0;
+let wgPage = 0, wgPageSet = false;
 function wgCard(x, i) { const W = WG[x.k], ed = wgEdit ? `<button type="button" class="wg-x" data-wx="${i}" aria-label="Retirer">✕</button><button type="button" class="wg-sz" data-wsz="${i}" aria-label="Changer la forme">⤢</button><button type="button" class="wg-col" data-wcol="${i}" aria-label="Couleur et page">🎨</button>` : "";
   if (x.w === 0) {   // rond
     let r = ["", W.t]; try { r = (WG_RD[x.k] || (() => ["", W.t]))(); } catch (e) {}
@@ -126,16 +126,22 @@ function renderHome() {
   else if (typeof funTip === "function") html += `<p class="wg-hint">${esc(funTip())}</p>`;
   // La page « Mes proches » n'apparaît qu'une fois qu'on a un premier proche (ou en personnalisant)
   const hasP = wgEdit || (typeof socContacts === "function" && socContacts().length) || Object.keys(groups || {}).length || (typeof DMS !== "undefined" && DMS.length) || (typeof DEALS !== "undefined" && DEALS.length);
-  const PG = hasP ? WG_PAGES : WG_PAGES.slice(0, 1); if (wgPage >= PG.length) wgPage = 0;
-  html += `${PG.length > 1 ? "" : "<!--"}<div class="wg-pt" role="tablist">${PG.map((t, p) => `<button type="button" role="tab" data-wpg="${p}" aria-selected="${p === wgPage}">${t}</button>`).join("")}</div>
-    ${PG.length > 1 ? "" : "-->"}<div class="wg-pages" id="wgPages">${PG.map((t, p) => `<div class="wg-grid${wgEdit ? " edit" : ""}" data-p="${p}">${L.map((x, i) => [x, i]).filter(([x]) => (x.p || 0) === p).map(([x, i]) => wgCard(x, i)).join("")}
+  // Ordre des pages : chacun choisit ce qu'il voit en premier (« Mon argent » ou « Mes proches »)
+  const ord = settings.wgFirst === 1 ? [1, 0] : [0, 1], ids = hasP ? ord : [0];
+  if (!wgPageSet) { wgPageSet = true; wgPage = ids[0]; }
+  if (!ids.includes(wgPage)) wgPage = ids[0];
+  if (wgEdit && hasP) html += `<div class="wg-first"><span>Commencer par</span>${ord.map(id => id).sort().map(id => `<button type="button" data-wfirst="${id}" aria-pressed="${ids[0] === id}">${WG_PAGES[id]}</button>`).join("")}</div>`;
+  html += `${ids.length > 1 ? "" : "<!--"}<div class="wg-pt" role="tablist">${ids.map(p => `<button type="button" role="tab" data-wpg="${p}" aria-selected="${p === wgPage}">${WG_PAGES[p]}</button>`).join("")}</div>
+    ${ids.length > 1 ? "" : "-->"}<div class="wg-pages" id="wgPages">${ids.map(p => `<div class="wg-grid${wgEdit ? " edit" : ""}" data-p="${p}">${L.map((x, i) => [x, i]).filter(([x]) => (x.p || 0) === p).map(([x, i]) => wgCard(x, i)).join("")}
       ${L.some(x => (x.p || 0) === p) ? "" : `<p class="wg-empty">Page vide : ajoute des widgets ici.</p>`}<button type="button" class="wg-add" data-wadd="${p}">＋ Ajouter un widget</button></div>`).join("")}</div>`;
   view.innerHTML = html;
   const pages = view.querySelector("#wgPages");
-  const setPg = (p, smooth) => { wgPage = p; view.querySelectorAll("[data-wpg]").forEach(b => b.setAttribute("aria-selected", String(+b.dataset.wpg === p))); pages.scrollTo({ left: p * pages.clientWidth, behavior: smooth ? "smooth" : "auto" }); };
+  const sel = p => view.querySelectorAll("[data-wpg]").forEach(b => b.setAttribute("aria-selected", String(+b.dataset.wpg === p)));
+  const setPg = (p, smooth) => { wgPage = p; sel(p); pages.scrollTo({ left: Math.max(0, ids.indexOf(p)) * pages.clientWidth, behavior: smooth ? "smooth" : "auto" }); };
   requestAnimationFrame(() => setPg(wgPage, false));
-  pages.addEventListener("scroll", () => { const p = Math.round(pages.scrollLeft / Math.max(1, pages.clientWidth)); if (p !== wgPage) { wgPage = p; view.querySelectorAll("[data-wpg]").forEach(b => b.setAttribute("aria-selected", String(+b.dataset.wpg === p))); } }, { passive: true });
+  pages.addEventListener("scroll", () => { const p = ids[Math.round(pages.scrollLeft / Math.max(1, pages.clientWidth))]; if (p != null && p !== wgPage) { wgPage = p; sel(p); } }, { passive: true });
   view.querySelectorAll("[data-wpg]").forEach(b => b.onclick = () => setPg(+b.dataset.wpg, true));
+  view.querySelectorAll("[data-wfirst]").forEach(b => b.onclick = () => { settings.wgFirst = +b.dataset.wfirst; wgPage = settings.wgFirst; saveSettings(); render(); toast(`L'accueil s'ouvre sur « ${WG_PAGES[settings.wgFirst]} »`); });
   const save = () => { saveSettings(); render(); };
   view.querySelector("#wgEdit").onclick = () => { wgEdit = !wgEdit; if (!wgEdit) saveSettings(); render(); };
   const bg = view.querySelector("#wgBg"); if (bg) bg.onclick = () => funBgOpen();

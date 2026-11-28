@@ -1834,3 +1834,7 @@ nav.tabs button[hidden] { display: none !important; }
 .wg-mrow > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; min-width: 0; }
 .wg-mrow small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 400; opacity: .8; } .wg-mrow i { font-style: normal; font-size: .74rem; opacity: .7; }
 .wg-mrow.un b, .wg-mrow.un small { font-weight: 700; opacity: 1; }
+/* Personnaliser : quelle page de l'accueil en premier */
+.wg-first { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-size: .86rem; color: var(--muted); flex-wrap: wrap; }
+.wg-first button { border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px; padding: 6px 12px; font: inherit; font-weight: 600; cursor: pointer; }
+.wg-first button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
