@@ -1826,3 +1826,11 @@ nav.tabs button[hidden] { display: none !important; }
 .bd-row > span { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; flex: 1; }
 .bd-in { color: var(--muted); font-size: .78rem; width: 100%; } .bd-row.soon .bd-in { color: var(--accent); font-weight: 700; }
 .bd-go { display: flex; gap: 12px; width: 100%; } .bd-go .linkbtn { font-size: .82rem; }
+/* Widget « Messages » : pastilles des proches + conversations en cours */
+.wg-msgs .wg-favs { margin-top: 8px; }
+.wg-fadd .fav-ring { background: none; border: 2px dashed rgba(0,0,0,.15); } .wg-fadd .fav-av { background: none !important; color: inherit; border: 0; opacity: .6; }
+.wg-mlist { margin-top: 8px; border-top: 1px solid rgba(0,0,0,.08); }
+.wg-mrow { display: flex; gap: 10px; align-items: center; width: 100%; padding: 8px 0; border: 0; border-bottom: 1px solid rgba(0,0,0,.06); background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; } .wg-mrow:last-child { border-bottom: 0; }
+.wg-mrow > span:nth-child(2) { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.wg-mrow small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 400; opacity: .8; } .wg-mrow i { font-style: normal; font-size: .74rem; opacity: .7; }
+.wg-mrow.un b, .wg-mrow.un small { font-weight: 700; opacity: 1; }

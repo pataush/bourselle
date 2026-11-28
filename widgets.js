@@ -2,7 +2,7 @@
  * La disposition est gardée dans les réglages (donc dans le compte, sur tous les appareils) : settings.widgets = [{ k, w }]
  * k : le widget, w : 1 (demi-largeur) ou 2 (toute la largeur). Chaque widget mène à la rubrique concernée. */
 const WG_SERVICES = [["budget", "Budget"], ["proches", "Entre proches"], ["suivis", "Suivis"], ["bons", "Bons plans"]];
-const WG_DEFAULT = [["reste", 2], ["meteo", 0], ["serie", 0], ["objectif", 0], ["prelev", 1], ["saved", 1], ["deal", 2], ["jour", 0], ["epargne", 0], ["bilan", 0], ["owed", 0], ["owe", 0], ["anniv", 0], ["proches", 2], ["msgs", 2], ["projet", 2]];
+const WG_DEFAULT = [["reste", 2], ["meteo", 0], ["serie", 0], ["objectif", 0], ["prelev", 1], ["saved", 1], ["deal", 2], ["jour", 0], ["epargne", 0], ["bilan", 0], ["owed", 0], ["owe", 0], ["anniv", 0], ["msgs", 2], ["projet", 2]];
 let wgEdit = false;
 // Couleurs au choix pour chaque widget (🎨 en mode Personnaliser) : fond, texte, texte secondaire
 const WG_COLORS = {
@@ -41,17 +41,15 @@ const WG = {
   ajout: { s: "budget", ic: "plus", t: "Ajouter vite", d: "Dépense, ticket, relevé", w: 2, html: () => `<small>Ajouter</small><div class="wg-acts"><button type="button" data-wa="tx">➕ Dépense</button><button type="button" data-wa="scan">📷 Ticket</button><button type="button" data-wa="imp">📄 Relevé</button></div>` },
   owed: { s: "proches", ic: "in", t: "On te doit", d: "Entre proches", w: 1, go: () => switchTab("partage"), html: () => { const d = wgDues(); return `<small>On te doit</small><b class="num ${d.owed > 0.004 ? "good" : ""}">${esc(wgMoney(d.owed, true))}</b><i>${d.inn.length ? esc(d.inn.slice(0, 3).map(p => favFirst(p.name)).join(", ")) : "personne"}</i>${d.owed > 0.004 ? `<div class="wg-acts"><button type="button" data-wa="remind">🔔 Relancer</button></div>` : ""}`; } },
   owe: { s: "proches", ic: "out", t: "Tu dois", d: "Entre proches", w: 1, go: () => switchTab("partage"), html: () => { const d = wgDues(); return `<small>Tu dois</small><b class="num ${d.owe > 0.004 ? "bad" : ""}">${esc(wgMoney(d.owe, true))}</b><i>${d.out.length ? esc(d.out.slice(0, 3).map(p => favFirst(p.name)).join(", ")) : "rien à régler"}</i>${d.owe > 0.004 ? `<div class="wg-acts"><button type="button" data-wa="settle">💸 Régler</button></div>` : ""}`; } },
-  // Mes proches en pastilles : un toucher ouvre directement la discussion
-  proches: { s: "proches", ic: "chat", t: "Mes proches", d: "Un toucher pour leur écrire", w: 2, go: () => { epSub = "discussions"; switchTab("partage"); }, html: () => {
-    const l = typeof prochesList === "function" ? prochesList().slice(0, 10) : [];
-    if (!l.length) return `<small>Mes proches</small><i>Ajoute un proche avec son @tag ou son QR code</i>`;
-    return `<div class="wg-favs">${l.map(p => { const net = Math.round((p.owe - p.due) * 100) / 100, cls = net > 0.004 ? "good" : net < -0.004 ? "bad" : "", un = p.tag && typeof dmUnread === "function" && dmUnread(p.tag);
-      return `<button type="button" class="wg-fav" data-wfav="${esc(p.key)}"><span class="fav-ring ${cls}"><span class="fav-av" data-avtag="${esc(p.tag || "")}" style="background:${favColor(p.key)}">${esc(favFirst(p.name).charAt(0))}${un ? `<em class="fav-un"></em>` : ""}</span></span><b>${esc(favFirst(p.name))}</b></button>`; }).join("")}</div>`; } },
-  msgs: { s: "proches", ic: "chat", t: "Messages", d: "Dernière discussion", w: 2, go: () => { epSub = "discussions"; switchTab("partage"); }, html: () => {
-    const t = typeof DMS !== "undefined" ? DMS.slice().sort((a, b) => (b.unread || 0) - (a.unread || 0) || b.at - a.at)[0] : null;
-    if (!t) return `<small>Messages</small><i>Écris à un proche, propose une sortie…</i>`;
-    const n = DMS.reduce((a, x) => a + (x.unread || 0), 0);
-    return `<small>Messages${n ? ` · <b class="wg-badge">${n}</b>` : ""}</small><div class="wg-msg"><span class="ep-av${t.gid ? " g" : ""}"${t.gid ? "" : ` data-avtag="${esc(t.tag)}"`} style="width:36px;height:36px;font-size:.9rem;background:${t.gid ? "#1f6b4b" : favColor("@" + t.tag)}">${t.gid ? "👥" : esc(favFirst(chatTitle(t)).charAt(0).toUpperCase())}</span><span><b>${esc(chatTitle(t))}</b><small>${esc(typeof ensSnip === "function" ? ensSnip(t) : "")}</small></span></div>`; } },
+  // Messages : les pastilles des proches (un toucher ouvre la discussion, point orange = non lu) et les conversations en cours
+  msgs: { s: "proches", ic: "chat", t: "Messages", d: "Tes proches et tes discussions", w: 2, go: () => { epSub = "discussions"; switchTab("partage"); }, html: () => {
+    const l = typeof prochesList === "function" ? prochesList().slice(0, 10) : [], soc = typeof socOn === "function" && socOn();
+    const T = typeof DMS !== "undefined" ? DMS.slice().sort((a, b) => (b.unread || 0) - (a.unread || 0) || b.at - a.at).slice(0, 2) : [], n = typeof DMS !== "undefined" ? DMS.reduce((a, x) => a + (x.unread || 0), 0) : 0;
+    const favs = `<div class="wg-favs">${l.map(p => { const net = Math.round((p.owe - p.due) * 100) / 100, cls = net > 0.004 ? "good" : net < -0.004 ? "bad" : "", un = p.tag && typeof dmUnread === "function" && dmUnread(p.tag);
+      return `<button type="button" class="wg-fav" data-wfav="${esc(p.key)}"><span class="fav-ring ${cls}"><span class="fav-av" data-avtag="${esc(p.tag || "")}" style="background:${favColor(p.key)}">${esc(favFirst(p.name).charAt(0))}${un ? `<em class="fav-un"></em>` : ""}</span></span><b>${esc(favFirst(p.name))}</b></button>`; }).join("")}
+      ${soc ? `<button type="button" class="wg-fav wg-fadd" data-wfadd="1"><span class="fav-ring"><span class="fav-av">+</span></span><b>Ajouter</b></button>` : ""}</div>`;
+    const rows = T.map(t => `<button type="button" class="wg-mrow${t.unread ? " un" : ""}" data-wchat="${esc(chatKey(t))}"><span class="ep-av${t.gid ? " g" : ""}"${t.gid ? "" : ` data-avtag="${esc(t.tag)}"`} style="width:30px;height:30px;font-size:.8rem;background:${t.gid ? "#1f6b4b" : favColor("@" + t.tag)}">${t.gid ? "👥" : esc(favFirst(chatTitle(t)).charAt(0).toUpperCase())}</span><span><b>${esc(chatTitle(t))}</b><small>${esc(typeof ensSnip === "function" ? ensSnip(t) : "")}</small></span><i>${esc(typeof dmTime === "function" ? dmTime(t.at) : "")}</i></button>`).join("");
+    return `<small>Messages${n ? ` · <b class="wg-badge">${n}</b>` : ""}</small>${l.length || soc ? favs : ""}${rows ? `<div class="wg-mlist">${rows}</div>` : `<i>Écris à un proche, propose une sortie…</i>`}`; } },
   projet: { s: "proches", ic: "cal", t: "Prochain projet", d: "Sortie, cadeau, voyage", w: 1, go: () => { epSub = "discussions"; switchTab("partage"); }, html: () => { const a = (typeof ACTS !== "undefined" ? ACTS : []).filter(x => x.status === "open").sort((x, y) => (x.when || "9").localeCompare(y.when || "9"))[0];
     return a ? `<small>Prochain projet</small><b style="font-size:1.02rem">${esc(a.emoji || "📅")} ${esc(a.title)}</b><i>${a.when ? esc(frDate(a.when)) : "date à fixer"}${a.place ? " · " + esc(a.place) : ""}</i>` : `<small>Prochain projet</small><i>Une sortie, un cadeau ? Lance-le ici ›</i>`; } },
   raccourcis: { s: "proches", ic: "bolt", t: "Payer, demander, partager", d: "Les actions d'Entre proches", w: 2, html: () => `<small>Entre proches</small><div class="wg-acts"><button type="button" data-wa="pay">💸 Payer</button><button type="button" data-wa="ask">🙋 Me faire payer</button><button type="button" data-wa="note">🧾 Partager une note</button></div>` },
@@ -104,6 +102,9 @@ function wgList() {
   // La pastille anniversaire reprend sa place : en haut, à droite de « On te doit / Tu dois », avant les pastilles des proches
   if (!settings.wgBd1) { settings.wgBd1 = 1; const W = settings.widgets, ia = W.findIndex(x => x.k === "anniv"), ip = W.findIndex(x => x.k === "proches");
     if (ia > ip && ip >= 0) { const a = W.splice(ia, 1)[0]; a.p = 1; W.splice(ip, 0, a); } }
+  // « Mes proches » et « Messages » ne font plus qu'un : le widget Messages prend la place des pastilles
+  if (!settings.wgMsg0) { settings.wgMsg0 = 1; const W = settings.widgets, ip = W.findIndex(x => x.k === "proches"), im = W.findIndex(x => x.k === "msgs");
+    if (ip >= 0) { if (im >= 0) { const m = W.splice(im, 1)[0]; const ip2 = W.findIndex(x => x.k === "proches"); m.w = 2; m.p = W[ip2].p; W.splice(ip2, 1, m); } else W[ip] = { ...W[ip], k: "msgs", w: 2 }; } }
   if (!settings.wgCol0) { settings.wgCol0 = 1; for (const x of settings.widgets) if (!x.c && WG_DEF_COL[x.k]) x.c = WG_DEF_COL[x.k]; }
   return settings.widgets.filter(x => WG[x.k]);
 }
@@ -149,6 +150,8 @@ function renderHome() {
       pay: () => editProject(), ask: () => editPay(), note: () => noteShare(),
       remind: () => typeof epWho === "function" ? epWho("in") : switchTab("partage"), settle: () => typeof epWho === "function" ? epWho("out") : switchTab("partage") })[a](); });
   view.querySelectorAll("[data-wfav]").forEach(b => b.onclick = e => { e.stopPropagation(); if (wgEdit) return; favTap(b.dataset.wfav); });
+  view.querySelectorAll("[data-wfadd]").forEach(b => b.onclick = e => { e.stopPropagation(); if (!wgEdit && typeof favAddContact === "function") favAddContact(); });
+  view.querySelectorAll("[data-wchat]").forEach(b => b.onclick = e => { e.stopPropagation(); if (wgEdit) return; const k = b.dataset.wchat; if (k.startsWith("g:")) gcOpen(k.slice(2)); else { const t = DMS.find(x => chatKey(x) === k); dmOpen(k, t && t.name); } });
   const RD_GO = { ajout: () => openSheet(null), raccourcis: () => editProject(), jour: () => openSheet(null) };
   view.querySelectorAll("[data-wg]").forEach(el => el.addEventListener("click", e => { if (wgEdit || el.dataset.dragged) return; const W = WG[el.dataset.wg]; if (W && W.go) W.go(); else if (el.classList.contains("rd") && RD_GO[el.dataset.wg]) RD_GO[el.dataset.wg](); }));
   // Appui long : mode édition
